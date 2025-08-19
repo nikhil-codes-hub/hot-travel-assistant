@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic
+jinja2
+google-cloud-aiplatform>=1.43.0
+vertexai>=1.69.0
+google-auth>=2.23.4
+python-dotenv
+aiohttp
+langgraph>=0.0.69
+langchain>=0.1.0
+langchain-core>=0.1.0
