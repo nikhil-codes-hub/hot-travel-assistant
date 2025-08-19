@@ -62,25 +62,37 @@ hot_travel_assistant/
 │   └── index.css          # Styles
 ├── public/                # React public assets
 │   └── index.html         # HTML template
+├── agents/                # Travel agent modules
+│   ├── __init__.py        # Agent package initialization
+│   ├── base_agent.py      # Base class for all agents
+│   └── visa_agent.py      # Visa requirements specialist
 ├── templates/             # FastAPI templates (fallback)
 │   └── index.html         # Original vanilla HTML
 ├── build/                 # React production build (after npm run build)
-├── app.py                 # FastAPI backend with Vertex AI
-├── requirements.txt       # Python dependencies
+├── app.py                 # FastAPI backend with orchestration
+├── orchestrator.py        # LangGraph agent coordination
+├── requirements.txt       # Python dependencies (includes LangGraph)
 ├── package.json           # React dependencies
 └── .env                   # Environment configuration
+```
 
-## 🔧 Technology Stack
+## 📁 Key Files for Development
 
-### Frontend
-- **React 18** - Modern UI library with hooks
-- **Vanilla CSS** - Clean, responsive styling
-- **Fetch API** - HTTP requests to FastAPI backend
+### Frontend Components
+- `src/App.js` - Main chat interface component
+- `src/index.css` - Global styles and responsive design
+- `src/index.js` - React entry point
 
-### Backend
-- **FastAPI** - High-performance Python web framework
-- **Vertex AI** - Optional Google Cloud AI integration
-- **Pydantic** - Data validation and serialization
+### Agent System
+- `agents/base_agent.py` - Base class that all agents must inherit from
+- `agents/visa_agent.py` - Visa requirements specialist (example implementation)
+- `orchestrator.py` - LangGraph workflow for agent coordination
+- `app.py` - FastAPI application with agent integration
+
+### Configuration
+- `package.json` - React dependencies and scripts
+- `requirements.txt` - Python dependencies (including LangGraph)
+- `.env` - Environment variables (create from .env.example)
 
 ## 🔧 Features
 - **React Frontend**: Modern, component-based UI with state management
