@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage
 from typing_extensions import TypedDict
 
-from agents import VisaAgent, UserPreferenceAgent
+from agents import VisaAgent, UserPreferenceAgent, FlightOfferAgent
 from agents.base_agent import AgentResponse
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,10 @@ class TravelOrchestrator:
             self.agents["user_preference"] = UserPreferenceAgent()
             logger.info("✅ Orchestrator: User Preference agent initialized")
 
+            # Flight offer agent
+            self.agents["flight_offer"] = FlightOfferAgent()
+            logger.info("✅ Orchestrator: Flight Offer agent initialized")
+
             # Core visa agent
             self.agents["visa"] = VisaAgent()
             logger.info("✅ Orchestrator: Visa agent initialized")
@@ -73,6 +77,7 @@ class TravelOrchestrator:
             workflow.add_node("route_query", self._route_query)
             workflow.add_node("process_visa", self._process_visa)
             workflow.add_node("process_user_preference", self._process_user_preference)
+            workflow.add_node("process_flight_offer", self._process_flight_offer)
             workflow.add_node("fallback_response", self._fallback_response)
             
             # Add edges
@@ -83,12 +88,14 @@ class TravelOrchestrator:
                 "route_query",
                 self._routing_decision,
                 {
+                    "flight_offer": "process_flight_offer",
                     "user_preference": "process_user_preference",
                     "visa": "process_visa",
                     "fallback": "fallback_response"
                 }
             )
             
+            workflow.add_edge("process_flight_offer", END)
             # End after processing
             workflow.add_edge("process_user_preference", END)
             workflow.add_edge("process_visa", END)
@@ -203,6 +210,32 @@ class TravelOrchestrator:
             logger.info("Orchestrator: User Preference agent processing completed")
         except Exception as e:
             logger.error(f"Orchestrator: User Preference agent error: {e}")
+            state["response"] = self._create_fallback_response()
+        
+        return state
+
+    async def _process_flight_offer(self, state: ConversationState) -> ConversationState:
+        """Process query using flight offer agent"""
+        try:
+            flight_offer_agent = self.agents["flight_offer"]
+            response = await flight_offer_agent.process(state["query"], state["context"])
+            state["response"] = response
+            logger.info("Orchestrator: Flight Offer agent processing completed")
+        except Exception as e:
+            logger.error(f"Orchestrator: Flight Offer agent error: {e}")
+            state["response"] = self._create_fallback_response()
+        
+        return state
+
+    async def _process_flight_offer(self, state: ConversationState) -> ConversationState:
+        """Process query using flight offer agent"""
+        try:
+            flight_offer_agent = self.agents["flight_offer"]
+            response = await flight_offer_agent.process(state["query"], state["context"])
+            state["response"] = response
+            logger.info("Orchestrator: Flight Offer agent processing completed")
+        except Exception as e:
+            logger.error(f"Orchestrator: Flight Offer agent error: {e}")
             state["response"] = self._create_fallback_response()
         
         return state
