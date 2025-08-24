@@ -9,19 +9,11 @@ import logging
 import os
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
-
 from .base_agent import BaseAgent, AgentResponse
+import vertexai
+from vertexai.generative_models import GenerativeModel, Tool
+from amadeus import Client, ResponseError
 
-try:
-    import vertexai
-    from vertexai.generative_models import GenerativeModel, Tool
-    from amadeus import Client, ResponseError
-except ImportError:
-    vertexai = None
-    GenerativeModel = None
-    Tool = None
-    Client = None
-    ResponseError = None
 
 logger = logging.getLogger(__name__)
 
