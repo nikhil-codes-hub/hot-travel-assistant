@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from .base_agent import BaseAgent, AgentResponse
 import vertexai
-from vertexai.generative_models import GenerativeModel, FunctionDeclaration, Tool
+from vertexai.generative_models import GenerativeModel, FunctionDeclaration, Tool, Part
 from amadeus import Client, ResponseError
 
 
@@ -183,30 +183,100 @@ If all fields are valid and normalized, you MUST call the tool `flight_tool` usi
     
     async def _generate_ai_response(self, query: str) -> AgentResponse:
         """Generate AI-powered response by calling tools for flight offers."""
-        # The detailed instructions are now in the system prompt.
-        # We just need to pass the user query.
-        prompt = f"User Query: \"{query}\""
+        try:
+            # Generate initial response
+            chat = self.model.start_chat()
+            response = await chat.send_message_async(query)
+            
+            # Check if function call is present
+            if (hasattr(response, 'candidates') and 
+                response.candidates and 
+                hasattr(response.candidates[0], 'content') and
+                response.candidates[0].content.parts):
+                
+                part = response.candidates[0].content.parts[0]
+                
+                # Check if this part contains a function call
+                if hasattr(part, 'function_call') and part.function_call:
+                    function_call = part.function_call
+                    
+                    if function_call.name == "query_flight_offers":
+                        # Extract parameters
+                        args = function_call.args
+                        flight_results = self._query_flight_offers(
+                            args.get('origin'),
+                            args.get('destination'),
+                            args.get('departure_date')
+                        )
+                        
+                        logger.info(f"flight_results raw date: {flight_results}")
+                        # Convert function results to a string for the response
+                        flight_results_str = self._format_flight_results(flight_results)
+                        
+                        # Create a response that includes the function results
+                        response_text = f"I found these flight options for you:\n\n{flight_results_str}"
+                    else:
+                        response_text = f"Unknown function requested: {function_call.name}"
+                else:
+                    response_text = response.text
+            else:
+                response_text = response.text
 
-        response = await self.model.generate_content_async(prompt)
-        response_text = response.text
+            # Format response
+            if "price" in response_text.lower() and "total" in response_text.lower():
+                response_text = "✈️ **Here are some flight options I found:**\n\n" + response_text
 
-        # Basic formatting for flight offers if they are in the response
-        if "price" in response_text.lower() and "total" in response_text.lower():
-             response_text = "✈️ **Here are some flight options I found:**\n\n" + response_text
+            return AgentResponse(
+                response=response_text,
+                suggestions=[
+                    "Find a flight from London to New York tomorrow",
+                    "What are the cheapest flights to Paris next month?",
+                    "Book a return ticket from SFO to LAX"
+                ],
+                agent_type=self.agent_type,
+                confidence=0.9,
+                metadata={"mode": "ai", "model": "vertex_ai_tool_calling"}
+            )
+
+        except Exception as e:
+            logger.error(f"Error in AI response generation: {e}")
+            return AgentResponse(
+                response="Sorry, I encountered an error processing your flight request.",
+                agent_type=self.agent_type,
+                confidence=0.1,
+                metadata={"error": str(e)}
+            )
+    
+    def _format_flight_results(self, flight_results: List[Dict]) -> str:
+        """Format flight results into a readable string."""
+        if not flight_results:
+            return "No flights found for your search criteria."
         
-        suggestions = [
-            "Find a flight from London to New York tomorrow",
-            "What are the cheapest flights to Paris next month?",
-            "Book a return ticket from SFO to LAX"
-        ]
+        if "error" in flight_results[0]:
+            return f"Error: {flight_results[0]['error']}"
         
-        return AgentResponse(
-            response=response_text,
-            suggestions=suggestions,
-            agent_type=self.agent_type,
-            confidence=0.9,
-            metadata={"mode": "ai", "model": "vertex_ai_tool_calling"}
-        )
+        formatted_results = []
+        for i, flight in enumerate(flight_results[:5], 1):  # Limit to 5 results
+            price = flight.get('price', {}).get('total', 'N/A')
+            itineraries = flight.get('itineraries', [])
+            
+            if itineraries:
+                segments = itineraries[0].get('segments', [])
+                if segments:
+                    departure = segments[0].get('departure', {})
+                    arrival = segments[-1].get('arrival', {})
+                    
+                    departure_time = departure.get('at', 'N/A')
+                    arrival_time = arrival.get('at', 'N/A')
+                    airline = segments[0].get('carrierCode', 'N/A')
+                    
+                    formatted_results.append(
+                        f"{i}. {airline} flight: {departure.get('iataCode', 'N/A')} → {arrival.get('iataCode', 'N/A')}\n"
+                        f"   Departure: {departure_time}, Arrival: {arrival_time}\n"
+                        f"   Price: ${price}"
+                    )
+        
+        return "\n\n".join(formatted_results) if formatted_results else "No flight details available."
     
     def get_capabilities(self) -> List[str]:
         """Return flight offer agent capabilities."""
