@@ -105,13 +105,36 @@ class UserPreferenceAgent(BaseAgent):
                 metadata={"error": str(e)}
             )
 
+    # Add Seasonal Weighting
+    def _seasonal_boost(self, booking_date: datetime) -> float:
+        current_month = datetime.now(timezone.utc).month
+        booking_month = booking_date.month
+
+        # Define seasons (Northern Hemisphere example)
+        def get_season(month):
+            if month in [12, 1, 2]:
+                return 'winter'
+            elif month in [3, 4, 5]:
+                return 'spring'
+            elif month in [6, 7, 8]:
+                return 'summer'
+            else:
+                return 'autumn'
+
+        if get_season(current_month) == get_season(booking_month):
+            return 1.2  # Boost for same-season bookings
+        return 1.0
+
+
     def _time_decay_weight(self, booking_date: datetime) -> float:
         """
         Calculates a weight for a booking based on its recency.
         Uses exponential decay: weight = exp(-decay_rate * days_ago)
         """
         days_ago = (datetime.now(timezone.utc) - booking_date).days
-        return math.exp(-self.decay_rate * days_ago)
+        base_weight = math.exp(-self.decay_rate * days_ago)
+        return base_weight * self._seasonal_boost(booking_date)
+
 
     def _predict_from_history(self, history: List[Dict[str, Any]]) -> Dict[str, Optional[str]]:
         """
