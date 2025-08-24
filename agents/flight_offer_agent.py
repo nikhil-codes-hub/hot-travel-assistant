@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from .base_agent import BaseAgent, AgentResponse
 import vertexai
-from vertexai.generative_models import GenerativeModel, Tool
+from vertexai.generative_models import GenerativeModel, FunctionDeclaration, Tool
 from amadeus import Client, ResponseError
 
 
@@ -21,6 +21,32 @@ load_dotenv()
 
 AMADEUS_API_KEY = os.environ.get("AMADEUS_API_KEY")
 AMADEUS_API_SECRET = os.environ.get("AMADEUS_API_SECRET")
+
+query_flight_offers_declaration = FunctionDeclaration(
+    name="query_flight_offers",
+    description="Returns a list of available flights based on origin, destination, and departure date.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "origin": {
+                "type": "string",
+                "description": "Three-letter uppercase airport code for the origin."
+            },
+            "destination": {
+                "type": "string",
+                "description": "Three-letter uppercase airport code for the destination."
+            },
+            "departure_date": {
+                "type": "string",
+                "description": "Departure date in yyyy-MM-dd format."
+            }
+        },
+        "required": ["origin", "destination", "departure_date"]
+    }
+)
+
+
+flight_tool = Tool(function_declarations=[query_flight_offers_declaration])
 
 
 class FlightOfferAgent(BaseAgent):
@@ -35,6 +61,7 @@ class FlightOfferAgent(BaseAgent):
         )
         self.amadeus_client = self._initialize_amadeus_client()
         self.model = self._initialize_ai_model()
+
 
     def _query_flight_offers(self, origin: str, destination: str, departure_date: str) -> List[Dict]:
         """
@@ -93,10 +120,6 @@ class FlightOfferAgent(BaseAgent):
             if project_id and vertexai and Tool:
                 vertexai.init(project=project_id, location=location)
 
-                flight_offer_tool = Tool.from_function(
-                    self._query_flight_offers
-                )
-
                 system_instruction = """You are a flight details extraction and search assistant.
 
 Your task is to extract the following required fields from user input:
@@ -113,9 +136,9 @@ The user may provide the departure date in any format, but you must always conve
 
 If any fields are missing, incomplete, or incorrectly formatted, respond by prompting the user to provide the correct information. Do not proceed until all required fields are valid.
 
-If all fields are valid and normalized, you MUST call the tool `_query_flight_offers` using the extracted values. Do not just describe the tool call — actually invoke it using the tool calling mechanism."""
+If all fields are valid and normalized, you MUST call the tool `flight_tool` using the extracted values. Do not just describe the tool call — actually invoke it using the tool calling mechanism."""
 
-                model = GenerativeModel(model_name, tools=[flight_offer_tool], system_instruction=system_instruction)
+                model = GenerativeModel(model_name, tools=[flight_tool], system_instruction=system_instruction)
                 logger.info(f"✅ Flight Offer Agent: Vertex AI initialized with flight tool and system instruction: {project_id} - {model_name}")
                 return model
             else:
