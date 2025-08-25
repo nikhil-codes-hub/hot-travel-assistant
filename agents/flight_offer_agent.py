@@ -134,7 +134,7 @@ If the user provides city names instead of IATA codes for origin or destination,
 
 The user may provide the departure date in any format, but you must always convert and format it as yyyy-MM-dd, for example, 2025-09-11.
 
-If any fields are missing, incomplete, or incorrectly formatted, respond by prompting the user to provide the correct information. Do not proceed until all required fields are valid.
+If any fields are missing, incomplete, or incorrect, respond by prompting the user to provide the correct information. Do not proceed until all required fields are valid.
 
 If all fields are valid and normalized, you MUST call the tool `flight_tool` using the extracted values. Do not just describe the tool call — actually invoke it using the tool calling mechanism."""
 
