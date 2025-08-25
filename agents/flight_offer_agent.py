@@ -13,6 +13,8 @@ from .base_agent import BaseAgent, AgentResponse
 import vertexai
 from vertexai.generative_models import GenerativeModel, FunctionDeclaration, Tool, Part
 from amadeus import Client, ResponseError
+import isodate
+
 
 
 logger = logging.getLogger(__name__)
@@ -575,6 +577,24 @@ If all fields are valid and normalized, you MUST call the tool `flight_tool` usi
         return airline_names.get(code)
 
 
+    def _format_duration(self, iso_duration_str: str) -> str:
+        # Parse the ISO 8601 duration string
+        duration = isodate.parse_duration(iso_duration_str)
+        
+        # Convert to total seconds
+        total_seconds = int(duration.total_seconds())
+        
+        # Calculate days, hours, and minutes
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+
+        # Format the output string
+        if days > 0:
+            return f"{days} days, {hours} hours and {minutes} minutes"
+        else:
+            return f"{hours} hours and {minutes} minutes"
+
 
     def _format_flight_results(self, flight_results: List[Dict]) -> str:
         """
@@ -596,10 +616,13 @@ If all fields are valid and normalized, you MUST call the tool `flight_tool` usi
                 # Assuming we only display the first itinerary for simplicity,
                 # as a flight result typically represents one complete option.
                 first_itinerary = itineraries[0]
+
                 segments = first_itinerary.get('segments', [])
+                iso_duration = first_itinerary.get('duration', '')
+                duration = self._format_duration(iso_duration)
 
                 if segments:
-                    flight_summary_lines = [f"{i}. Price: ${price}"]
+                    flight_summary_lines = [f"{i}. Price: ${price} Duration: {duration}"]
 
                     # Add each segment's details
                     for j, segment in enumerate(segments, 1):
@@ -615,7 +638,7 @@ If all fields are valid and normalized, you MUST call the tool `flight_tool` usi
                         flight_number = segment.get('number', 'N/A')
 
                         segment_line = (
-                            f"   Segment {j}: {airline_name} (Flight {flight_number})\n"
+                            f"   Segment {j}: {airline_name} (Flight {airline_code}{flight_number})\n"
                             f"      {departure_airport} ({departure_time}) → {arrival_airport} ({arrival_time})"
                         )
                         flight_summary_lines.append(segment_line)
