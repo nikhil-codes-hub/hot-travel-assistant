@@ -11,8 +11,8 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage
 from typing_extensions import TypedDict
 
-from agents import VisaAgent, UserPreferenceAgent, FlightOfferAgent
-from agents.base_agent import AgentResponse
+from agents import VisaAgent, UserPreferenceAgent, FlightOfferAgent, CustomerPreferenceAgent
+from agents.base_agent import AgentResponse, BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,10 @@ class TravelOrchestrator:
     def _initialize_agents(self):
         """Initialize all available travel agents"""
         try:
+            # Agent for analyzing customer preferences from CSV
+            self.agents["customer_preference"] = CustomerPreferenceAgent(csv_path="customer_travel_dataset.csv")
+            logger.info("✅ Orchestrator: Customer Preference agent initialized")
+
             # More specific agents should be listed first to be checked first.
             self.agents["user_preference"] = UserPreferenceAgent()
             logger.info("✅ Orchestrator: User Preference agent initialized")
@@ -77,6 +81,7 @@ class TravelOrchestrator:
             workflow.add_node("route_query", self._route_query)
             workflow.add_node("process_visa", self._process_visa)
             workflow.add_node("process_user_preference", self._process_user_preference)
+            workflow.add_node("process_customer_preference", self._process_customer_preference)
             workflow.add_node("process_flight_offer", self._process_flight_offer)
             workflow.add_node("fallback_response", self._fallback_response)
             
@@ -90,12 +95,14 @@ class TravelOrchestrator:
                 {
                     "flight_offer": "process_flight_offer",
                     "user_preference": "process_user_preference",
+                    "customer_preference": "process_customer_preference",
                     "visa": "process_visa",
                     "fallback": "fallback_response"
                 }
             )
             
             workflow.add_edge("process_flight_offer", END)
+            workflow.add_edge("process_customer_preference", END)
             # End after processing
             workflow.add_edge("process_user_preference", END)
             workflow.add_edge("process_visa", END)
@@ -227,15 +234,15 @@ class TravelOrchestrator:
         
         return state
 
-    async def _process_flight_offer(self, state: ConversationState) -> ConversationState:
-        """Process query using flight offer agent"""
+    async def _process_customer_preference(self, state: ConversationState) -> ConversationState:
+        """Process query using Customer Preference agent"""
         try:
-            flight_offer_agent = self.agents["flight_offer"]
-            response = await flight_offer_agent.process(state["query"], state["context"])
+            customer_preference_agent = self.agents["customer_preference"]
+            response = await customer_preference_agent.process(state["query"], state["context"])
             state["response"] = response
-            logger.info("Orchestrator: Flight Offer agent processing completed")
+            logger.info("Orchestrator: Customer Preference agent processing completed")
         except Exception as e:
-            logger.error(f"Orchestrator: Flight Offer agent error: {e}")
+            logger.error(f"Orchestrator: Customer Preference agent error: {e}")
             state["response"] = self._create_fallback_response()
         
         return state
