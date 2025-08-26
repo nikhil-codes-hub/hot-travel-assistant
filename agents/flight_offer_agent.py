@@ -140,7 +140,7 @@ If any fields are missing, incomplete, or incorrect, respond by prompting the us
 
 If all fields are valid and normalized, you MUST call the tool `flight_tool` using the extracted values. Do not just describe the tool call — actually invoke it using the tool calling mechanism."""
 
-                model = GenerativeModel(model_name, tools=[flight_tool], system_instruction=system_instruction)
+                model = GenerativeModel(model_name, tools=[flight_tool], system_instruction=system_instruction, generation_config = {"temperature": 0} )
                 logger.info(f"✅ Flight Offer Agent: Vertex AI initialized with flight tool and system instruction: {project_id} - {model_name}")
                 return model
             else:
