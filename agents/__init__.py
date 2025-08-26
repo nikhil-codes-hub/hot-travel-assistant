@@ -9,5 +9,6 @@ from .base_agent import BaseAgent
 from .visa_agent import VisaAgent
 from .user_preference_agent import UserPreferenceAgent
 from .flight_offer_agent import FlightOfferAgent
+from .customer_preference_agent import CustomerPreferenceAgent
 
-__all__ = ["BaseAgent", "VisaAgent", "UserPreferenceAgent", "FlightOfferAgent"]
+__all__ = ["BaseAgent", "VisaAgent", "UserPreferenceAgent", "FlightOfferAgent", "CustomerPreferenceAgent"]
