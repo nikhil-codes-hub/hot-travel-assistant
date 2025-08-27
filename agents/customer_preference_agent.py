@@ -151,16 +151,6 @@ If the user asks for a recommendation (e.g., "suggest a trip"), you MUST analyze
         prompt = f"""You are an expert data analyst for HOT Travel Assistant, working with a pandas DataFrame named `df`.
 The DataFrame contains customer travel booking data.
 
-**Analysis Task:**
-{prompt_instruction}
-
-**Full DataFrame Schema:**
-```
-{df_info}
-```
-
-**First 5 Rows of the Full Dataset:**
-{df_head}
 
 **User Query:**
 "{query}"
