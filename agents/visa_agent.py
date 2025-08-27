@@ -95,7 +95,7 @@ class VisaAgent(BaseAgent):
         """Check if query is visa-related"""
         query_lower = query.lower()
         visa_keywords = [
-            "visa", "passport", "entry", "requirements", "documentation", 
+            "visa", "passport", "entry", "documentation", 
             "travel permit", "authorization", "embassy", "consulate",
             "japan", "china", "india", "europe", "schengen"
         ]
@@ -316,6 +316,26 @@ I specialize in visa requirements for international travel!
         
         return "Sorry, I don't have information for that destination yet."
     
+    def get_keyword_weights(self) -> Dict[str, List[str]]:
+        """Return visa-specific keyword categories"""
+        return {
+            "primary": ["visa", "passport", "entry", "authorization", "permit"],
+            "secondary": ["embassy", "consulate", "documentation", "application"],
+            "tertiary": ["tourist", "business", "transit", "diplomatic"]
+        }
+    
+    def get_contextual_phrases(self) -> List[str]:
+        """Return visa-specific contextual phrases"""
+        return [
+            "visa requirements", "entry requirements", "travel documents",
+            "visa application", "passport requirements", "border control"
+        ]
+    
+    def get_penalty_keywords(self) -> List[str]:
+        """Return keywords that indicate non-visa queries"""
+        return ["vaccine", "vaccination", "medical", "doctor", "hospital"]
+    
+
     def get_capabilities(self) -> List[str]:
         """Return visa agent capabilities"""
         return [

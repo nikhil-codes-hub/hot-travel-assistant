@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from typing_extensions import TypedDict
 
 from agents import VisaAgent
+from agents import HealthAgent
 from agents.base_agent import AgentResponse
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ class TravelOrchestrator:
         try:
             # Core visa agent
             self.agents["visa"] = VisaAgent()
+            self.agents["health"] = HealthAgent()
             logger.info("✅ Orchestrator: Visa agent initialized")
             
             # Placeholder for future agents that team members will add
@@ -68,6 +70,7 @@ class TravelOrchestrator:
             # Add nodes
             workflow.add_node("route_query", self._route_query)
             workflow.add_node("process_visa", self._process_visa)
+            workflow.add_node("process_health", self._process_health)
             workflow.add_node("fallback_response", self._fallback_response)
             
             # Add edges
@@ -79,12 +82,14 @@ class TravelOrchestrator:
                 self._routing_decision,
                 {
                     "visa": "process_visa",
+                    "health": "process_health",
                     "fallback": "fallback_response"
                 }
             )
             
             # End after processing
             workflow.add_edge("process_visa", END)
+            workflow.add_edge("process_health", END)
             workflow.add_edge("fallback_response", END)
             
             # Compile the graph
@@ -108,13 +113,19 @@ class TravelOrchestrator:
         """
         try:
             if not self.graph:
-                # Fallback to direct visa agent if graph failed to initialize
-                logger.warning("Orchestrator: Graph not available, using direct visa agent")
+                # Fallback to direct agent routing if graph failed to initialize
+                logger.warning("Orchestrator: Graph not available, using direct agent routing")
                 visa_agent = self.agents.get("visa")
+                health_agent = self.agents.get("health")
                 if visa_agent and await visa_agent.can_handle(query):
                     return await visa_agent.process(query)
+                elif health_agent and await health_agent.can_handle(query):
+                    return await health_agent.process(query)
                 else:
                     return self._create_fallback_response()
+            
+            # Graph is available - use LangGraph workflow
+            logger.info("Orchestrator: Using LangGraph workflow")
             
             # Initialize conversation state
             initial_state: ConversationState = {
@@ -144,22 +155,110 @@ class TravelOrchestrator:
         query = state["query"]
         logger.info(f"Orchestrator: Routing query: {query}")
         
-        # Check each agent's capability to handle the query
+        # Calculate confidence scores for each agent
+        agent_scores = {}
         for agent_name, agent in self.agents.items():
             try:
                 if await agent.can_handle(query):
-                    state["current_agent"] = agent_name
-                    state["confidence"] = 0.8
-                    logger.info(f"Orchestrator: Routed to {agent_name} agent")
-                    return state
+                    # Calculate specificity score based on keyword matches
+                    score = self._calculate_agent_score(query, agent_name)
+                    agent_scores[agent_name] = score
+                    logger.info(f"Orchestrator: {agent_name} agent score: {score}")
             except Exception as e:
                 logger.warning(f"Orchestrator: Error checking {agent_name} agent: {e}")
+        
+        if agent_scores:
+            # Select agent with highest score
+            best_agent = max(agent_scores, key=agent_scores.get)
+            state["current_agent"] = best_agent
+            state["confidence"] = min(agent_scores[best_agent] / 10.0, 0.9)
+            logger.info(f"Orchestrator: Routed to {best_agent} agent (score: {agent_scores[best_agent]})")
+            return state
         
         # No specific agent found, use fallback
         state["current_agent"] = "fallback" 
         state["confidence"] = 0.3
         logger.info("Orchestrator: Using fallback response")
         return state
+    
+    def _calculate_agent_score(self, query: str, agent_name: str) -> float:
+        """Calculate specificity score for agent based on contextual analysis"""
+        query_lower = query.lower()
+        score = 0.0
+        
+        # Get agent instance to access its keyword methods
+        agent = self.agents.get(agent_name)
+        if not agent:
+            return 0.0
+        
+        # Get agent-specific keywords and phrases
+        keyword_weights = agent.get_keyword_weights()
+        contextual_phrases = agent.get_contextual_phrases()
+        penalty_keywords = agent.get_penalty_keywords()
+        
+        # Check for contextual phrases first (highest weight)
+        for phrase in contextual_phrases:
+            if phrase in query_lower:
+                score += 10.0
+        
+        # Check primary keywords (high weight)
+        for keyword in keyword_weights.get("primary", []):
+            if keyword in query_lower:
+                score += 5.0
+        
+        # Check secondary keywords (medium weight)
+        for keyword in keyword_weights.get("secondary", []):
+            if keyword in query_lower:
+                score += 3.0
+        
+        # Check tertiary keywords (low weight)
+        for keyword in keyword_weights.get("tertiary", []):
+            if keyword in query_lower:
+                score += 1.0
+        
+        # Handle overlapping keywords with context disambiguation
+        overlapping_keywords = ["requirements", "documents", "need", "necessary", "brazil", "kenya", "thailand"]
+        
+        for keyword in overlapping_keywords:
+            if keyword in query_lower:
+                # Analyze surrounding context to determine relevance
+                context_boost = self._analyze_keyword_context(query_lower, keyword, agent_name)
+                score += context_boost
+        
+        # Apply penalties for conflicting keywords
+        for keyword in penalty_keywords:
+            if keyword in query_lower:
+                score -= 2.0
+        
+        return max(score, 0.0)  # Ensure non-negative score
+    
+    def _analyze_keyword_context(self, query: str, keyword: str, agent_name: str) -> float:
+        """Analyze context around a keyword to determine agent relevance"""
+        # Find keyword position and analyze surrounding words
+        keyword_pos = query.find(keyword)
+        if keyword_pos == -1:
+            return 0.0
+        
+        # Extract context window (10 characters before and after)
+        start = max(0, keyword_pos - 10)
+        end = min(len(query), keyword_pos + len(keyword) + 10)
+        context = query[start:end]
+        
+        # Context indicators for each agent
+        health_indicators = ["health", "medical", "vaccine", "disease", "doctor", "clinic"]
+        visa_indicators = ["visa", "passport", "entry", "travel", "document", "permit"]
+        
+        if agent_name == "health":
+            for indicator in health_indicators:
+                if indicator in context:
+                    return 2.0
+        elif agent_name == "visa":
+            for indicator in visa_indicators:
+                if indicator in context:
+                    return 2.0
+        
+        # Default small boost for overlapping keywords
+        return 0.5
     
     def _routing_decision(self, state: ConversationState) -> str:
         """Decision function for conditional routing"""
@@ -178,6 +277,19 @@ class TravelOrchestrator:
         
         return state
     
+    async def _process_health(self, state: ConversationState) -> ConversationState:
+        """Process query using health agent"""
+        try:
+            health_agent = self.agents["health"]
+            response = await health_agent.process(state["query"], state["context"])
+            state["response"] = response
+            logger.info("Orchestrator: Health agent processing completed")
+        except Exception as e:
+            logger.error(f"Orchestrator: Health agent error: {e}")
+            state["response"] = self._create_fallback_response()
+        
+        return state
+
     async def _fallback_response(self, state: ConversationState) -> ConversationState:
         """Generate fallback response when no agent can handle the query"""
         state["response"] = self._create_fallback_response()
@@ -196,6 +308,7 @@ I'm your travel planning assistant! I can help you with:
 • 📋 **Documentation** - "What documents do I need?"
 • ⏱️ **Processing Times** - "How long does it take?"
 • 💰 **Costs** - "What are the fees?"
+• 🏨 **Health Requirements** - "What are the health requirements for Japan?"
 
 **Coming Soon:**
 • ✈️ Flight information and booking
@@ -209,7 +322,8 @@ Try asking me about visa requirements for your destination!""",
                 "Do I need a visa for Japan?",
                 "What are China visa requirements?",
                 "How to get India visa?",
-                "Do I need Schengen visa?"
+                "Do I need Schengen visa?",
+                "What are the health requirements for Japan?"
             ],
             agent_type="Orchestrator",
             confidence=0.5,

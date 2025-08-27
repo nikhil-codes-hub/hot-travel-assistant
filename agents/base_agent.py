@@ -68,7 +68,37 @@ class BaseAgent(ABC):
             List[str]: List of capability descriptions
         """
         pass
+    def get_keyword_weights(self) -> Dict[str, List[str]]:
+        """
+        Return keyword categories with their respective weights for scoring.
+        
+        Returns:
+            Dict with 'primary', 'secondary', 'tertiary' keyword lists
+        """
+        return {
+            "primary": [],
+            "secondary": [],
+            "tertiary": []
+        }
     
+    def get_contextual_phrases(self) -> List[str]:
+        """
+        Return contextual phrases that strongly indicate this agent should handle the query.
+        
+        Returns:
+            List of phrases that get highest scoring weight
+        """
+        return []
+    
+    def get_penalty_keywords(self) -> List[str]:
+        """
+        Return keywords that indicate this agent should NOT handle the query.
+        
+        Returns:
+            List of keywords that result in score penalties
+        """
+        return []
+        
     def get_info(self) -> Dict[str, Any]:
         """Get agent information"""
         return {

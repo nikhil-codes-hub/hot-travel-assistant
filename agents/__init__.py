@@ -7,5 +7,6 @@ using LangGraph to provide comprehensive travel support.
 
 from .base_agent import BaseAgent
 from .visa_agent import VisaAgent
+from .health_agent import HealthAgent
 
-__all__ = ["BaseAgent", "VisaAgent"]
+__all__ = ["BaseAgent", "VisaAgent", "HealthAgent"]
