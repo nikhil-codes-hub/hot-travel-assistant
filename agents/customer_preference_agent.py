@@ -1,13 +1,19 @@
 """
 Agent for analyzing customer travel data to provide preferences and recommendations.
 """
-
 import logging
+import os
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+import io
+from contextlib import redirect_stdout
 
-from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
-from langchain_google_genai import ChatGoogleGenerativeAI
+try:
+    import vertexai
+    from vertexai.generative_models import GenerativeModel
+except ImportError:
+    vertexai = None
+    GenerativeModel = None
 
 from .base_agent import BaseAgent, AgentResponse
 
@@ -17,102 +23,184 @@ class CustomerPreferenceAgent(BaseAgent):
     """Agent for analyzing customer travel preferences and providing recommendations."""
 
     def __init__(self, csv_path: str = "customer_travel_dataset.csv"):
-        super().__init__()
-        self.name = "CustomerPreferenceAgent"
-        self.description = "Analyzes customer travel history to identify preferences, habits, and provide personalized recommendations."
-        
+        super().__init__(
+            name="Customer Preference Agent",
+            description="Analyzes customer travel history to identify preferences, habits, and provide personalized recommendations."
+        )
+        self.csv_path = csv_path
+        self.df = None
+
         try:
             self.df = pd.read_csv(csv_path)
             # Convert date columns to datetime objects for better analysis
             self.df['booking_date'] = pd.to_datetime(self.df['booking_date'])
             self.df['departure_date'] = pd.to_datetime(self.df['departure_date'])
-            
-            # Initialize the LLM for the pandas agent
-            llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0)
-            
-            # Add a prefix to the prompt to guide the agent's behavior for providing recommendations.
-            # This helps the LLM understand its role better.
-            agent_prefix = """
-You are working with a pandas dataframe in Python. The name of the dataframe is `df`.
-The dataframe contains customer travel booking data.
-When asked for recommendations or suggestions, you should analyze the user's travel history
-(if a user is specified by name or ID) or general travel patterns in the dataset.
-Provide a concise, helpful answer, and if you are providing a list, format it nicely.
-"""
-            # Create the pandas dataframe agent. This agent is specialized to work with dataframes.
-            self.agent = create_pandas_dataframe_agent(
-                llm,
-                self.df,
-                verbose=True,
-                agent_type="zero-shot-react-description",
-                prefix=agent_prefix,
-                agent_executor_kwargs={"handle_parsing_errors": True}
-            )
-            logger.info("✅ Customer Preference Agent: Initialized and data loaded.")
+            logger.info(f"✅ {self.name}: Data loaded from {csv_path}.")
         except FileNotFoundError:
-            logger.error(f"❌ Customer Preference Agent: Data file not found at {csv_path}")
-            self.df = None
-            self.agent = None
+            logger.error(f"❌ {self.name}: Data file not found at {csv_path}")
         except Exception as e:
-            logger.error(f"❌ Customer Preference Agent: Error during initialization: {e}")
-            self.df = None
-            self.agent = None
+            logger.error(f"❌ {self.name}: Error loading data: {e}")
+
+        self.model = self._initialize_ai_model()
+
+    def _initialize_ai_model(self):
+        """Initialize Vertex AI model if available and authorized."""
+        if self.df is None:
+            logger.warning(f"⚠️ {self.name}: Skipping AI model initialization because data is not loaded.")
+            return None
+        try:
+            project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+            location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+            if project_id and vertexai:
+                vertexai.init(project=project_id, location=location)
+                model = GenerativeModel(model_name)
+                logger.info(f"✅ {self.name}: Vertex AI initialized: {project_id} - {model_name}")
+                return model
+            else:
+                logger.info(f"ℹ️ {self.name}: Using fallback mode (no AI)")
+                return None
+        except Exception as e:
+            logger.error(f"❌ {self.name}: Failed to initialize Vertex AI: {e}")
+            return None
 
     async def can_handle(self, query: str) -> bool:
         """Determines if the agent can handle the given query based on keywords."""
-        if self.agent is None:
+        if self.model is None or self.df is None:
             return False
-            
+
         # Expanded keywords to better catch preference and recommendation queries
         keywords = [
             "analyze", "analysis", "customer", "traveler", "pattern",
             "trend", "habit", "popular", "nationality", "age", "cabin class",
             "booking", "destination", "departure", "how many", "which country", "compare",
             "show me data", "statistics", "preference", "recommend", "suggestion",
-            "suggest", "recommendation", "history", "choice"
+            "suggest", "recommendation", "history", "choice",
         ]
         return any(keyword in query.lower() for keyword in keywords)
 
     async def process(self, query: str, context: Optional[Dict[str, Any]] = None) -> AgentResponse:
         """Processes the query by analyzing the customer travel data."""
-        if self.agent is None:
+        if self.model is None or self.df is None:
             return AgentResponse(
-                response="I am sorry, but the customer preference data is currently unavailable for analysis.",
-                agent_type=self.name,
-                confidence=0.9
-            )
-            
-        logger.info(f"Customer Preference Agent: Processing query: {query}")
-        
-        full_query = query
-        # You could add more sophisticated context handling here in a real application
-        # For now, the agent is smart enough to handle queries like "preferences for traveler ID 596"
-        
-        try:
-            # Use ainvoke for asynchronous execution, which is better for server environments.
-            result = await self.agent.ainvoke({"input": full_query})
-            answer = result.get("output", "I was unable to process the analysis request.")
-
-            return AgentResponse(
-                response=answer,
-                agent_type=self.name,
+                response="I am sorry, but the customer data analysis service is currently unavailable.",
+                agent_type=self.agent_type,
                 confidence=0.9,
-                metadata={"source": "customer_travel_dataset.csv"}
+                metadata={"source": self.csv_path, "status": "unavailable"}
             )
+
+        logger.info(f"{self.name}: Processing query: {query}")
+
+        try:
+            return await self._generate_ai_response(query, context)
         except Exception as e:
-            logger.error(f"❌ Customer Preference Agent: Error processing query: {e}")
+            logger.error(f"❌ {self.name}: Error processing query: {e}")
             return AgentResponse(
                 response=f"I encountered an error while analyzing the data: {e}",
-                agent_type=self.name,
-                confidence=0.5
+                agent_type=self.agent_type,
+                confidence=0.5,
+                metadata={"error": str(e)}
             )
+
+    async def _generate_ai_response(self, query: str, context: Optional[Dict[str, Any]] = None) -> AgentResponse:
+        """Generate AI-powered analysis of the dataframe."""
+
+        # Capture dataframe info and head for the prompt
+        with io.StringIO() as buf, redirect_stdout(buf):
+            self.df.info()
+            df_info = buf.getvalue()
+
+        df_head = self.df.head().to_markdown()
+
+        # Dynamically create prompt instructions based on context
+        user_id = context.get("user_id") if context else None
+        user_history_df = None
+        prompt_instruction = ""
+
+        if user_id:
+            try:
+                # The user_id in the CSV is an integer. The context provides a string.
+                user_id_int = int(user_id)
+                user_history_df = self.df[self.df['user_id'] == user_id_int]
+            except (ValueError, TypeError):
+                logger.warning(f"Could not process user_id '{user_id}'. Treating as a general query.")
+                user_history_df = pd.DataFrame()  # Empty dataframe
+
+        if user_history_df is not None and not user_history_df.empty:
+            user_history_md = user_history_df.to_markdown(index=False)
+            prompt_instruction = f"""
+**Personalized Request for user_id: {user_id}**
+This is a request for a specific user. Analyze their travel history provided below to give a personalized answer.
+If the user asks for a recommendation, suggest a trip based on their frequent destinations, cabin class, and booking patterns.
+
+**User's Travel History:**
+```
+{user_history_md}
+```
+"""
+        else:
+            # This branch handles both "no user_id" and "user_id not found"
+            prompt_instruction = """
+**General Request**
+This is a general query, not for a specific user, or for a user with no travel history.
+Analyze the entire dataset to answer the query.
+If the user asks for a recommendation (e.g., "suggest a trip"), you MUST analyze the full dataset to find the most popular destinations or travel trends and base your recommendation on that analysis.
+"""
+
+        prompt = f"""You are an expert data analyst for HOT Travel Assistant, working with a pandas DataFrame named `df`.
+The DataFrame contains customer travel booking data.
+
+**Analysis Task:**
+{prompt_instruction}
+
+**Full DataFrame Schema:**
+```
+{df_info}
+```
+
+**First 5 Rows of the Full Dataset:**
+{df_head}
+
+**User Query:**
+"{query}"
+
+Based on your task (Personalized or General) and the data provided, generate a concise and helpful answer to the user's query.
+Format your response clearly. If you are providing a list, use bullet points.
+If the query cannot be answered with the provided data, politely state that.
+"""
+        response = await self.model.generate_content_async(prompt)
+
+        suggestions = [
+            "What is the most popular destination?",
+            "Analyze booking trends by month.",
+            "Show preferences for travelers from the USA.",
+            "Compare business vs. economy class bookings."
+        ]
+
+        return AgentResponse(
+            response=response.text,
+            suggestions=suggestions,
+            agent_type=self.agent_type,
+            confidence=0.85,
+            metadata={"source": self.csv_path, "mode": "ai"}
+        )
 
     def get_info(self) -> Dict[str, Any]:
         """Returns information about the agent."""
         return {
             "name": self.name,
             "description": self.description,
-            "data_source": "customer_travel_dataset.csv",
+            "data_source": self.csv_path,
             "data_shape": self.df.shape if self.df is not None else "N/A",
-            "status": "active" if self.agent is not None else "inactive"
+            "status": "active" if self.model is not None and self.df is not None else "inactive"
         }
+
+    def get_capabilities(self) -> List[str]:
+        """Return agent capabilities."""
+        return [
+            "Customer travel data analysis",
+            "Identifies travel patterns and trends",
+            "Provides recommendations based on historical data",
+            "Answers questions about customer statistics from a CSV file"
+        ]
