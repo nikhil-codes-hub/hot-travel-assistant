@@ -81,7 +81,7 @@ class FlightOfferAgent(BaseAgent):
                 destinationLocationCode=destination,
                 departureDate=departure_date,
                 adults=1,
-                max=5
+                max=3
             )
             return response.data
         except ResponseError as error:
@@ -608,7 +608,7 @@ If all fields are valid and normalized, you MUST call the tool `flight_tool` usi
             return f"Error: {flight_results[0]['error']}"
 
         formatted_results = []
-        for i, flight in enumerate(flight_results[:5], 1):  # Limit to 5 results
+        for i, flight in enumerate(flight_results[:3], 1):  # Limit to 3 results
             price = flight.get('price', {}).get('total', 'N/A')
             itineraries = flight.get('itineraries', [])
 
