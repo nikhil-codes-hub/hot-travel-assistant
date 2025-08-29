@@ -182,7 +182,7 @@ If the query cannot be answered with the provided data, politely state that.
 
         suggestions = [
             "What is the most popular destination overall?",
-            "Analyze my personal travel habits.",
+            "Preferred Cabin Class.",
             "Suggest a trip for a family of 4."
         ]
 
