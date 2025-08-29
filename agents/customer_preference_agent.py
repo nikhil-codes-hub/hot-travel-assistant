@@ -148,7 +148,7 @@ Analyze the entire dataset to answer the query.
 If the user asks for a recommendation (e.g., "suggest a trip"), you MUST analyze the full dataset to find the most popular destinations or travel trends and base your recommendation on that analysis.
 """
 
-        prompt = f"""You are an expert data analyst for HOT Travel Assistant, working with a pandas DataFrame named `df`.
+        prompt = f"""You are a helpful and friendly travel assistant for HOT Travel. Your special skill is analyzing travel data from a pandas DataFrame named `df` to understand customer preferences and make smart recommendations.
 The DataFrame contains customer travel booking data.
 
 **Analysis Task:**
@@ -165,17 +165,19 @@ The DataFrame contains customer travel booking data.
 **User Query:**
 "{query}"
 
-Based on your task (Personalized or General) and the data provided, generate a concise and helpful answer to the user's query.
-Format your response clearly. If you are providing a list, use bullet points.
+Based on your task (Personalized or General) and the data provided, generate a concise and helpful answer.
+Write your response in simple, plain English that a customer can easily understand, avoiding technical jargon.
+When providing a recommendation, you MUST explain your reasoning by referencing the specific data patterns you found (e.g., "Based on your frequent business class travel...").
+Format your response clearly using markdown and bullet points for lists.
 If the query cannot be answered with the provided data, politely state that.
 """
         response = await self.model.generate_content_async(prompt)
 
         suggestions = [
-            "What is the most popular destination?",
-            "Analyze booking trends by month.",
-            "Show preferences for travelers from the USA.",
-            "Compare business vs. economy class bookings."
+            "What is the most popular destination overall?",
+            "Analyze my personal travel habits.",
+            "Show me booking trends for last year.",
+            "Suggest a trip for a family of 4."
         ]
 
         return AgentResponse(
@@ -199,8 +201,8 @@ If the query cannot be answered with the provided data, politely state that.
     def get_capabilities(self) -> List[str]:
         """Return agent capabilities."""
         return [
-            "Customer travel data analysis",
-            "Identifies travel patterns and trends",
-            "Provides recommendations based on historical data",
-            "Answers questions about customer statistics from a CSV file"
+            "Analyze my travel history for suggestions",
+            "Find popular travel destinations and trends",
+            "Get personalized trip recommendations",
+            "Ask questions about general travel patterns"
         ]
