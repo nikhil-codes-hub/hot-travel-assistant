@@ -72,7 +72,7 @@ class CustomerPreferenceAgent(BaseAgent):
 
         # Expanded keywords to better catch preference and recommendation queries
         keywords = [
-            "analyze", "analysis", "customer", "traveler", "pattern",
+            "customer", "traveler", "pattern",
             "trend", "habit", "popular", "nationality", "age", "cabin class",
             "booking", "destination", "departure", "how many", "which country", "compare",
             "show me data", "statistics", "preference", "recommend", "suggestion",
@@ -114,23 +114,30 @@ class CustomerPreferenceAgent(BaseAgent):
         df_head = self.df.head().to_markdown()
 
         # Dynamically create prompt instructions based on context
-        user_id = context.get("user_id") if context else None
+        traveler_id = context.get("traveler_id") if context else None
+        traveler_name = context.get("traveler_name") if context else None
         user_history_df = None
         prompt_instruction = ""
+        identifier = ""
 
-        if user_id:
+        if traveler_id:
+            identifier = f"traveler_id: {traveler_id}"
             try:
-                # The user_id in the CSV is an integer. The context provides a string.
-                user_id_int = int(user_id)
-                user_history_df = self.df[self.df['user_id'] == user_id_int]
+                # The Traveler_Id in the CSV is an integer. The context provides a string.
+                traveler_id_int = int(traveler_id)
+                user_history_df = self.df[self.df['Traveler_Id'] == traveler_id_int]
             except (ValueError, TypeError):
-                logger.warning(f"Could not process user_id '{user_id}'. Treating as a general query.")
+                logger.warning(f"Could not process traveler_id '{traveler_id}'. Treating as a general query.")
                 user_history_df = pd.DataFrame()  # Empty dataframe
+        elif traveler_name:
+            identifier = f"traveler_name: '{traveler_name}'"
+            # Use case-insensitive search for the traveler's name
+            user_history_df = self.df[self.df['Traveler_name'].str.contains(traveler_name, case=False, na=False)]
 
         if user_history_df is not None and not user_history_df.empty:
             user_history_md = user_history_df.to_markdown(index=False)
             prompt_instruction = f"""
-**Personalized Request for user_id: {user_id}**
+**Personalized Request for {identifier}**
 This is a request for a specific user. Analyze their travel history provided below to give a personalized answer.
 If the user asks for a recommendation, suggest a trip based on their frequent destinations, cabin class, and booking patterns.
 
@@ -176,7 +183,6 @@ If the query cannot be answered with the provided data, politely state that.
         suggestions = [
             "What is the most popular destination overall?",
             "Analyze my personal travel habits.",
-            "Show me booking trends for last year.",
             "Suggest a trip for a family of 4."
         ]
 
@@ -201,8 +207,8 @@ If the query cannot be answered with the provided data, politely state that.
     def get_capabilities(self) -> List[str]:
         """Return agent capabilities."""
         return [
-            "Analyze my travel history for suggestions",
-            "Find popular travel destinations and trends",
-            "Get personalized trip recommendations",
-            "Ask questions about general travel patterns"
+            "Analyze my travel history for suggestions.",
+            "Find popular travel destinations and trends.",
+            "Get personalized trip recommendations.",
+            "Ask questions about general travel patterns."
         ]
