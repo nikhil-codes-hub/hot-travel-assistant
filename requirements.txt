@@ -14,3 +14,4 @@ amadeus>=5.0.0
 isodate
 pandas
 tabulate
+scrapegraphai

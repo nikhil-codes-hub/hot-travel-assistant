@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage
 from typing_extensions import TypedDict
 
-from agents import VisaAgent, UserPreferenceAgent, FlightOfferAgent, CustomerPreferenceAgent
+from agents import VisaAgent, UserPreferenceAgent, FlightOfferAgent, CustomerPreferenceAgent, HotDealsAgent
 from agents.base_agent import AgentResponse, BaseAgent
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,10 @@ class TravelOrchestrator:
     def _initialize_agents(self):
         """Initialize all available travel agents"""
         try:
+            # Agent for analyzing customer preferences from CSV
+            self.agents["hot_deals"] = HotDealsAgent()
+            logger.info("✅ Orchestrator: Hot Deals agent initialized")
+
             # Agent for analyzing customer preferences from CSV
             self.agents["customer_preference"] = CustomerPreferenceAgent(csv_path="customer_travel_dataset.csv")
             logger.info("✅ Orchestrator: Customer Preference agent initialized")
@@ -83,6 +87,7 @@ class TravelOrchestrator:
             workflow.add_node("process_user_preference", self._process_user_preference)
             workflow.add_node("process_customer_preference", self._process_customer_preference)
             workflow.add_node("process_flight_offer", self._process_flight_offer)
+            workflow.add_node("process_hot_deals", self._process_hot_deals)
             workflow.add_node("fallback_response", self._fallback_response)
             
             # Add edges
@@ -93,6 +98,7 @@ class TravelOrchestrator:
                 "route_query",
                 self._routing_decision,
                 {
+                    "hot_deals": "process_hot_deals",
                     "flight_offer": "process_flight_offer",
                     "user_preference": "process_user_preference",
                     "customer_preference": "process_customer_preference",
@@ -100,7 +106,8 @@ class TravelOrchestrator:
                     "fallback": "fallback_response"
                 }
             )
-            
+
+            workflow.add_edge("process_hot_deals", END)
             workflow.add_edge("process_flight_offer", END)
             workflow.add_edge("process_customer_preference", END)
             # End after processing
@@ -247,6 +254,19 @@ class TravelOrchestrator:
         
         return state
 
+    async def _process_hot_deals(self, state: ConversationState) -> ConversationState:
+        """Process Hot Deals agent"""
+        try:
+            hot_deals_agent = self.agents["hot_deals"]
+            response = await hot_deals_agent.process(state["query"], state["context"])
+            state["response"] = response
+            logger.info("Orchestrator: Hot Deals agent processing completed")
+        except Exception as e:
+            logger.error(f"Orchestrator: Hot Deals agent error: {e}")
+            state["response"] = self._create_fallback_response()
+        
+        return state
+    
     async def _fallback_response(self, state: ConversationState) -> ConversationState:
         """Generate fallback response when no agent can handle the query"""
         state["response"] = self._create_fallback_response()
