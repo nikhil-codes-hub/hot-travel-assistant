@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up HOT Travel Assistant with SQLite (no MySQL required)"
+echo "🚀 Setting up HOT Travel Assistant MVP (SQLite - Zero Configuration!)"
 
 # Check if we're in a conda environment
 if [[ -z "${CONDA_DEFAULT_ENV}" ]]; then
@@ -10,9 +10,9 @@ fi
 
 echo "✅ Using conda environment: $CONDA_DEFAULT_ENV"
 
-# Install dependencies (SQLite-only)
+# Install dependencies - now the main requirements.txt works without MySQL!
 echo "📦 Installing Python dependencies..."
-pip install -r requirements-sqlite.txt
+pip install -r requirements.txt
 
 # Create .env file for SQLite
 if [[ ! -f .env ]]; then

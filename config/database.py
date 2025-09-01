@@ -7,32 +7,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_database_url():
-    """Get database URL with fallback support"""
+    """Get database URL - SQLite by default for MVP simplicity"""
     database_url = os.getenv("DATABASE_URL")
     
     if database_url:
         return database_url
     
-    # Try to detect if MySQL is available
-    try:
-        import pymysql
-        # Try to connect to check if MySQL server is running
-        try:
-            connection = pymysql.connect(
-                host='localhost',
-                user='root',
-                password='password',
-                database='hot_travel_assistant'
-            )
-            connection.close()
-            print("✅ MySQL detected and available")
-            return "mysql+pymysql://root:password@localhost:3306/hot_travel_assistant"
-        except:
-            print("⚠️  MySQL not available, falling back to SQLite")
-            return "sqlite:///./hot_travel_assistant.db"
-    except ImportError:
-        print("⚠️  PyMySQL not installed, using SQLite")
-        return "sqlite:///./hot_travel_assistant.db"
+    # Default to SQLite for MVP - simple, portable, zero-configuration
+    print("🗄️  Using SQLite database (perfect for MVP!)")
+    return "sqlite:///./hot_travel_assistant.db"
 
 DATABASE_URL = get_database_url()
 print(f"📁 Database: {DATABASE_URL}")

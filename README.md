@@ -13,12 +13,12 @@ The HOT Intelligent Travel Assistant is an AI-powered travel planning applicatio
 
 This application consists of three main components:
 1. **Frontend (React)** - The user interface you interact with
-2. **Backend (FastAPI)** - The API server that processes requests
-3. **Database (MySQL)** - Stores user profiles and travel data
+2. **Backend (FastAPI)** - The AI-powered server that processes requests
+3. **Database (SQLite)** - Lightweight database that requires zero configuration
 
 ## 📋 Prerequisites (What you need installed)
 
-Before you can run this application, make sure you have these installed on your computer:
+**Minimal setup for MVP** - Only need these 2 things:
 
 ### 1. Python (3.10 or higher)
 - **Mac**: Install via [Homebrew](https://brew.sh/) with `brew install python`
@@ -29,14 +29,29 @@ Before you can run this application, make sure you have these installed on your 
 - Download from [nodejs.org](https://nodejs.org/)
 - This includes npm (Node Package Manager)
 
-### 3. Podman or Docker
-- **Podman (Recommended)**: Install from [podman.io](https://podman.io/getting-started/installation)
-- **Docker**: Download from [docker.com](https://www.docker.com/get-started)
-
-### 4. Git (optional but recommended)
+### 3. Git (optional but recommended)
 - Download from [git-scm.com](https://git-scm.com/downloads)
 
-## 🚀 Quick Start Guide
+**That's it!** No database server installation needed - SQLite is built into Python!
+
+## ⚡ Super Quick Setup (3 commands!)
+
+```bash
+# 1. Clone and navigate
+git clone <repo-url> && cd hot_intelligent_travel_assistant
+
+# 2. Setup everything automatically
+bash setup.sh
+
+# 3. Start the application
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Done!** Open http://localhost:8000 in your browser! 🎉
+
+---
+
+## 🚀 Detailed Setup Guide
 
 ### Step 1: Download the Project
 
