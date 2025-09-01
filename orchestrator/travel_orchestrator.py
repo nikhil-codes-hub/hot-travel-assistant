@@ -29,6 +29,7 @@ class TravelState(TypedDict):
     customer_id: str
     email_id: Optional[str]
     nationality: Optional[str]
+    conversation_context: Optional[Dict[str, Any]]
     
     # Agent outputs
     extracted_requirements: Dict[str, Any]
@@ -132,6 +133,7 @@ class TravelOrchestrator:
                 "customer_id": input_data.get("customer_id", ""),
                 "email_id": input_data.get("email_id"),
                 "nationality": input_data.get("nationality"),
+                "conversation_context": input_data.get("conversation_context"),
                 
                 # Agent outputs (will be populated)
                 "extracted_requirements": {},
@@ -238,14 +240,16 @@ class TravelOrchestrator:
             agent = LLMExtractorAgent()
             
             input_data = {
-                "user_request": state["user_request"]
+                "user_request": state["user_request"],
+                "conversation_context": state.get("conversation_context")
             }
             
             result = await agent.execute(input_data, state["session_id"])
             state["extracted_requirements"] = result
             
             # Determine if destination discovery is needed
-            requirements = result.get("requirements", {})
+            result_data = result.get("data", {})
+            requirements = result_data.get("requirements", {})
             destination = requirements.get("destination")
             destination_type = requirements.get("destination_type")
             
@@ -307,6 +311,9 @@ class TravelOrchestrator:
             
             requirements = state["extracted_requirements"].get("requirements", {})
             
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
             input_data = {
                 "destination_type": requirements.get("destination_type"),
                 "budget": requirements.get("budget"),
@@ -334,7 +341,8 @@ class TravelOrchestrator:
     async def _search_flights_hotels_parallel(self, state: TravelState) -> TravelState:
         """Phase 3: Search flights and hotels in parallel using Amadeus APIs"""
         try:
-            requirements = state["extracted_requirements"].get("requirements", {})
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
             
             # Determine final destination
             destination = requirements.get("destination")
@@ -421,16 +429,19 @@ class TravelOrchestrator:
             agent = OffersAgent()
             
             customer_profile = state["user_profile"].get("data", {})
-            requirements = state["extracted_requirements"].get("requirements", {})
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
             
             # Calculate booking context
             departure_date = requirements.get("departure_date")
             advance_days = 30  # Default
+            current_month = datetime.now().month
+            
             if departure_date:
                 try:
-                    from datetime import datetime
                     dep_date = datetime.fromisoformat(departure_date)
                     advance_days = (dep_date - datetime.now()).days
+                    current_month = dep_date.month
                 except:
                     pass
             
@@ -440,7 +451,7 @@ class TravelOrchestrator:
                 "customer_profile": customer_profile,
                 "booking_context": {
                     "advance_booking_days": advance_days,
-                    "departure_month": datetime.now().month,
+                    "departure_month": current_month,
                     "nights": requirements.get("duration", 7)
                 }
             }
@@ -463,8 +474,9 @@ class TravelOrchestrator:
         try:
             agent = PrepareItineraryAgent()
             
+            result_data = state["extracted_requirements"].get("data", {})
             input_data = {
-                "requirements": state["extracted_requirements"].get("requirements", {}),
+                "requirements": result_data.get("requirements", {}),
                 "customer_profile": state["user_profile"].get("data", {}),
                 "flight_offers": state["enhanced_offers"].get("enhanced_offers", []),
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
@@ -712,16 +724,29 @@ class TravelOrchestrator:
         return "US"
     
     async def _create_session_record(self, input_data: Dict[str, Any], session_id: str):
-        """Create session record in MySQL"""
-        session = SearchSession(
-            session_id=session_id,
-            customer_id=input_data.get("customer_id") or input_data.get("email_id") or f"guest_{session_id[:8]}",
-            original_request=input_data["user_request"],
-            status="processing"
-        )
+        """Create or update session record in MySQL"""
+        # Check if session already exists
+        existing_session = self.db.query(SearchSession).filter(
+            SearchSession.session_id == session_id
+        ).first()
         
-        self.db.add(session)
-        self.db.commit()
+        if existing_session:
+            # Update existing session with new request
+            existing_session.original_request = input_data["user_request"]
+            existing_session.status = "processing"
+            existing_session.updated_at = datetime.utcnow()
+            self.db.commit()
+        else:
+            # Create new session
+            session = SearchSession(
+                session_id=session_id,
+                customer_id=input_data.get("customer_id") or input_data.get("email_id") or f"guest_{session_id[:8]}",
+                original_request=input_data["user_request"],
+                status="processing"
+            )
+            
+            self.db.add(session)
+            self.db.commit()
         
     async def _update_session_record(self, session_id: str, result: TravelState):
         """Update session record with results"""

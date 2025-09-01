@@ -62,6 +62,10 @@ class BaseAgent(ABC):
             
             raise
     
+    def log(self, message: str, **kwargs):
+        """Simple logging method for agents"""
+        logger.info(message, agent=self.name, **kwargs)
+    
     async def _log_execution(self, session_id: str, input_data: Dict[str, Any], 
                            output_data: Dict[str, Any], execution_time_ms: int,
                            status: str, error_message: Optional[str] = None):

@@ -34,6 +34,8 @@ class TravelRequest(BaseModel):
     email_id: Optional[str] = None     # New preferred field
     nationality: Optional[str] = None
     passport_number: Optional[str] = None
+    session_id: Optional[str] = None   # For conversation continuity
+    conversation_context: Optional[Dict[str, Any]] = None  # Accumulated requirements
 
 class TravelResponse(BaseModel):
     session_id: str
@@ -68,7 +70,8 @@ async def search_travel(request: TravelRequest, db = Depends(get_db)):
     Process a travel search request through the AI agent system
     """
     try:
-        session_id = str(uuid.uuid4())
+        # Use existing session_id if provided, otherwise create new one
+        session_id = request.session_id or str(uuid.uuid4())
         
         # Initialize orchestrator
         orchestrator = TravelOrchestrator(db)
@@ -76,14 +79,15 @@ async def search_travel(request: TravelRequest, db = Depends(get_db)):
         # Determine customer identifier
         customer_id = request.email_id or request.customer_id or f"guest_{session_id[:8]}"
         
-        # Prepare input data
+        # Prepare input data with conversation context
         input_data = {
             "user_request": request.user_request,
             "customer_id": customer_id,
             "email_id": request.email_id,
             "nationality": request.nationality,
             "passport_number": request.passport_number,
-            "session_id": session_id
+            "session_id": session_id,
+            "conversation_context": request.conversation_context or {}
         }
         
         # Execute orchestrator

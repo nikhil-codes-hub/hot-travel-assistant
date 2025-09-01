@@ -43,6 +43,24 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
     nationality: '',
     passport_number: ''
   });
+  
+  // Conversation context to remember accumulated requirements
+  const [conversationContext, setConversationContext] = useState({
+    session_id: null,
+    accumulated_requirements: {
+      destination: null,
+      departure_date: null,
+      return_date: null,
+      duration: null,
+      budget: null,
+      budget_currency: 'USD',
+      passengers: 1,
+      children: null,
+      travel_class: null,
+      accommodation_type: null,
+      special_requirements: []
+    }
+  });
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -70,15 +88,21 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      const response = await fetch('http://localhost:8000/travel/search', {
+      // Build request with conversation context
+      const requestBody = {
+        user_request: query,
+        email_id: customerData.email_id || null,
+        nationality: customerData.nationality || null,
+        passport_number: customerData.passport_number || null,
+        // Include conversation context for continuity
+        session_id: conversationContext.session_id,
+        conversation_context: conversationContext.accumulated_requirements
+      };
+
+      const response = await fetch('http://localhost:8001/travel/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_request: query,
-          email_id: customerData.email_id || null,
-          nationality: customerData.nationality || null,
-          passport_number: customerData.passport_number || null
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -99,18 +123,65 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             agentContent = data.data.response;
           } else {
             // Format the travel assistant response properly
-            const requirements = data.data.requirements?.requirements || {};
-            const itinerary = data.data.itinerary || {};
-            const profile = data.data.profile || {};
+            const requirementsData = data.data.requirements?.data || {};
+            const newRequirements = requirementsData.requirements || {};
+            const missing_fields = requirementsData.missing_fields || [];
+            const itinerary = data.data.itinerary?.data?.itinerary || {};
+            const profile = data.data.profile?.data || {};
             
-            agentContent = `🌍 **Travel Plan Analysis**
+            // Merge current extraction with conversation context for display
+            const displayRequirements = {
+              destination: newRequirements.destination || conversationContext.accumulated_requirements.destination,
+              passengers: newRequirements.passengers || conversationContext.accumulated_requirements.passengers,
+              duration: newRequirements.duration || conversationContext.accumulated_requirements.duration,
+              budget: newRequirements.budget || conversationContext.accumulated_requirements.budget,
+              travel_class: newRequirements.travel_class || conversationContext.accumulated_requirements.travel_class,
+              departure_date: newRequirements.departure_date || conversationContext.accumulated_requirements.departure_date
+            };
+            
+            // If no missing fields, show comprehensive travel plan
+            if (missing_fields.length === 0) {
+              agentContent = `🎯 **Complete Travel Plan Ready!**
 
-**Extracted Requirements:**
-• Destination: ${requirements.destination || 'Not specified'}
-• Passengers: ${requirements.passengers || 1}
-• Duration: ${requirements.duration ? requirements.duration + ' days' : 'Not specified'}
-• Budget: ${requirements.budget ? '$' + requirements.budget : 'Not specified'}
-• Travel Class: ${requirements.travel_class || 'Not specified'}
+✅ **Your Travel Requirements:**
+• **Destination:** ${displayRequirements.destination}
+• **Departure Date:** ${displayRequirements.departure_date}
+• **Duration:** ${displayRequirements.duration} days
+• **Passengers:** ${displayRequirements.passengers} ${displayRequirements.passengers === 1 ? 'person' : 'people'}
+• **Travel Class:** ${displayRequirements.travel_class}
+• **Budget:** $${displayRequirements.budget}
+
+👤 **Customer Profile (${profile.loyalty_tier || 'STANDARD'} Member):**
+• Customer ID: ${profile.customer_id}
+• Nationality: ${profile.nationality || 'Not specified'}
+• Previous Bookings: ${profile.total_bookings || 0}
+
+🎁 **Enhanced Offers & Savings:**
+• Total Savings Applied: $${data.data.enhanced_offers?.data?.total_savings?.toFixed(2) || '0.00'}
+• ${profile.loyalty_tier || 'STANDARD'} Tier Benefits: Active
+• Preferred Suppliers: Included
+
+🗓️ **Itinerary Status:**
+${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
+
+🚀 **Next Steps:**
+• Flight options are being curated for your preferences
+• Hotel recommendations based on your loyalty tier
+• Activities and dining suggestions being compiled
+• Travel documents and requirements being checked
+
+*All requirements complete! Your personalized travel plan is being finalized...*`;
+            } else {
+              // Standard requirements gathering display
+              agentContent = `🌍 **Travel Plan Analysis**
+
+**Accumulated Requirements:**
+• Destination: ${displayRequirements.destination || 'Not specified'}
+• Passengers: ${displayRequirements.passengers || 1}
+• Duration: ${displayRequirements.duration ? displayRequirements.duration + ' days' : 'Not specified'}
+• Budget: ${displayRequirements.budget ? '$' + displayRequirements.budget : 'Not specified'}
+• Travel Class: ${displayRequirements.travel_class || 'Not specified'}
+• Departure Date: ${displayRequirements.departure_date || 'Not specified'}
 
 **Customer Profile:**
 • Email: ${customerData.email_id || 'Not provided'}
@@ -118,16 +189,40 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 • Loyalty Tier: ${profile.loyalty_tier || 'N/A'}
 • Nationality: ${profile.nationality || customerData.nationality || 'Not specified'}
 
-**Next Steps:**
-${itinerary.message || 'Your travel request has been processed successfully!'}
+**Enhanced Offers:**
+• Total Savings: ${data.data.enhanced_offers?.data?.total_savings ? '$' + data.data.enhanced_offers.data.total_savings.toFixed(2) : '$0.00'}
+• Customer Benefits: ${profile.loyalty_tier || 'STANDARD'} tier discounts applied
 
-*Missing Information:* ${data.data.requirements?.missing_fields?.join(', ') || 'None'}
+*Missing Information:* ${missing_fields.join(', ')}
 
-💡 *This is an MVP demonstration. Full flight/hotel search and itinerary generation will be implemented in the next phase.*`;
+💡 *Please provide the missing information to complete your travel plan.*`;
+            }
           }
         } else {
           agentContent = 'Travel request processed successfully!';
         }
+
+        // Update conversation context with new information
+        const requirementsData = data.data.requirements?.data || {};
+        const newRequirements = requirementsData.requirements || {};
+        setConversationContext(prev => ({
+          session_id: data.session_id || prev.session_id,
+          accumulated_requirements: {
+            ...prev.accumulated_requirements,
+            // Merge new requirements, keeping existing ones if new ones are null
+            destination: newRequirements.destination || prev.accumulated_requirements.destination,
+            departure_date: newRequirements.departure_date || prev.accumulated_requirements.departure_date,
+            return_date: newRequirements.return_date || prev.accumulated_requirements.return_date,
+            duration: newRequirements.duration || prev.accumulated_requirements.duration,
+            budget: newRequirements.budget || prev.accumulated_requirements.budget,
+            budget_currency: newRequirements.budget_currency || prev.accumulated_requirements.budget_currency,
+            passengers: newRequirements.passengers || prev.accumulated_requirements.passengers,
+            children: newRequirements.children || prev.accumulated_requirements.children,
+            travel_class: newRequirements.travel_class || prev.accumulated_requirements.travel_class,
+            accommodation_type: newRequirements.accommodation_type || prev.accumulated_requirements.accommodation_type,
+            special_requirements: newRequirements.special_requirements || prev.accumulated_requirements.special_requirements
+          }
+        }));
 
         return [...filtered, {
           type: 'agent',
@@ -135,7 +230,7 @@ ${itinerary.message || 'Your travel request has been processed successfully!'}
           sessionId: data.session_id,
           suggestions: [
             'Get more details about this trip',
-            'Check travel requirements',
+            'Check travel requirements', 
             'Find the best deals',
             'Modify this itinerary'
           ]
