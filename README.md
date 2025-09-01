@@ -53,6 +53,8 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 ## 🚀 Detailed Setup Guide
 
+> **💡 Prefer the 3-command setup above?** The detailed steps below are the same as `bash setup.sh` but broken down step-by-step for learning purposes.
+
 ### Step 1: Download the Project
 
 If you have the project files already, skip to Step 2. If not:
@@ -65,46 +67,7 @@ cd hot_intelligent_travel_assistant
 # Or download and extract the ZIP file, then navigate to the folder
 ```
 
-### Step 2: Set Up Environment Variables
-
-1. Copy the environment template:
-```bash
-cp .env.example .env
-```
-
-2. Edit the `.env` file with your API keys:
-```bash
-# Required: Add your Google Gemini API key
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional: Add Amadeus API credentials for flight/hotel search
-AMADEUS_CLIENT_ID=your_amadeus_client_id
-AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
-```
-
-**How to get API keys:**
-- **Gemini API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **Amadeus API**: Sign up at [developers.amadeus.com](https://developers.amadeus.com/)
-
-### Step 3: Start the Database
-
-The application uses MySQL database running in a container:
-
-```bash
-# Start Podman machine (Mac/Windows only)
-podman machine start
-
-# Start MySQL database
-podman-compose up mysql -d
-
-# Wait 10-15 seconds for database to fully start
-```
-
-**Troubleshooting:**
-- If `podman-compose` doesn't work, try `docker-compose`
-- If you get permission errors, try adding `sudo` before commands (Linux)
-
-### Step 4: Set Up Python Backend
+### Step 2: Create Python Environment
 
 1. **Create a virtual environment** (recommended):
 ```bash
@@ -118,27 +81,53 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-2. **Install Python dependencies**:
+### Step 3: Install Dependencies
+
 ```bash
-pip install -r requirements-core.txt
+# Install all Python dependencies
+pip install -r requirements.txt
 ```
 
-3. **Set up the database**:
+### Step 4: Set Up Environment Variables (Optional)
+
+The application works without any API keys, but for full functionality:
+
+1. Create a `.env` file:
+```bash
+# Optional: Add your AI API keys for enhanced features
+GEMINI_API_KEY=your_gemini_api_key_here
+AMADEUS_CLIENT_ID=your_amadeus_client_id
+AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
+```
+
+**How to get API keys:**
+- **Gemini API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Amadeus API**: Sign up at [developers.amadeus.com](https://developers.amadeus.com/)
+
+**Note**: Without API keys, the system uses fallback parsing and shows demo data.
+
+### Step 5: Initialize Database
+
+The SQLite database is created automatically, but you can initialize it explicitly:
+
 ```bash
 python -c "from config.database import engine; from models.database_models import Base; Base.metadata.create_all(bind=engine)"
 ```
 
-4. **Start the backend server**:
+### Step 6: Start the Backend Server
+
 ```bash
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-You should see output like:
+You should see:
 ```
+🗄️  Using SQLite database (perfect for MVP!)
+📁 Database: sqlite:///./hot_travel_assistant.db
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ```
 
-### Step 5: Set Up React Frontend
+### Step 7: Set Up React Frontend
 
 Open a **new terminal window** and navigate to the project folder:
 
