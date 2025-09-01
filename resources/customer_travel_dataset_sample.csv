@@ -1,0 +1,20 @@
+Booking_ID,DepIATAcode,departureLocation,DestIATAcode,destinationLocation,cabinClass,booking_date,departure_date,Nationality,Traveler_name,Traveler_age,Traveler_Id,email_id
+1,JFK,New York,NRT,Tokyo,Economy,2025-07-19T03:39:09Z,2026-03-10T03:39:09Z,Japan,Mrs. Henry Thomas,44,596,henry.thomas596@yahoo.com
+2,AKL,Auckland,HKT,Phuket,Economy,2024-11-25T03:39:09Z,2025-11-12T03:39:09Z,UK,Ms. Amelia Martinez,10,810,amelia.martinez810@gmail.com
+3,HND,Tokyo Haneda,SIN,Singapore,First,2025-03-13T03:39:09Z,2025-06-09T03:39:09Z,Australia,Mrs. Noah Smith,72,754,noah.smith754@icloud.com
+4,DXB,Dubai,LAX,Los Angeles,Economy,2025-03-26T03:39:09Z,2025-12-12T03:39:09Z,New Zealand,Ms. Evelyn Jones,42,948,evelyn.jones948@hotmail.com
+5,NRT,Tokyo,SIN,Singapore,First,2025-02-09T03:39:09Z,2025-09-16T03:39:09Z,Singapore,Mrs. Evelyn Wilson,26,560,evelyn.wilson560@gmail.com
+6,DXB,Dubai,NRT,Tokyo,Economy,2025-01-31T03:39:09Z,2025-08-19T03:39:09Z,US,Mr. Benjamin Anderson,62,41,benjamin.anderson41@yahoo.com
+7,SYD,Sydney,HKT,Phuket,Business,2024-09-21T03:39:09Z,2025-02-26T03:39:09Z,New Zealand,Mr. Isabella Garcia,49,204,isabella.garcia204@icloud.com
+8,JFK,New York,BOM,Mumbai,Economy,2025-04-03T03:39:09Z,2025-04-29T03:39:09Z,Australia,Mrs. Harper Davis,24,563,harper.davis563@hotmail.com
+9,BKK,Bangkok,MEL,Melbourne,First,2024-11-21T03:39:09Z,2025-05-11T03:39:09Z,US,Ms. Benjamin Garcia,63,844,benjamin.garcia844@icloud.com
+10,CDG,Paris,NRT,Tokyo,Business,2024-12-31T03:39:09Z,2025-10-14T03:39:09Z,UAE,Ms. James Anderson,41,1021,james.anderson1021@yahoo.com
+11,AKL,Auckland,CHC,Christchurch,Business,2025-07-31T03:39:09Z,2025-12-02T03:39:09Z,India,Mrs. James Jackson,38,626,james.jackson626@yahoo.com
+12,CDG,Paris,LAX,Los Angeles,Business,2025-05-06T03:39:09Z,2025-10-09T03:39:09Z,Australia,Ms. Mia Taylor,27,1115,mia.taylor1115@gmail.com
+13,NRT,Tokyo,DEL,Delhi,Business,2024-12-28T03:39:09Z,2025-05-08T03:39:09Z,India,Ms. Noah Garcia,45,1144,noah.garcia1144@icloud.com
+14,LHR,London,JFK,New York,First,2025-06-11T03:39:09Z,2025-11-07T03:39:09Z,France,Ms. Mia Thompson,65,1117,mia.thompson1117@outlook.com
+15,NRT,Tokyo,BKK,Bangkok,First,2025-04-18T03:39:09Z,2026-02-25T03:39:09Z,New Zealand,Mr. Evelyn White,39,158,evelyn.white158@hotmail.com
+16,MEL,Melbourne,DEL,Delhi,Premium Economy,2025-03-19T03:39:09Z,2026-03-13T03:39:09Z,UAE,Mrs. Ethan Taylor,42,535,ethan.taylor535@gmail.com
+17,DEL,Delhi,LHR,London,Business,2025-07-11T03:39:09Z,2026-04-17T03:39:09Z,US,Mrs. Daniel Thompson,67,497,daniel.thompson497@outlook.com
+18,HKT,Phuket,MEL,Melbourne,Economy,2025-08-22T03:39:09Z,2025-11-05T03:39:09Z,UAE,Mr. Liam Johnson,23,267,liam.johnson267@outlook.com
+19,MEL,Melbourne,NRT,Tokyo,Economy,2025-04-01T03:39:09Z,2025-04-09T03:39:09Z,US,Mr. Emma Rodriguez,24,113,emma.rodriguez113@hotmail.com

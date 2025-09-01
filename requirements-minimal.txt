@@ -1,0 +1,34 @@
+# Build essentials
+setuptools>=65.0.0
+wheel>=0.38.0
+pip>=22.0.0
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# Database
+sqlalchemy==2.0.23
+pymysql==1.1.0
+
+# Agent Framework - Use stable versions
+langchain-core==0.2.38
+langchain==0.2.16
+langchain-community==0.2.16
+
+# AI/ML - Use stable versions
+google-generativeai==0.8.3
+google-cloud-aiplatform==1.60.0
+
+# API Integrations
+requests==2.31.0
+httpx==0.25.2
+
+# Utilities
+python-dotenv==1.0.0
+python-multipart==0.0.6
+pydantic-settings==2.1.0
+
+# Monitoring & Logging
+structlog==23.2.0
