@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage
 from typing_extensions import TypedDict
 
-from agents import VisaAgent
+from agents import VisaAgent, FlightOffersAgent
 from agents.base_agent import AgentResponse
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class TravelOrchestrator:
         self.graph = None
         self._initialize_agents()
         self._build_graph()
+        logger.info("Travel Orchestrator initialized successfully")
     
     def _initialize_agents(self):
         """Initialize all available travel agents"""
@@ -47,6 +48,10 @@ class TravelOrchestrator:
             # Core visa agent
             self.agents["visa"] = VisaAgent()
             logger.info("✅ Orchestrator: Visa agent initialized")
+
+            # Flight offers agent
+            self.agents["flight_offers"] = FlightOffersAgent()
+            logger.info("✅ Orchestrator: Flight Offer agent initialized")
             
             # Placeholder for future agents that team members will add
             # self.agents["flight"] = FlightAgent()
@@ -68,6 +73,7 @@ class TravelOrchestrator:
             # Add nodes
             workflow.add_node("route_query", self._route_query)
             workflow.add_node("process_visa", self._process_visa)
+            workflow.add_node("process_flight_offers", self._process_flight_offers)
             workflow.add_node("fallback_response", self._fallback_response)
             
             # Add edges
@@ -79,12 +85,14 @@ class TravelOrchestrator:
                 self._routing_decision,
                 {
                     "visa": "process_visa",
+                    "flight_offers": "process_flight_offers",
                     "fallback": "fallback_response"
                 }
             )
             
             # End after processing
             workflow.add_edge("process_visa", END)
+            workflow.add_edge("process_flight_offers", END)
             workflow.add_edge("fallback_response", END)
             
             # Compile the graph
@@ -107,12 +115,17 @@ class TravelOrchestrator:
             AgentResponse: Orchestrated response from appropriate agent(s)
         """
         try:
+            logger.info(f"Orchestrator: Processing query: {query}")
             if not self.graph:
                 # Fallback to direct visa agent if graph failed to initialize
                 logger.warning("Orchestrator: Graph not available, using direct visa agent")
                 visa_agent = self.agents.get("visa")
+                flight_offers_agent = self.agents.get("flight_offers")
+
                 if visa_agent and await visa_agent.can_handle(query):
                     return await visa_agent.process(query)
+                elif flight_offers_agent and await flight_offers_agent.can_handle(query):
+                    return await flight_offers_agent.process(query)
                 else:
                     return self._create_fallback_response()
             
@@ -174,6 +187,19 @@ class TravelOrchestrator:
             logger.info("Orchestrator: Visa agent processing completed")
         except Exception as e:
             logger.error(f"Orchestrator: Visa agent error: {e}")
+            state["response"] = self._create_fallback_response()
+        
+        return state
+
+    async def _process_flight_offers(self, state: ConversationState) -> ConversationState:
+        """Process query using flight offers agent"""
+        try:
+            flight_offers_agent = self.agents["flight_offers"]
+            response = await flight_offers_agent.process(state["query"], state["context"])
+            state["response"] = response
+            logger.info("Orchestrator: Flight Offers agent processing completed")
+        except Exception as e:
+            logger.error(f"Orchestrator: Flight Offers agent error: {e}")
             state["response"] = self._create_fallback_response()
         
         return state
