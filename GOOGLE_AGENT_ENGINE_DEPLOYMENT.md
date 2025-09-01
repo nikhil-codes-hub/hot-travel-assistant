@@ -314,11 +314,20 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Install Node.js and Playwright dependencies for HotDealsAgent
+RUN apt-get update && \
+    apt-get install -y nodejs npm && \
+    # Install system dependencies for Playwright's browser and the browser itself.
+    # This is required by the HotDealsAgent for web scraping dynamic content.
+    playwright install-deps chromium && \
+    playwright install chromium && \
+    # Clean up apt cache to reduce image size
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the rest of the application code
 COPY . .
 
-# Install Node.js for React build
-RUN apt-get update && apt-get install -y nodejs npm
+# Build React frontend
 RUN npm install && npm run build
 
 # Expose port

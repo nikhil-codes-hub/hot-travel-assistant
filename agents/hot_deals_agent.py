@@ -6,13 +6,12 @@ Specialized agent for finding deal offers on https://www.houseoftravel.co.nz/dea
 
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
 from .base_agent import BaseAgent, AgentResponse
-import vertexai
-from vertexai.generative_models import GenerativeModel, FunctionDeclaration, Tool, Part
+import vertexai, json, asyncio
+from langchain_google_vertexai import ChatVertexAI
 from scrapegraphai.graphs import SmartScraperGraph
-from scrapegraphai.utils import prettify_exec_info
 
 
 
@@ -40,24 +39,12 @@ class HotDealsAgent(BaseAgent):
             location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
             model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             
-            if project_id and vertexai:
+            if project_id and vertexai and ChatVertexAI:
                 vertexai.init(project=project_id, location=location)
 
-                system_instruction = """ You are a deals details extraction and search assistant.
-                The following data was extracted from a travel deals webpage. 
-                Validate and structure it into a clean JSON format with the following keys for each deal:
-                - title: Package name
-                - destination: Destination country/city
-                - duration: Number of nights
-                - inclusions: List of inclusions (e.g., flights, meals, transfers)
-                - price: Price per person
-                - promotional_tag: Any promotional labels (e.g., 'HOT EXCLUSIVE')
-                - flying_with: Airline if mentioned
-
-                Output only JSON without additional explanations."""
-
-                model = GenerativeModel(model_name, system_instruction=system_instruction, generation_config = {"temperature": 0} )
-                logger.info(f"✅ Hot Deals Agent: Vertex AI initialized: {project_id} - {model_name}")
+                # Use the LangChain wrapper for Vertex AI for compatibility with scrapegraphai
+                model = ChatVertexAI(model_name=model_name, temperature=0)
+                logger.info(f"✅ Hot Deals Agent: LangChain Vertex AI model initialized: {project_id} - {model_name}")
                 return model
             else:
                 logger.info("ℹ️ Hot Deals Agent: Using fallback mode (no AI or required libraries).")
@@ -101,21 +88,46 @@ class HotDealsAgent(BaseAgent):
     async def _generate_ai_response(self, query: str) -> AgentResponse:
         """Generate AI-powered response by calling scrapegraph."""
         try:
-            # Generate initial response
-            scraper_graph = SmartScraperGraph(
-                prompt="Extract all hot travel deals with details.",
-                source="https://www.houseoftravel.co.nz/deals",
-                config={
-                    "llm": {
-                        "provider": "custom",   # tells ScrapeGraph we are injecting a model
-                        "custom_llm": self.model
-                    }
+            # The user's query is used to refine the scraping prompt.
+            prompt = f"""
+You are an expert at extracting travel deal information from web pages.
+Your goal is to extract all available "hot deals" that match the user's query: "{query}".
+
+For each deal you find, please extract the following details and structure them into a JSON object:
+- title: The name of the travel package.
+- destination: The primary destination (city or country).
+- duration: The number of nights.
+- inclusions: A list of what is included (e.g., "flights", "meals", "transfers").
+- price: The price per person, as a number.
+- promotional_tag: Any special tags like 'HOT EXCLUSIVE'.
+- flying_with: The airline, if mentioned.
+
+Please return a JSON object with a single key "deals" which contains a list of these deal objects.
+"""
+
+            graph_config = {
+                "llm": {
+                    "model_instance": self.model,
+                    # Add model_tokens to fix 'model_tokens not specified' error with scrapegraphai
+                    "model_tokens": 8192,
                 },
+            }
+
+            scraper_graph = SmartScraperGraph(
+                prompt=prompt,
+                source="https://www.houseoftravel.co.nz/deals",
+                config=graph_config
             )
-            result = scraper_graph.run()
+
+            # Use asyncio.to_thread to run the synchronous `run` method in a separate thread,
+            # preventing it from blocking the main async event loop.
+            # This is necessary because scrapegraphai's SmartScraperGraph does not have an `arun` method.
+            result = await asyncio.to_thread(scraper_graph.run)
+
+            response_text = json.dumps(result, indent=2)
 
             return AgentResponse(
-                response=prettify_exec_info(result),
+                response=f"I found the following deals for you:\n\n```json\n{response_text}\n```",
                 suggestions=[
                     "Find a deals from London to New York tomorrow",
                     "What are the cheapest deals to Paris next month?",
@@ -123,7 +135,7 @@ class HotDealsAgent(BaseAgent):
                 ],
                 agent_type=self.agent_type,
                 confidence=0.9,
-                metadata={"mode": "ai", "model": "vertex_ai"}
+                metadata={"mode": "ai", "model": "scrapegraphai_vertex"}
             )
 
         except Exception as e:

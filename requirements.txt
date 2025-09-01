@@ -15,3 +15,4 @@ isodate
 pandas
 tabulate
 scrapegraphai
+langchain-google-vertexai
