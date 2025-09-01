@@ -91,18 +91,17 @@ class HotDealsAgent(BaseAgent):
             # The user's query is used to refine the scraping prompt.
             prompt = f"""
 You are an expert at extracting travel deal information from web pages.
-Your goal is to extract all available "hot deals" that match the user's query: "{query}".
+Your goal is to extract all available deals that match the user's query: "{query}".
 
 For each deal you find, please extract the following details and structure them into a JSON object:
 - title: The name of the travel package.
-- destination: The primary destination (city or country).
-- duration: The number of nights.
-- inclusions: A list of what is included (e.g., "flights", "meals", "transfers").
-- price: The price per person, as a number.
-- promotional_tag: Any special tags like 'HOT EXCLUSIVE'.
-- flying_with: The airline, if mentioned.
+- destination: The primary destination (city or country or region or island).
+- duration: The number of nights or days.
+- price: The total price or per person.
+- flying_with: The airline flying with, if mentioned.
 
-Please return a JSON object with a single key "deals" which contains a list of these deal objects.
+Please return a JSON object with a single key "deals" which contains a list of up to five these deal objects.
+Please return the deals with complete information , title, destination, price, flying_with
 """
 
             graph_config = {
@@ -115,7 +114,7 @@ Please return a JSON object with a single key "deals" which contains a list of t
 
             scraper_graph = SmartScraperGraph(
                 prompt=prompt,
-                source="https://www.houseoftravel.co.nz/deals",
+                source="https://www.houseoftravel.co.nz/deals/search",
                 config=graph_config
             )
 
