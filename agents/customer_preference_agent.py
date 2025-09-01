@@ -3,6 +3,7 @@ Agent for analyzing customer travel data to provide preferences and recommendati
 """
 import logging
 import os
+import sqlite3
 import pandas as pd
 from typing import Dict, Any, Optional, List
 import io
@@ -22,22 +23,29 @@ logger = logging.getLogger(__name__)
 class CustomerPreferenceAgent(BaseAgent):
     """Agent for analyzing customer travel preferences and providing recommendations."""
 
-    def __init__(self, csv_path: str = "customer_travel_dataset.csv"):
+    def __init__(self, db_path: str = "customer_travel.db"):
         super().__init__(
             name="Customer Preference Agent",
             description="Analyzes customer travel history to identify preferences, habits, and provide personalized recommendations."
         )
-        self.csv_path = csv_path
+        self.db_path = db_path
+        self.table_name = "customerdata"
         self.df = None
 
         try:
-            self.df = pd.read_csv(csv_path)
+            conn = sqlite3.connect(db_path)
+            # Load data from SQLite into a pandas DataFrame
+            self.df = pd.read_sql_query(f"SELECT * FROM {self.table_name}", conn)
+            conn.close()
+
             # Convert date columns to datetime objects for better analysis
             self.df['booking_date'] = pd.to_datetime(self.df['booking_date'])
             self.df['departure_date'] = pd.to_datetime(self.df['departure_date'])
-            logger.info(f"✅ {self.name}: Data loaded from {csv_path}.")
+            logger.info(f"✅ {self.name}: Data loaded from SQLite DB at {db_path}.")
+        except sqlite3.OperationalError as e:
+            logger.error(f"❌ {self.name}: SQLite error: {e}. Did you run the script to create the database?")
         except FileNotFoundError:
-            logger.error(f"❌ {self.name}: Data file not found at {csv_path}")
+            logger.error(f"❌ {self.name}: Database file not found at {db_path}")
         except Exception as e:
             logger.error(f"❌ {self.name}: Error loading data: {e}")
 
@@ -86,8 +94,8 @@ class CustomerPreferenceAgent(BaseAgent):
             return AgentResponse(
                 response="I am sorry, but the customer data analysis service is currently unavailable.",
                 agent_type=self.agent_type,
-                confidence=0.9,
-                metadata={"source": self.csv_path, "status": "unavailable"}
+                confidence=0.9, 
+                metadata={"source": self.db_path, "status": "unavailable"}
             )
 
         logger.info(f"{self.name}: Processing query: {query}")
@@ -114,32 +122,31 @@ class CustomerPreferenceAgent(BaseAgent):
         df_head = self.df.head().to_markdown()
 
         # Dynamically create prompt instructions based on context
-        traveler_id = context.get("traveler_id") if context else None
         traveler_name = context.get("traveler_name") if context else None
+        traveler_email = context.get("traveler_email") if context else None
         user_history_df = None
         prompt_instruction = ""
         identifier = ""
 
-        if traveler_id:
-            identifier = f"traveler_id: {traveler_id}"
-            try:
-                # The Traveler_Id in the CSV is an integer. The context provides a string.
-                traveler_id_int = int(traveler_id)
-                user_history_df = self.df[self.df['Traveler_Id'] == traveler_id_int]
-            except (ValueError, TypeError):
-                logger.warning(f"Could not process traveler_id '{traveler_id}'. Treating as a general query.")
-                user_history_df = pd.DataFrame()  # Empty dataframe
-        elif traveler_name:
+        if traveler_name:
             identifier = f"traveler_name: '{traveler_name}'"
             # Use case-insensitive search for the traveler's name
             user_history_df = self.df[self.df['Traveler_name'].str.contains(traveler_name, case=False, na=False)]
+        elif traveler_email:
+            identifier = f"traveler_email: '{traveler_email}'"
+            # Use case-insensitive exact match for the traveler's email
+            user_history_df = self.df[self.df['Traveler_Email'].str.lower() == traveler_email.lower()]
 
         if user_history_df is not None and not user_history_df.empty:
+            # Extract the traveler's name from the retrieved data to personalize the greeting.
+            traveler_name_from_df = user_history_df['Traveler_name'].iloc[0]
             user_history_md = user_history_df.to_markdown(index=False)
             prompt_instruction = f"""
-**Personalized Request for {identifier}**
-This is a request for a specific user. Analyze their travel history provided below to give a personalized answer.
-If the user asks for a recommendation, suggest a trip based on their frequent destinations, cabin class, and booking patterns.
+**Personalized Request for {traveler_name_from_df} (identified by {identifier})**
+This is a request for a specific user. Your task is to act as their personal travel consultant.
+- **Address the user by their name, {traveler_name_from_df}.**
+- Analyze their travel history provided below to give a personalized answer.
+- If the user asks for a recommendation, suggest a trip based on their frequent destinations, cabin class, and booking patterns. Explain WHY you are making the suggestion based on their history.
 
 **User's Travel History:**
 ```
@@ -182,6 +189,7 @@ If the query cannot be answered with the provided data, politely state that.
 
         suggestions = [
             "What is the most popular destination overall?",
+            "Destination you like to visit"
             "Preferred Cabin Class.",
             "Suggest a trip for a family of 4."
         ]
@@ -191,15 +199,15 @@ If the query cannot be answered with the provided data, politely state that.
             suggestions=suggestions,
             agent_type=self.agent_type,
             confidence=0.85,
-            metadata={"source": self.csv_path, "mode": "ai"}
+            metadata={"source": self.db_path, "mode": "ai"}
         )
 
     def get_info(self) -> Dict[str, Any]:
         """Returns information about the agent."""
         return {
             "name": self.name,
-            "description": self.description,
-            "data_source": self.csv_path,
+            "description": self.description, 
+            "data_source": self.db_path,
             "data_shape": self.df.shape if self.df is not None else "N/A",
             "status": "active" if self.model is not None and self.df is not None else "inactive"
         }
