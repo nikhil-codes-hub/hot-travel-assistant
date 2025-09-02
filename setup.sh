@@ -11,6 +11,8 @@ fi
 echo "✅ Using conda environment: $CONDA_DEFAULT_ENV"
 
 # Install dependencies - now the main requirements.txt works without MySQL!
+python -m venv hotenv
+source hotenv/bin/activate
 echo "📦 Installing Python dependencies..."
 pip install -r requirements.txt
 
