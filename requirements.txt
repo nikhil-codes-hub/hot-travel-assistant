@@ -16,3 +16,4 @@ pandas
 tabulate
 scrapegraphai
 langchain-google-vertexai
+pysqlite3
