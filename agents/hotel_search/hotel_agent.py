@@ -1,6 +1,6 @@
 import os
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 from pydantic import BaseModel, Field
 import json
@@ -88,8 +88,10 @@ class HotelSearchAgent(BaseAgent):
     
     async def _ensure_access_token(self):
         """Ensure we have a valid Amadeus access token"""
+        current_time = datetime.now(timezone.utc)
+        
         if self.access_token and self.token_expires_at:
-            if datetime.utcnow() < self.token_expires_at:
+            if current_time < self.token_expires_at:
                 return  # Token is still valid
         
         # Get new access token
@@ -110,7 +112,7 @@ class HotelSearchAgent(BaseAgent):
             token_response = response.json()
             self.access_token = token_response["access_token"]
             expires_in = token_response.get("expires_in", 1799)
-            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in - 60)
+            self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
     async def _search_hotels_by_city(self, input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search for hotels in a city using Amadeus Hotel List API"""
@@ -209,8 +211,8 @@ class HotelSearchAgent(BaseAgent):
                     for offer_data in offers_data:
                         offer = HotelOffer(
                             id=offer_data["id"],
-                            check_in_date=offer_data["checkInDate"],
-                            check_out_date=offer_data["checkOutDate"],
+                            check_in_date=offer_data.get("checkInDate", input_data["checkInDate"]),
+                            check_out_date=offer_data.get("checkOutDate", input_data["checkOutDate"]),
                             room_quantity=offer_data.get("roomQuantity", 1),
                             price=offer_data.get("price", {}),
                             room=offer_data.get("room", {}),

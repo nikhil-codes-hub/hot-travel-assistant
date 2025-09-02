@@ -79,8 +79,10 @@ class FlightsSearchAgent(BaseAgent):
     
     async def _ensure_access_token(self):
         """Ensure we have a valid Amadeus access token"""
+        current_time = datetime.now(timezone.utc)
+        
         if self.access_token and self.token_expires_at:
-            if datetime.utcnow() < self.token_expires_at:
+            if current_time < self.token_expires_at:
                 return  # Token is still valid
         
         # Get new access token
@@ -101,7 +103,7 @@ class FlightsSearchAgent(BaseAgent):
             token_response = response.json()
             self.access_token = token_response["access_token"]
             expires_in = token_response.get("expires_in", 1799)  # Default ~30 mins
-            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in - 60)
+            self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
     def _build_search_params(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Build Amadeus API search parameters"""
@@ -175,7 +177,7 @@ class FlightsSearchAgent(BaseAgent):
                                 flight_number=f"{segment_data['carrierCode']}{segment_data['number']}",
                                 aircraft=segment_data.get("aircraft", {}).get("code"),
                                 duration=segment_data["duration"],
-                                cabin_class=segment_data["cabin"]
+                                cabin_class=segment_data.get("cabin", "ECONOMY")
                             )
                             segments.append(segment)
                     
