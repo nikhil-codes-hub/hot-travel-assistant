@@ -32,9 +32,19 @@ This application consists of three main components:
 ### 3. Git (optional but recommended)
 - Download from [git-scm.com](https://git-scm.com/downloads)
 
-**That's it!** No database server installation needed - SQLite is built into Python!
+### 4. Podman (optional - for containerized deployment)
+- **Mac**: Install via [Homebrew](https://brew.sh/) with `brew install podman`
+- **Windows**: Download from [podman.io](https://podman.io/getting-started/installation#windows)
+- **Linux**: Use your package manager:
+  - **Ubuntu/Debian**: `sudo apt install podman`
+  - **RHEL/CentOS**: `sudo dnf install podman`
+  - **Arch**: `sudo pacman -S podman`
 
-## ⚡ Super Quick Setup (3 commands!)
+**Note**: Podman is only needed if you want to run the application in containers. The SQLite version runs natively without any containerization.
+
+**That's it for basic setup!** No database server installation needed - SQLite is built into Python!
+
+## ⚡ Super Quick Setup (4 commands!)
 
 ```bash
 # 1. Clone and navigate
@@ -43,11 +53,17 @@ git clone <repo-url> && cd hot_intelligent_travel_assistant
 # 2. Setup everything automatically
 bash setup.sh
 
-# 3. Start the application
+# 3. Start the backend (in first terminal)
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# 4. Start the frontend (in second terminal)
+# Open new terminal, navigate to project, then:
+cd frontend && npm install && npm start
 ```
 
-**Done!** Open http://localhost:8000 in your browser! 🎉
+**Done!** Open http://localhost:3000 for the travel assistant UI! 🎉
+- **Frontend (Travel Assistant)**: http://localhost:3000
+- **Backend API**: http://localhost:8000
 
 ---
 
@@ -180,22 +196,24 @@ curl http://localhost:8000/health
 
 ### Issue: Database connection errors
 **Solution**:
-1. Check if MySQL container is running: `podman ps`
-2. Restart the database: `podman-compose restart mysql`
-3. Wait 15-30 seconds before testing again
+1. Check if SQLite database file exists: `ls -la hot_travel_assistant.db`
+2. Try reinitializing: `python -c "from config.database import engine; from models.database_models import Base; Base.metadata.create_all(bind=engine)"`
+3. Restart the backend server
 
 ### Issue: "Module not found" errors in Python
 **Solution**: 
 1. Make sure your virtual environment is activated
-2. Reinstall requirements: `pip install -r requirements-core.txt`
+2. Reinstall requirements: `pip install -r requirements.txt`
 
-### Issue: Podman machine not starting (Mac/Windows)
+### Issue: SQLite database locked
 **Solution**:
-```bash
-# Initialize and start Podman machine
-podman machine init
-podman machine start
-```
+1. Close any other instances of the application
+2. Delete `hot_travel_assistant.db` file and restart (database will be recreated)
+
+### Issue: Frontend not connecting to backend
+**Solution**:
+1. Make sure backend is running on port 8000: `curl http://localhost:8000/health`
+2. Check if frontend is pointing to correct API URL in the code
 
 ## 📁 Project Structure
 
@@ -213,8 +231,10 @@ hot_intelligent_travel_assistant/
 ├── models/                # Database models
 ├── orchestrator/          # Agent orchestration
 ├── .env                   # Environment variables
-├── requirements-core.txt  # Python dependencies
-└── podman-compose.yml     # Database container config
+├── requirements.txt       # Python dependencies
+├── setup.sh              # Automated setup script
+├── hot_travel_assistant.db # SQLite database (created automatically)
+└── podman-compose.yml     # Optional: container config
 ```
 
 ## 🔧 Development Tips
@@ -222,11 +242,11 @@ hot_intelligent_travel_assistant/
 ### Stopping the Application
 - **Frontend**: Press `Ctrl+C` in the frontend terminal
 - **Backend**: Press `Ctrl+C` in the backend terminal
-- **Database**: `podman-compose down`
+- **Database**: SQLite stops automatically when backend stops
 
 ### Viewing Logs
 - **Backend**: Logs appear in the terminal where you ran `uvicorn`
-- **Database**: `podman-compose logs mysql`
+- **Database**: SQLite operations are logged in the backend terminal
 
 ### Restarting Components
 ```bash
@@ -236,9 +256,39 @@ hot_intelligent_travel_assistant/
 # Restart frontend
 # Press Ctrl+C and run npm start again
 
-# Restart database
-podman-compose restart mysql
+# Database restarts automatically with backend (SQLite)
 ```
+
+---
+
+## 🐳 Optional: Containerized Deployment with Podman
+
+If you installed Podman and want to run the application in containers:
+
+### Setting up Podman Machine (Mac/Windows only)
+```bash
+# Initialize Podman machine
+podman machine init
+
+# Start Podman machine
+podman machine start
+
+# Verify Podman is working
+podman run hello-world
+```
+
+### Using Podman with the Application
+```bash
+# Build application container (if Dockerfile exists)
+podman build -t hot-travel-assistant .
+
+# Run with container networking
+podman run -p 8000:8000 -p 3000:3000 hot-travel-assistant
+```
+
+**Note**: The SQLite version works great without containers. Containerization is optional for production deployments.
+
+---
 
 ## 🌟 Features Overview
 
