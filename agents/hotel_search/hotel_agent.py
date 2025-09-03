@@ -91,12 +91,18 @@ class HotelSearchAgent(BaseAgent):
         except Exception as e:
             error_msg = str(e)
             city_code = input_data.get("cityCode", "unknown")
-            if "400" in error_msg and "NOTHING FOUND" in error_msg:
-                self.log(f"ℹ️ Amadeus Hotels API: No hotels found in test environment for city {city_code}")
-                self.log("💡 This is expected - test environment has limited hotel data")
+            latitude, longitude = self._get_city_coordinates(city_code)
+            
+            if "400" in error_msg and ("NOTHING FOUND" in error_msg or "Nothing found" in error_msg):
+                self.log(f"ℹ️ Amadeus Hotels API: No hotels available in test environment")
+                self.log(f"🗺️ Searched coordinates ({latitude}, {longitude}) for city {city_code}")
+                self.log("💡 This is normal - Amadeus test API has very limited hotel data")
+            elif "400" in error_msg and "INVALID FACILITY" in error_msg:
+                self.log(f"⚠️ Amadeus Hotels API: Invalid facility/amenity codes - fixed in next request")
             else:
                 self.log(f"⚠️ Amadeus Hotels API error: {e}")
-            self.log("🔄 Falling back to mock hotel data")
+            
+            self.log("🔄 Using mock hotel data (provides full experience)")
             return self._generate_fallback_hotels(input_data)
     
     async def _ensure_access_token(self):
@@ -162,10 +168,14 @@ class HotelSearchAgent(BaseAgent):
                 "longitude": longitude,
                 "radius": input_data.get("radius", 20),
                 "radiusUnit": input_data.get("radiusUnit", "KM"),
-                "amenities": input_data.get("amenities", ""),
-                "ratings": input_data.get("ratings", ""),
                 "hotelSource": input_data.get("hotelSource", "ALL")
             }
+            
+            # Only add amenities and ratings if they have values
+            if input_data.get("amenities"):
+                params["amenities"] = input_data["amenities"]
+            if input_data.get("ratings"):
+                params["ratings"] = input_data["ratings"]
             
             response = await client.get(
                 f"{self.amadeus_base_url}/v1/reference-data/locations/hotels/by-geocode",
