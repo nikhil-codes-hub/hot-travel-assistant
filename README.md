@@ -288,6 +288,50 @@ podman run -p 8000:8000 -p 3000:3000 hot-travel-assistant
 
 **Note**: The SQLite version works great without containers. Containerization is optional for production deployments.
 
+## 🐛 Troubleshooting
+
+### Database Column Length Errors
+
+If you see errors like `"Data too long for column 'nationality'"` when using MySQL:
+
+```bash
+# Run the database migration script
+python migrate_database.py
+```
+
+This will automatically:
+- Check your current database schema
+- Extend varchar columns that are too short
+- Fix nationality column length issues
+- Ensure compatibility with user profile data
+
+**Requirements for migration:**
+- MySQL database with existing user_profiles table
+- DATABASE_URL set in .env file
+- Database user with ALTER privileges
+
+### Common Issues
+
+1. **"Repository not found" when cloning:**
+   - Repository might be private - ensure you have access
+   - Use SSH instead: `git clone git@github.com:nikhil-codes-hub/hot-travel-assistant.git`
+   - Check your GitHub authentication
+
+2. **MySQL connection errors:**
+   - Make sure MySQL is running
+   - Verify DATABASE_URL in .env file
+   - Check database credentials and permissions
+
+3. **Frontend build errors:**
+   - Delete node_modules: `rm -rf frontend/node_modules`
+   - Clear npm cache: `npm cache clean --force`  
+   - Reinstall: `cd frontend && npm install`
+
+4. **API authentication errors:**
+   - Check AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET in .env
+   - Verify GOOGLE_CLOUD_PROJECT and VERTEX_AI_LOCATION for Vertex AI
+   - Ensure proper IAM permissions for Vertex AI usage
+
 ---
 
 ## 🌟 Features Overview
