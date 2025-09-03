@@ -42,7 +42,7 @@ class DestinationDiscoveryAgent(BaseAgent):
                 api_key = os.getenv("GEMINI_API_KEY")
                 if api_key:
                     genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-1.5-pro')
+                    self.model = genai.GenerativeModel('gemini-2.0-flash')
                     self.ai_available = True
         except Exception:
             self.ai_available = False
@@ -94,7 +94,7 @@ class DestinationDiscoveryAgent(BaseAgent):
         """Call Vertex AI Gemini model"""
         from vertexai.generative_models import GenerativeModel
         
-        model = GenerativeModel('gemini-1.5-pro')
+        model = GenerativeModel('gemini-2.0-flash')
         response = await model.generate_content_async(prompt)
         return response.text
     
