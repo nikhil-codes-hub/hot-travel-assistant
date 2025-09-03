@@ -244,7 +244,7 @@ class HotelSearchAgent(BaseAgent):
                 search_body["criteria"]["priceRange"] = input_data["priceRange"]
             
             response = await client.post(
-                f"{self.amadeus_base_url}/v3/shopping/hotel-offers",
+                f"{self.amadeus_base_url}/v2/shopping/hotel-offers",
                 json=search_body,
                 headers=headers,
                 timeout=30.0
