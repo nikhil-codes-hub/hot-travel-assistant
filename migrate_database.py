@@ -73,11 +73,13 @@ def migrate_database():
             for col_name, required_spec in required_columns.items():
                 if col_name in columns_info:
                     current = columns_info[col_name]
-                    if (current['type'] == 'varchar' and 
+                    # Check both VARCHAR and CHAR columns that are too short
+                    if ((current['type'] == 'varchar' or current['type'] == 'char') and 
                         current['length'] and 
                         current['length'] < required_spec['length']):
                         migrations_needed.append({
                             'column': col_name,
+                            'current_type': current['type'],
                             'current_length': current['length'],
                             'required_length': required_spec['length']
                         })
@@ -88,7 +90,8 @@ def migrate_database():
             
             print(f"\n🔧 Found {len(migrations_needed)} column(s) that need to be extended:")
             for migration in migrations_needed:
-                print(f"  • {migration['column']}: {migration['current_length']} → {migration['required_length']}")
+                current_type = migration['current_type'].upper()
+                print(f"  • {migration['column']}: {current_type}({migration['current_length']}) → VARCHAR({migration['required_length']})")
             
             # Ask for confirmation
             print(f"\n⚠️  This will modify your database schema!")
