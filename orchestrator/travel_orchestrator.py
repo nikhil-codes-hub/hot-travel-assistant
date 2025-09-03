@@ -4,7 +4,7 @@ from langchain.schema import BaseMessage, HumanMessage
 from sqlalchemy.orm import Session
 import structlog
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import all agents
 from agents.llm_extractor.extractor_agent import LLMExtractorAgent
@@ -782,7 +782,7 @@ class TravelOrchestrator:
             # Update existing session with new request
             existing_session.original_request = input_data["user_request"]
             existing_session.status = "processing"
-            existing_session.updated_at = datetime.utcnow()
+            existing_session.updated_at = datetime.now(timezone.utc)
             self.db.commit()
         else:
             # Create new session
