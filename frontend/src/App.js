@@ -165,7 +165,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 ${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
 
 🚀 **Next Steps:**
-${this.generateFlightCurationStatus(data)}
+${generateFlightCurationStatus(data)}
 • Hotel recommendations based on your loyalty tier
 • Activities and dining suggestions being compiled
 • Travel documents and requirements being checked
