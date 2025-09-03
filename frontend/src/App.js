@@ -99,7 +99,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
         conversation_context: conversationContext.accumulated_requirements
       };
 
-      const response = await fetch('http://localhost:8001/travel/search', {
+      const response = await fetch('http://localhost:8000/travel/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
