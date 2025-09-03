@@ -56,6 +56,7 @@ class FlightsSearchAgent(BaseAgent):
         
         # Check Amadeus API availability
         if not self.amadeus_client_id or not self.amadeus_client_secret:
+            self.log("⚠️ Amadeus API credentials not configured, using mock flight data")
             return self._generate_fallback_flights(input_data)
         
         try:
@@ -71,10 +72,16 @@ class FlightsSearchAgent(BaseAgent):
             # Process and format results
             result = self._process_flight_offers(offers_response, input_data)
             
+            # Add API source indicator
+            result["meta"]["data_source"] = "amadeus_api"
+            result["meta"]["is_fallback"] = False
+            
+            self.log(f"✅ Amadeus Flights API: Retrieved {result['meta']['count']} offers from live API")
             return self.format_output(result)
             
         except Exception as e:
-            self.log(f"Amadeus API error: {e}")
+            self.log(f"⚠️ Amadeus API error: {e}")
+            self.log("🔄 Falling back to mock flight data")
             return self._generate_fallback_flights(input_data)
     
     async def _ensure_access_token(self):
@@ -283,9 +290,12 @@ class FlightsSearchAgent(BaseAgent):
                 "count": 1,
                 "amadeus_count": 0,
                 "currency": "USD",
+                "data_source": "mock_fallback",
+                "is_fallback": True,
                 "mode": "fallback_mock_data"
             },
             dictionaries={}
         )
         
+        self.log("📝 Generated mock flight data as fallback")
         return self.format_output(fallback_result.model_dump())

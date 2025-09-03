@@ -65,6 +65,7 @@ class HotelSearchAgent(BaseAgent):
         
         # Check Amadeus API availability
         if not self.amadeus_client_id or not self.amadeus_client_secret:
+            self.log("⚠️ Amadeus API credentials not configured, using mock hotel data")
             return self._generate_fallback_hotels(input_data)
         
         try:
@@ -80,10 +81,16 @@ class HotelSearchAgent(BaseAgent):
             # Process and format results
             result = self._process_hotel_results(hotels_with_offers, input_data)
             
+            # Add API source indicator
+            result["meta"]["data_source"] = "amadeus_api"
+            result["meta"]["is_fallback"] = False
+            
+            self.log(f"✅ Amadeus Hotels API: Retrieved {result['meta']['count']} hotels from live API")
             return self.format_output(result)
             
         except Exception as e:
-            self.log(f"Amadeus Hotels API error: {e}")
+            self.log(f"⚠️ Amadeus Hotels API error: {e}")
+            self.log("🔄 Falling back to mock hotel data")
             return self._generate_fallback_hotels(input_data)
     
     async def _ensure_access_token(self):
@@ -332,8 +339,11 @@ class HotelSearchAgent(BaseAgent):
                 "count": 1,
                 "search_radius": 20,
                 "currency": "USD",
+                "data_source": "mock_fallback",
+                "is_fallback": True,
                 "mode": "fallback_mock_data"
             }
         )
         
+        self.log("📝 Generated mock hotel data as fallback")
         return self.format_output(fallback_result.model_dump())
