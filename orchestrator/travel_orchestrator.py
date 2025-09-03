@@ -253,9 +253,23 @@ class TravelOrchestrator:
             destination = requirements.get("destination")
             destination_type = requirements.get("destination_type")
             
+            # Check for vague destination patterns that need discovery
+            vague_destination_patterns = [
+                "europe", "asia", "africa", "america", "oceania",
+                "somewhere warm", "somewhere cold", "somewhere snowy", "somewhere tropical",
+                "beach destination", "mountain destination", "ski destination", "winter destination",
+                "warm place", "cold place", "snowy place", "tropical place",
+                "skiing", "beaches", "mountains", "desert", "islands"
+            ]
+            
+            is_vague_destination = False
+            if destination:
+                destination_lower = destination.lower()
+                is_vague_destination = any(pattern in destination_lower for pattern in vague_destination_patterns)
+            
             state["needs_destination_discovery"] = (
                 not destination or 
-                destination in ["Europe", "Asia", "somewhere warm", "beach destination"] or
+                is_vague_destination or
                 (destination_type and not destination)
             )
             
