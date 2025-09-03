@@ -92,12 +92,20 @@ class UserProfileAgent(BaseAgent):
     
     def _create_profile_from_csv(self, db: Session, csv_customer: Dict[str, Any]) -> UserProfile:
         """Create user profile from CSV customer data"""
+        customer_id = str(csv_customer["traveler_id"])[:255]
+        
+        # Check if profile already exists
+        existing_profile = self._get_user_profile(db, customer_id)
+        if existing_profile:
+            logger.info(f"✅ Found existing profile for customer {customer_id}")
+            return existing_profile
+        
         # Validate and truncate string fields to prevent database errors
         nationality = str(csv_customer.get("nationality", ""))[:100] if csv_customer.get("nationality") else None
         loyalty_tier = str(self._determine_loyalty_tier(csv_customer["booking_history"]))[:50]
         
         profile = UserProfile(
-            customer_id=str(csv_customer["traveler_id"])[:255],
+            customer_id=customer_id,
             nationality=nationality,
             loyalty_tier=loyalty_tier,
             preferences={
@@ -113,7 +121,7 @@ class UserProfileAgent(BaseAgent):
         db.commit()
         db.refresh(profile)
         
-        logger.info(f"✅ Created profile for customer {csv_customer['traveler_id']} from CSV data")
+        logger.info(f"✅ Created profile for customer {customer_id} from CSV data")
         return profile
     
     def _determine_loyalty_tier(self, booking_history: list) -> str:
