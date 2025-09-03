@@ -26,23 +26,14 @@ class UserProfileAgent(BaseAgent):
         self.ai_model = self._initialize_ai_model()
     
     async def execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
-        # Accept both email_id and customer_id for backward compatibility
-        email_id = input_data.get("email_id")
-        customer_id = input_data.get("customer_id")
+        self.validate_input(input_data, ["customer_id"])
         
-        if not email_id and not customer_id:
-            raise ValueError("Either email_id or customer_id must be provided")
-        
+        customer_id = input_data["customer_id"]
         db = next(get_db())
         
         try:
             # First check CSV data for customer information
-            if email_id:
-                csv_customer = self._get_customer_from_csv_by_email(email_id)
-                # Use the traveler_id as customer_id for database operations
-                customer_id = csv_customer.get("traveler_id") if csv_customer else email_id
-            else:
-                csv_customer = self._get_customer_from_csv(customer_id)
+            csv_customer = self._get_customer_from_csv(customer_id)
             
             # Retrieve user profile from MySQL
             profile = self._get_user_profile(db, customer_id)
@@ -242,53 +233,42 @@ class UserProfileAgent(BaseAgent):
             return None
     
     def _get_customer_from_csv(self, customer_id: str) -> Optional[Dict[str, Any]]:
-        """Get customer data from CSV by Traveler_Id"""
+        """Get customer data from CSV by Traveler_Id or email_id"""
         if self.csv_data is None:
             return None
         
         try:
-            # Convert customer_id to int for matching
-            traveler_id = int(customer_id)
-            customer_row = self.csv_data[self.csv_data['Traveler_Id'] == traveler_id]
+            # First try to find by email_id if it's an email format
+            if "@" in customer_id and "email_id" in self.csv_data.columns:
+                customer_row = self.csv_data[self.csv_data['email_id'] == customer_id]
+                if not customer_row.empty:
+                    return self._extract_customer_data(customer_row.iloc[0])
+            
+            # Try to convert customer_id to int for Traveler_Id matching
+            try:
+                traveler_id = int(customer_id)
+                customer_row = self.csv_data[self.csv_data['Traveler_Id'] == traveler_id]
+            except ValueError:
+                # If can't convert to int, skip Traveler_Id matching
+                return None
             
             if not customer_row.empty:
-                row = customer_row.iloc[0]
-                return {
-                    "traveler_id": str(row['Traveler_Id']),
-                    "name": row['Traveler_name'],
-                    "age": int(row['Traveler_age']),
-                    "nationality": row['Nationality'],
-                    "booking_history": self._get_booking_history(traveler_id)
-                }
+                return self._extract_customer_data(customer_row.iloc[0])
         except (ValueError, KeyError) as e:
             logger.warning(f"Error retrieving customer from CSV: {e}")
         
         return None
     
-    def _get_customer_from_csv_by_email(self, email_id: str) -> Optional[Dict[str, Any]]:
-        """Get customer data from CSV by email_id"""
-        if self.csv_data is None:
-            return None
-        
-        try:
-            # Find customer by email_id
-            customer_row = self.csv_data[self.csv_data['email_id'] == email_id]
-            
-            if not customer_row.empty:
-                row = customer_row.iloc[0]  # Get first match
-                traveler_id = int(row['Traveler_Id'])
-                return {
-                    "traveler_id": str(traveler_id),
-                    "name": row['Traveler_name'],
-                    "age": int(row['Traveler_age']),
-                    "nationality": row['Nationality'],
-                    "email_id": row['email_id'],
-                    "booking_history": self._get_booking_history(traveler_id)
-                }
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error retrieving customer by email from CSV: {e}")
-        
-        return None
+    def _extract_customer_data(self, row) -> Dict[str, Any]:
+        """Extract customer data from CSV row"""
+        traveler_id = int(row['Traveler_Id'])
+        return {
+            "traveler_id": str(traveler_id),
+            "name": row['Traveler_name'],
+            "age": int(row['Traveler_age']),
+            "nationality": row['Nationality'],
+            "booking_history": self._get_booking_history(traveler_id)
+        }
     
     def _get_booking_history(self, traveler_id: int) -> list:
         """Get all bookings for a specific traveler"""

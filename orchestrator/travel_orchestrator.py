@@ -649,6 +649,9 @@ class TravelOrchestrator:
     
     def _get_destination_code(self, destination: str) -> str:
         """Convert destination name to airport code (simplified mapping)"""
+        if not destination or destination is None:
+            return "JFK"  # Default fallback
+            
         destination_codes = {
             "Tokyo": "NRT",
             "Paris": "CDG",
@@ -662,9 +665,13 @@ class TravelOrchestrator:
             "Los Angeles": "LAX"
         }
         
-        for city, code in destination_codes.items():
-            if city.lower() in destination.lower():
-                return code
+        try:
+            for city, code in destination_codes.items():
+                if city.lower() in destination.lower():
+                    return code
+        except (AttributeError, TypeError):
+            # Handle case where destination is None or not a string
+            pass
         
         # Default fallback
         return "JFK"
@@ -684,9 +691,16 @@ class TravelOrchestrator:
             "Los Angeles": "LAX"
         }
         
-        for city, code in city_codes.items():
-            if city.lower() in destination.lower():
-                return code
+        if not destination or destination is None:
+            return "PAR"  # Default fallback
+        
+        try:
+            for city, code in city_codes.items():
+                if city.lower() in destination.lower():
+                    return code
+        except (AttributeError, TypeError):
+            # Handle case where destination is None or not a string
+            pass
         
         # Default fallback
         return "PAR"
@@ -716,10 +730,17 @@ class TravelOrchestrator:
             "Brazil": "BR"
         }
         
-        location_lower = location.lower()
-        for name, code in country_codes.items():
-            if name.lower() in location_lower:
-                return code
+        if not location or location is None:
+            return "US"  # Default fallback
+        
+        try:
+            location_lower = location.lower()
+            for name, code in country_codes.items():
+                if name.lower() in location_lower:
+                    return code
+        except (AttributeError, TypeError):
+            # Handle case where location is None or not a string
+            pass
         
         # Default fallback
         return "US"
