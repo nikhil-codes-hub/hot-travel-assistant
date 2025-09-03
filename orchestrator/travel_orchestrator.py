@@ -434,7 +434,9 @@ class TravelOrchestrator:
                 logger.error(f"Hotel search failed", session_id=state["session_id"], error=str(hotel_result))
                 state["hotel_offers"] = []
             else:
-                state["hotel_offers"] = hotel_result.get("data", {}).get("hotels", [])
+                # Extract hotels from the agent's data structure
+                hotel_data = hotel_result.get("data", {})
+                state["hotel_offers"] = hotel_data.get("hotels", [])
             
             logger.info(f"Search completed", 
                        session_id=state["session_id"],

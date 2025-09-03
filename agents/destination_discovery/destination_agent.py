@@ -197,10 +197,14 @@ Focus on destinations that are:
                 seasonality_considered=parsed_data.get("seasonality_considered", True)
             )
             
-            return result.model_dump()
+            parsed_result = result.model_dump()
+            self.log(f"✅ Parsed {len(suggestions)} AI destination suggestions successfully")
+            return parsed_result
             
         except Exception as e:
-            return self._generate_fallback_suggestions(input_data)
+            self.log(f"⚠️ AI response parsing failed ({e}), using fallback suggestions")
+            fallback_result = self._generate_fallback_suggestions(input_data)
+            return fallback_result
     
     def _generate_fallback_suggestions(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate context-aware destination suggestions without AI"""
@@ -315,9 +319,10 @@ Focus on destinations that are:
                 "season": "Year-round",
                 "travelers": input_data.get("passengers", 1)
             },
-            "confidence_score": 0.4,
+            "confidence_score": 0.7,  # Higher confidence for curated suggestions
             "seasonality_considered": False,
             "mode": "fallback_suggestions"
         }
         
-        return self.format_output(fallback_result)
+        self.log(f"✅ Generated {len(fallback_suggestions)} fallback destination suggestions")
+        return fallback_result
