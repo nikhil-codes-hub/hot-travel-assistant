@@ -53,15 +53,18 @@ class DestinationDiscoveryAgent(BaseAgent):
         self.validate_input(input_data, [])  # No required fields - can work with minimal input
         
         if not self.ai_available:
+            self.log("🔄 AI not available - using intelligent mock destination suggestions")
             return self._generate_fallback_suggestions(input_data)
         
         try:
             prompt = self._create_discovery_prompt(input_data)
             response = self.model.generate_content(prompt)
             result = self._parse_response(response.text, input_data)
+            self.log("✅ AI-powered destination suggestions generated")
             return self.format_output(result)
             
         except Exception as e:
+            self.log(f"⚠️ AI generation failed ({e}), falling back to intelligent mock suggestions")
             return self._generate_fallback_suggestions(input_data)
     
     def _create_discovery_prompt(self, input_data: Dict[str, Any]) -> str:
@@ -169,31 +172,81 @@ Focus on destinations that are:
             return self._generate_fallback_suggestions(input_data)
     
     def _generate_fallback_suggestions(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate basic destination suggestions without AI"""
+        """Generate context-aware destination suggestions without AI"""
         destination_type = input_data.get("destination_type", "").lower()
         budget = input_data.get("budget", 0)
+        departure_date = input_data.get("departure_date")
+        duration = input_data.get("duration", 7)
         
-        # Simple rule-based suggestions
+        # Get season context for departure date
+        season = "winter"
+        if departure_date:
+            try:
+                dep_date = datetime.fromisoformat(departure_date)
+                month = dep_date.month
+                if month in [3, 4, 5]:
+                    season = "spring"
+                elif month in [6, 7, 8]:
+                    season = "summer"
+                elif month in [9, 10, 11]:
+                    season = "fall"
+            except:
+                pass
+        
+        # Context-aware suggestions based on request patterns
         fallback_suggestions = []
         
-        if "beach" in destination_type:
+        # Check for snowy/winter destination requests
+        context_info = f"{destination_type} {input_data}"
+        if any(pattern in context_info.lower() for pattern in ["snowy", "snow", "ski", "winter", "cold", "mountain"]):
+            self.log("🏔️ Providing snowy destination suggestions for winter travel")
+            fallback_suggestions = [
+                {
+                    "destination": "Zermatt, Switzerland",
+                    "country": "Switzerland",
+                    "reason": "World-famous Alpine resort with guaranteed snow and Matterhorn views",
+                    "season_score": 0.95,
+                    "budget_fit": "luxury" if budget > 2000 else "high",
+                    "highlights": ["Matterhorn views", "Year-round skiing", "Luxury Alpine experience", "Car-free village"],
+                    "best_duration": "6-8 days"
+                },
+                {
+                    "destination": "Aspen, Colorado",
+                    "country": "USA", 
+                    "reason": "Premium ski destination with excellent November conditions",
+                    "season_score": 0.9,
+                    "budget_fit": "high",
+                    "highlights": ["World-class skiing", "Luxury amenities", "Mountain dining", "Apres-ski culture"],
+                    "best_duration": "5-7 days"
+                },
+                {
+                    "destination": "Whistler, British Columbia",
+                    "country": "Canada",
+                    "reason": "Olympic ski resort with reliable early season snow",
+                    "season_score": 0.85,
+                    "budget_fit": "medium",
+                    "highlights": ["2010 Olympics venue", "Village atmosphere", "Dual mountain skiing", "Canadian hospitality"],
+                    "best_duration": "6-8 days"
+                }
+            ]
+        elif "beach" in destination_type or any(pattern in context_info.lower() for pattern in ["warm", "tropical", "beach"]):
             fallback_suggestions = [
                 {
                     "destination": "Bali, Indonesia",
                     "country": "Indonesia",
-                    "reason": "Popular beach destination with good value",
+                    "reason": "Popular beach destination with good value and cultural richness",
                     "season_score": 0.8,
                     "budget_fit": "medium",
-                    "highlights": ["Beautiful beaches", "Cultural experiences", "Affordable"],
+                    "highlights": ["Beautiful beaches", "Cultural experiences", "Affordable luxury", "Temples"],
                     "best_duration": "7-10 days"
                 },
                 {
-                    "destination": "Cancun, Mexico",
-                    "country": "Mexico",
-                    "reason": "Accessible beach destination",
-                    "season_score": 0.7,
-                    "budget_fit": "medium",
-                    "highlights": ["Beach resorts", "Mayan ruins", "Nightlife"],
+                    "destination": "Maldives",
+                    "country": "Maldives",
+                    "reason": "Ultimate tropical paradise with overwater villas",
+                    "season_score": 0.9,
+                    "budget_fit": "luxury",
+                    "highlights": ["Overwater bungalows", "Crystal clear waters", "World-class diving", "Complete relaxation"],
                     "best_duration": "5-7 days"
                 }
             ]
