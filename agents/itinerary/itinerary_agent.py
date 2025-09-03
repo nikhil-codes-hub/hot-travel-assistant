@@ -24,25 +24,25 @@ class TravelReadinessItem(BaseModel):
     details: str = Field(..., description="Additional details")
 
 class Itinerary(BaseModel):
-    title: str = Field(..., description="Itinerary title")
-    destination: str = Field(..., description="Primary destination")
-    duration: int = Field(..., description="Trip duration in days")
-    traveler_count: int = Field(..., description="Number of travelers")
-    departure_date: str = Field(..., description="Departure date")
-    return_date: str = Field(..., description="Return date")
+    title: str = Field("Travel Itinerary", description="Itinerary title")
+    destination: str = Field("Unknown", description="Primary destination")
+    duration: int = Field(7, description="Trip duration in days")
+    traveler_count: int = Field(1, description="Number of travelers")
+    departure_date: str = Field("TBD", description="Departure date")
+    return_date: str = Field("TBD", description="Return date")
     
     # Trip components
-    days: List[ItineraryDay] = Field(..., description="Day-by-day itinerary")
+    days: List[ItineraryDay] = Field([], description="Day-by-day itinerary")
     flights: List[Dict[str, Any]] = Field([], description="Flight details")
     accommodations: List[Dict[str, Any]] = Field([], description="Hotel details")
-    total_cost: Dict[str, Any] = Field(..., description="Total trip cost breakdown")
+    total_cost: Dict[str, Any] = Field({"currency": "USD", "total": 0}, description="Total trip cost breakdown")
     
     # Travel readiness
     travel_readiness: List[TravelReadinessItem] = Field([], description="Travel preparation checklist")
     
     # Rationale and insights
-    rationale: str = Field(..., description="Why this itinerary works")
-    highlights: List[str] = Field(..., description="Trip highlights")
+    rationale: str = Field("Itinerary pending detailed requirements", description="Why this itinerary works")
+    highlights: List[str] = Field([], description="Trip highlights")
     tips: List[str] = Field([], description="Travel tips")
 
 class PrepareItineraryResult(BaseModel):

@@ -476,8 +476,20 @@ class TravelOrchestrator:
             agent = PrepareItineraryAgent()
             
             result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            # Check if we have minimum required information
+            if not requirements.get("destination") and not state.get("destination_suggestions", {}).get("suggestions"):
+                logger.warning(f"Insufficient travel requirements for itinerary", session_id=state["session_id"])
+                state["itinerary"] = {
+                    "error": "Insufficient travel information provided. Please specify destination, dates, and travel preferences.",
+                    "requirements_needed": ["destination", "departure_date", "duration", "travelers"]
+                }
+                state["status"] = "requirements_missing"
+                return state
+            
             input_data = {
-                "requirements": result_data.get("requirements", {}),
+                "requirements": requirements,
                 "customer_profile": state["user_profile"].get("data", {}),
                 "flight_offers": state["enhanced_offers"].get("enhanced_offers", []),
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
