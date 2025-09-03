@@ -274,9 +274,10 @@ class TravelOrchestrator:
         try:
             agent = UserProfileAgent()
             
-            # Use email_id if available, fallback to customer_id
+            # UserProfileAgent always needs customer_id, prefer email_id as customer_id
             input_data = {}
             if state["email_id"]:
+                input_data["customer_id"] = state["email_id"]
                 input_data["email_id"] = state["email_id"]
             elif state["customer_id"]:
                 input_data["customer_id"] = state["customer_id"]
