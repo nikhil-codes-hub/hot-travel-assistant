@@ -165,7 +165,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 ${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
 
 🚀 **Next Steps:**
-• Flight options are being curated for your preferences
+${this.generateFlightCurationStatus(data)}
 • Hotel recommendations based on your loyalty tier
 • Activities and dining suggestions being compiled
 • Travel documents and requirements being checked
@@ -260,6 +260,30 @@ ${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
 
   const handleSuggestionClick = (suggestion) => {
     sendMessage(suggestion);
+  };
+
+  const generateFlightCurationStatus = (data) => {
+    const curatedFlights = data?.data?.curated_flights?.data;
+    const profile = data?.data?.profile?.data || {};
+    const loyaltyTier = profile.loyalty_tier || 'STANDARD';
+    
+    if (curatedFlights && curatedFlights.curated_flights && curatedFlights.curated_flights.length > 0) {
+      const topFlight = curatedFlights.curated_flights[0];
+      const confidence = (curatedFlights.curation_confidence * 100).toFixed(0);
+      const totalAnalyzed = curatedFlights.total_options_analyzed;
+      
+      return `• ✈️ ${totalAnalyzed} flight options analyzed and curated for your ${loyaltyTier} profile
+• 🎯 Top recommendation: ${topFlight.recommendation_reason || 'Best match found'}
+• 📊 Curation confidence: ${confidence}% (${curatedFlights.personalization_factors?.length || 0} factors applied)`;
+    } else if (curatedFlights && curatedFlights.total_options_analyzed === 0) {
+      return `• ✈️ Flight curation in progress for your ${loyaltyTier} member profile
+• 🔍 Analyzing available options with personalized ranking
+• ⚡ Real-time preference matching active`;
+    } else {
+      return `• ✈️ Flight options are being curated for your ${loyaltyTier} preferences
+• 🎯 Personalizing based on your travel history and loyalty benefits
+• 📈 Applying intelligent ranking and value optimization`;
+    }
   };
 
   return (

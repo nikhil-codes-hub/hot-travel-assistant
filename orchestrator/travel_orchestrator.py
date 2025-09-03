@@ -13,6 +13,7 @@ from agents.destination_discovery.destination_agent import DestinationDiscoveryA
 from agents.flights_search.flights_agent import FlightsSearchAgent
 from agents.hotel_search.hotel_agent import HotelSearchAgent
 from agents.offers.offers_agent import OffersAgent
+from agents.flight_curator.flight_curator_agent import FlightCuratorAgent
 from agents.itinerary.itinerary_agent import PrepareItineraryAgent
 from agents.compliance.visa_agent import VisaRequirementAgent
 from agents.compliance.health_agent import HealthAdvisoryAgent
@@ -38,6 +39,7 @@ class TravelState(TypedDict):
     flight_offers: List[Dict[str, Any]]
     hotel_offers: List[Dict[str, Any]]
     enhanced_offers: Dict[str, Any]
+    curated_flights: Dict[str, Any]
     itinerary: Dict[str, Any]
     
     # Post-confirmation compliance
@@ -73,7 +75,10 @@ class TravelOrchestrator:
         workflow.add_node("search_flights_hotels", self._search_flights_hotels_parallel)
         workflow.add_node("enhance_offers", self._enhance_offers)
         
-        # Phase 4: Itinerary Preparation
+        # Phase 4: Flight Curation (NEW)
+        workflow.add_node("curate_flights", self._curate_flights)
+        
+        # Phase 5: Itinerary Preparation
         workflow.add_node("prepare_itinerary", self._prepare_itinerary)
         
         # Define flow
@@ -89,7 +94,8 @@ class TravelOrchestrator:
         workflow.add_edge("discover_destinations", "search_flights_hotels")
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
-        workflow.add_edge("enhance_offers", "prepare_itinerary")
+        workflow.add_edge("enhance_offers", "curate_flights")
+        workflow.add_edge("curate_flights", "prepare_itinerary")
         workflow.add_edge("prepare_itinerary", END)
         
         return workflow.compile()
@@ -142,6 +148,7 @@ class TravelOrchestrator:
                 "flight_offers": [],
                 "hotel_offers": [],
                 "enhanced_offers": {},
+                "curated_flights": {},
                 "itinerary": {},
                 
                 # Compliance (post-confirmation)
@@ -167,6 +174,7 @@ class TravelOrchestrator:
                 "requirements": result.get('extracted_requirements', {}),
                 "profile": result.get('user_profile', {}),
                 "flight_offers": result.get('flight_offers', []),
+                "curated_flights": result.get('curated_flights', {}),
                 "hotel_offers": result.get('hotel_offers', []),
                 "enhanced_offers": result.get('enhanced_offers', {}),
                 "itinerary": result.get('itinerary', {}),
@@ -506,8 +514,40 @@ class TravelOrchestrator:
         
         return state
     
+    async def _curate_flights(self, state: TravelState) -> TravelState:
+        """Phase 4: Curate and rank flights based on customer preferences"""
+        try:
+            agent = FlightCuratorAgent()
+            
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            input_data = {
+                "flight_offers": state["flight_offers"],
+                "customer_profile": state["user_profile"].get("data", {}),
+                "requirements": requirements,
+                "enhanced_offers": state["enhanced_offers"]
+            }
+            
+            result = await agent.execute(input_data, state["session_id"])
+            state["curated_flights"] = result
+            
+            curated_count = len(result.get("data", {}).get("curated_flights", []))
+            confidence = result.get("data", {}).get("curation_confidence", 0)
+            
+            logger.info(f"Flights curated", 
+                       session_id=state["session_id"],
+                       curated_count=curated_count,
+                       confidence_score=confidence)
+            
+        except Exception as e:
+            logger.error(f"Flight curation failed", session_id=state["session_id"], error=str(e))
+            state["curated_flights"] = {"error": str(e)}
+        
+        return state
+    
     async def _prepare_itinerary(self, state: TravelState) -> TravelState:
-        """Phase 4: Assemble coherent travel itinerary with rationale"""
+        """Phase 5: Assemble coherent travel itinerary with rationale"""
         try:
             agent = PrepareItineraryAgent()
             
@@ -524,12 +564,24 @@ class TravelOrchestrator:
                 state["status"] = "requirements_missing"
                 return state
             
+            # Use curated flights if available, otherwise fall back to enhanced offers
+            curated_flight_data = state["curated_flights"].get("data", {})
+            curated_flights = curated_flight_data.get("curated_flights", [])
+            
+            # Extract original flight offers from curated flights or use enhanced offers
+            flight_offers_for_itinerary = []
+            if curated_flights:
+                flight_offers_for_itinerary = [cf.get("original_offer", {}) for cf in curated_flights[:3]]  # Top 3
+            else:
+                flight_offers_for_itinerary = state["enhanced_offers"].get("enhanced_offers", [])
+            
             input_data = {
                 "requirements": requirements,
                 "customer_profile": state["user_profile"].get("data", {}),
-                "flight_offers": state["enhanced_offers"].get("enhanced_offers", []),
+                "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
-                "destination_suggestions": state["destination_suggestions"].get("suggestions", [])
+                "destination_suggestions": state["destination_suggestions"].get("suggestions", []),
+                "curated_flights": curated_flight_data  # Include curation data
             }
             
             result = await agent.execute(input_data, state["session_id"])
