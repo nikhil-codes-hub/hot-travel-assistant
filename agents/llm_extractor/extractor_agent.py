@@ -115,7 +115,7 @@ User Request: "{user_request}"
 Extract the following information and return ONLY valid JSON:
 {{
     "requirements": {{
-        "destination": "exact destination name if clearly specified, null if vague like 'somewhere warm' or 'Europe'",
+        "destination": "destination as mentioned - can be specific ('Paris') or vague ('somewhere snowy', 'beach destination'). Only null if not mentioned at all",
         "destination_type": "type if mentioned: beach/mountains/city/adventure/cultural/romantic etc",
         "departure_date": "YYYY-MM-DD if specific date given, null for 'next week'/'this summer'",
         "return_date": "YYYY-MM-DD if return date specified, null otherwise",
@@ -136,7 +136,7 @@ MISSING FIELDS PRIORITY:
 - Always include departure_date if not specified
 - Include budget if not specified
 - Include travel_class if not specified
-- Include destination if vague or missing
+- Include destination ONLY if completely missing (not if vague like 'somewhere warm')
 """
     
     def _parse_response(self, response_text: str, original_request: str) -> Dict[str, Any]:
@@ -206,7 +206,21 @@ MISSING FIELDS PRIORITY:
         user_lower = user_request.lower()
         
         # Extract destination (only override if new one is found)
-        if "japan" in user_lower:
+        # First check for vague destination patterns
+        if "somewhere snowy" in user_lower or "snowy place" in user_lower:
+            destination = "somewhere snowy"
+        elif "somewhere warm" in user_lower or "warm place" in user_lower:
+            destination = "somewhere warm" 
+        elif "somewhere tropical" in user_lower or "tropical place" in user_lower:
+            destination = "somewhere tropical"
+        elif "beach destination" in user_lower or "beaches" in user_lower:
+            destination = "beach destination"
+        elif "ski destination" in user_lower or "skiing" in user_lower:
+            destination = "ski destination"
+        elif "mountain" in user_lower and "destination" in user_lower:
+            destination = "mountain destination"
+        # Then check for specific destinations
+        elif "japan" in user_lower:
             destination = "Japan"
         elif "new york" in user_lower:
             destination = "New York"
