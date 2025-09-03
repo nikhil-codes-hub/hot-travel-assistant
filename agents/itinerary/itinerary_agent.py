@@ -114,6 +114,51 @@ class PrepareItineraryAgent(BaseAgent):
         response = await model.generate_content_async(prompt)
         return response.text
     
+    def _clean_ai_data(self, ai_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Clean AI response data to handle string values that should be dictionaries"""
+        try:
+            # Clean daily_plan items
+            if "daily_plan" in ai_data and isinstance(ai_data["daily_plan"], list):
+                for day_plan in ai_data["daily_plan"]:
+                    if isinstance(day_plan, dict):
+                        # Fix accommodation field
+                        if "accommodation" in day_plan and isinstance(day_plan["accommodation"], str):
+                            day_plan["accommodation"] = {
+                                "description": day_plan["accommodation"],
+                                "type": "accommodation"
+                            }
+                        
+                        # Fix transportation field
+                        if "transportation" in day_plan and isinstance(day_plan["transportation"], str):
+                            day_plan["transportation"] = {
+                                "description": day_plan["transportation"], 
+                                "type": "transport"
+                            }
+            
+            # Clean travel_components
+            if "travel_components" in ai_data and isinstance(ai_data["travel_components"], dict):
+                travel_components = ai_data["travel_components"]
+                
+                # Fix flights field
+                if "flights" in travel_components and isinstance(travel_components["flights"], str):
+                    travel_components["flights"] = [{
+                        "description": travel_components["flights"],
+                        "type": "flight_summary"
+                    }]
+                
+                # Fix hotels field
+                if "hotels" in travel_components and isinstance(travel_components["hotels"], str):
+                    travel_components["hotels"] = [{
+                        "description": travel_components["hotels"],
+                        "type": "accommodation_summary"
+                    }]
+            
+            return ai_data
+            
+        except Exception as e:
+            self.log(f"Error cleaning AI data: {e}")
+            return ai_data
+    
     async def _create_ai_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create itinerary using AI for coherent planning"""
         
@@ -137,6 +182,9 @@ class PrepareItineraryAgent(BaseAgent):
                 response_text = response_text[3:-3]
             
             ai_data = json.loads(response_text)
+            
+            # Clean AI data to handle string values that should be dicts
+            ai_data = self._clean_ai_data(ai_data)
             
             # Build structured itinerary
             result = self._build_structured_itinerary(ai_data, input_data)
