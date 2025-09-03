@@ -117,6 +117,14 @@ class PrepareItineraryAgent(BaseAgent):
     def _clean_ai_data(self, ai_data: Dict[str, Any]) -> Dict[str, Any]:
         """Clean AI response data to handle string values that should be dictionaries"""
         try:
+            self.log(f"🔍 Cleaning AI data structure...")
+            # Log the original structure for debugging
+            if "travel_components" in ai_data:
+                tc = ai_data["travel_components"]
+                if "flights" in tc:
+                    self.log(f"📡 Original flights type: {type(tc['flights'])}")
+                if "hotels" in tc:
+                    self.log(f"🏨 Original hotels type: {type(tc['hotels'])}")
             # Clean daily_plan items
             if "daily_plan" in ai_data and isinstance(ai_data["daily_plan"], list):
                 for day_plan in ai_data["daily_plan"]:
@@ -139,19 +147,45 @@ class PrepareItineraryAgent(BaseAgent):
             if "travel_components" in ai_data and isinstance(ai_data["travel_components"], dict):
                 travel_components = ai_data["travel_components"]
                 
-                # Fix flights field
-                if "flights" in travel_components and isinstance(travel_components["flights"], str):
-                    travel_components["flights"] = [{
-                        "description": travel_components["flights"],
-                        "type": "flight_summary"
-                    }]
+                # Fix flights field - handle both string and list with string elements
+                if "flights" in travel_components:
+                    flights = travel_components["flights"]
+                    if isinstance(flights, str):
+                        travel_components["flights"] = [{
+                            "description": flights,
+                            "type": "flight_summary"
+                        }]
+                    elif isinstance(flights, list):
+                        cleaned_flights = []
+                        for flight in flights:
+                            if isinstance(flight, str):
+                                cleaned_flights.append({
+                                    "description": flight,
+                                    "type": "flight_summary"
+                                })
+                            elif isinstance(flight, dict):
+                                cleaned_flights.append(flight)
+                        travel_components["flights"] = cleaned_flights
                 
-                # Fix hotels field
-                if "hotels" in travel_components and isinstance(travel_components["hotels"], str):
-                    travel_components["hotels"] = [{
-                        "description": travel_components["hotels"],
-                        "type": "accommodation_summary"
-                    }]
+                # Fix hotels field - handle both string and list with string elements
+                if "hotels" in travel_components:
+                    hotels = travel_components["hotels"]
+                    if isinstance(hotels, str):
+                        travel_components["hotels"] = [{
+                            "description": hotels,
+                            "type": "accommodation_summary"
+                        }]
+                    elif isinstance(hotels, list):
+                        cleaned_hotels = []
+                        for hotel in hotels:
+                            if isinstance(hotel, str):
+                                cleaned_hotels.append({
+                                    "description": hotel,
+                                    "type": "accommodation_summary"
+                                })
+                            elif isinstance(hotel, dict):
+                                cleaned_hotels.append(hotel)
+                        travel_components["hotels"] = cleaned_hotels
             
             return ai_data
             
