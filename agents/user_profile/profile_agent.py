@@ -64,9 +64,14 @@ class UserProfileAgent(BaseAgent):
     
     def _create_basic_profile(self, db: Session, customer_id: str, input_data: Dict[str, Any]) -> UserProfile:
         """Create a basic user profile if one doesn't exist"""
+        # Validate and truncate string fields to prevent database errors
+        nationality = input_data.get("nationality")
+        if nationality:
+            nationality = str(nationality)[:100]
+            
         profile = UserProfile(
-            customer_id=customer_id,
-            nationality=input_data.get("nationality"),
+            customer_id=str(customer_id)[:255],
+            nationality=nationality,
             loyalty_tier="STANDARD",
             preferences={
                 "created_from": "agent_interaction",
@@ -87,10 +92,14 @@ class UserProfileAgent(BaseAgent):
     
     def _create_profile_from_csv(self, db: Session, csv_customer: Dict[str, Any]) -> UserProfile:
         """Create user profile from CSV customer data"""
+        # Validate and truncate string fields to prevent database errors
+        nationality = str(csv_customer.get("nationality", ""))[:100] if csv_customer.get("nationality") else None
+        loyalty_tier = str(self._determine_loyalty_tier(csv_customer["booking_history"]))[:50]
+        
         profile = UserProfile(
-            customer_id=csv_customer["traveler_id"],
-            nationality=csv_customer["nationality"],
-            loyalty_tier=self._determine_loyalty_tier(csv_customer["booking_history"]),
+            customer_id=str(csv_customer["traveler_id"])[:255],
+            nationality=nationality,
+            loyalty_tier=loyalty_tier,
             preferences={
                 "name": csv_customer["name"],
                 "age": csv_customer["age"],

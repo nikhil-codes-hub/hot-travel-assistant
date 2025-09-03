@@ -403,18 +403,18 @@ class TravelOrchestrator:
             # Wait for both to complete
             flight_result, hotel_result = await asyncio.gather(flight_task, hotel_task, return_exceptions=True)
             
-            # Handle results
+            # Handle results - data is nested under "data" key
             if isinstance(flight_result, Exception):
                 logger.error(f"Flight search failed", session_id=state["session_id"], error=str(flight_result))
                 state["flight_offers"] = []
             else:
-                state["flight_offers"] = flight_result.get("offers", [])
+                state["flight_offers"] = flight_result.get("data", {}).get("offers", [])
             
             if isinstance(hotel_result, Exception):
                 logger.error(f"Hotel search failed", session_id=state["session_id"], error=str(hotel_result))
                 state["hotel_offers"] = []
             else:
-                state["hotel_offers"] = hotel_result.get("hotels", [])
+                state["hotel_offers"] = hotel_result.get("data", {}).get("hotels", [])
             
             logger.info(f"Search completed", 
                        session_id=state["session_id"],
@@ -679,6 +679,8 @@ class TravelOrchestrator:
             return "JFK"  # Default fallback
             
         destination_codes = {
+            "Zermatt": "ZUR",  # Zurich airport for Zermatt
+            "Switzerland": "ZUR",
             "Tokyo": "NRT",
             "Paris": "CDG",
             "London": "LHR",
@@ -705,6 +707,8 @@ class TravelOrchestrator:
     def _get_city_code(self, destination: str) -> str:
         """Convert destination name to city code (simplified mapping)"""
         city_codes = {
+            "Zermatt": "ZUR",  # Use Zurich city code for Zermatt hotels
+            "Switzerland": "ZUR",
             "Tokyo": "TYO",
             "Paris": "PAR",
             "London": "LON",

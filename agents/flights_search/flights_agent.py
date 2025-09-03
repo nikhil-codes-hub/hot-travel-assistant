@@ -72,6 +72,15 @@ class FlightsSearchAgent(BaseAgent):
             # Process and format results
             result = self._process_flight_offers(offers_response, input_data)
             
+            # Check if API returned no offers (common for test routes)
+            if result["meta"]["count"] == 0:
+                origin = input_data.get("origin", "Unknown")
+                destination = input_data.get("destination", "Unknown")
+                self.log(f"ℹ️ Amadeus Flights API: No flights available for {origin}→{destination} in test environment")
+                self.log("💡 This is expected - test API has limited route coverage")
+                self.log("🔄 Using realistic mock flight data (provides full experience)")
+                return self._generate_fallback_flights(input_data)
+            
             # Add API source indicator
             result["meta"]["data_source"] = "amadeus_api"
             result["meta"]["is_fallback"] = False

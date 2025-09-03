@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import google.generativeai as genai
+from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
@@ -58,13 +59,24 @@ class PrepareItineraryAgent(BaseAgent):
         self.ai_available = False
         
         try:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-pro')
-                self.ai_available = True
+            if self.ai_provider == "vertex":
+                # Initialize Vertex AI
+                project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+                location = os.getenv("VERTEX_AI_LOCATION")
+                if project_id and location:
+                    aiplatform.init(project=project_id, location=location)
+                    self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
+                    self.ai_available = True
+            else:
+                # Initialize Gemini
+                api_key = os.getenv("GEMINI_API_KEY")
+                if api_key:
+                    genai.configure(api_key=api_key)
+                    self.model = genai.GenerativeModel('gemini-1.5-pro')
+                    self.ai_available = True
         except Exception:
             self.ai_available = False
+            self.model = None
     
     async def execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
         """
@@ -94,15 +106,31 @@ class PrepareItineraryAgent(BaseAgent):
             self.log(f"PrepareItineraryAgent error: {e}")
             return self._generate_fallback_itinerary(input_data)
     
+    async def _call_vertex_ai(self, prompt: str) -> str:
+        """Call Vertex AI Gemini model"""
+        from vertexai.generative_models import GenerativeModel
+        
+        model = GenerativeModel('gemini-1.5-pro')
+        response = await model.generate_content_async(prompt)
+        return response.text
+    
     async def _create_ai_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create itinerary using AI for coherent planning"""
         
         prompt = self._create_itinerary_prompt(input_data)
-        response = self.model.generate_content(prompt)
+        
+        # Call AI API
+        if self.ai_provider == "vertex":
+            response = await self._call_vertex_ai(prompt)
+        else:
+            response = self.model.generate_content(prompt)
         
         try:
             # Parse AI response
-            response_text = response.text.strip()
+            if self.ai_provider == "vertex":
+                response_text = response.strip()
+            else:
+                response_text = response.text.strip()
             if response_text.startswith("```json"):
                 response_text = response_text[7:-3]
             elif response_text.startswith("```"):
@@ -175,7 +203,7 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "location": "City/Area",
             "activities": ["Arrival", "Hotel check-in", "Explore area"],
             "meals": ["Lunch at local restaurant", "Dinner recommendation"],
-            "accommodation": "Hotel info if relevant",
+            "accommodation": {{"name": "Hotel Name", "type": "Hotel/Hostel/etc"}},
             "budget_estimate": 200
         }}
     ],
@@ -215,13 +243,27 @@ Focus on:
         # Build daily itinerary
         days = []
         for plan in daily_plans:
+            # Handle accommodation field - convert string to dict if needed
+            accommodation = plan.get("accommodation")
+            if isinstance(accommodation, str):
+                accommodation = {"description": accommodation, "type": "accommodation"}
+            elif not isinstance(accommodation, dict):
+                accommodation = None
+                
+            # Handle transportation field - convert string to dict if needed  
+            transportation = plan.get("transportation")
+            if isinstance(transportation, str):
+                transportation = {"description": transportation, "type": "transport"}
+            elif not isinstance(transportation, dict):
+                transportation = None
+                
             day = ItineraryDay(
                 day=plan.get("day", 1),
                 date=plan.get("date", "2024-06-01"),
                 location=plan.get("location", "Destination"),
                 activities=plan.get("activities", []),
-                accommodation=plan.get("accommodation"),
-                transportation=plan.get("transportation"),
+                accommodation=accommodation,
+                transportation=transportation,
                 meals=plan.get("meals", []),
                 budget_estimate=plan.get("budget_estimate")
             )
@@ -237,8 +279,8 @@ Focus on:
             destination=overview.get("destination", requirements.get("destination", "")),
             duration=overview.get("duration", requirements.get("duration", 7)),
             traveler_count=overview.get("travelers", requirements.get("passengers", 1)),
-            departure_date=overview.get("departure_date", requirements.get("departure_date", "")),
-            return_date=overview.get("return_date", ""),
+            departure_date=overview.get("departure_date") or requirements.get("departure_date") or "TBD",
+            return_date=overview.get("return_date") or requirements.get("return_date") or "TBD",
             days=days,
             flights=travel_components.get("flights", []),
             accommodations=travel_components.get("hotels", []),
@@ -430,7 +472,7 @@ Focus on:
             duration=requirements.get("duration", 7),
             traveler_count=requirements.get("passengers", 1),
             departure_date=requirements.get("departure_date", "2024-06-01"),
-            return_date=requirements.get("return_date", "2024-06-08"),
+            return_date=requirements.get("return_date") or "2024-06-08",
             days=[],
             flights=[],
             accommodations=[],

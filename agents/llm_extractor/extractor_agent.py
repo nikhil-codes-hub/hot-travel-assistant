@@ -220,6 +220,8 @@ MISSING FIELDS PRIORITY:
         elif "mountain" in user_lower and "destination" in user_lower:
             destination = "mountain destination"
         # Then check for specific destinations
+        elif "zermatt" in user_lower:
+            destination = "Zermatt, Switzerland"
         elif "japan" in user_lower:
             destination = "Japan"
         elif "new york" in user_lower:

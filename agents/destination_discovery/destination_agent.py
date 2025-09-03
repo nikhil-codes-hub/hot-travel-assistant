@@ -2,6 +2,7 @@ import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import google.generativeai as genai
+from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
@@ -28,13 +29,24 @@ class DestinationDiscoveryAgent(BaseAgent):
         self.ai_available = False
         
         try:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-pro')
-                self.ai_available = True
+            if self.ai_provider == "vertex":
+                # Initialize Vertex AI
+                project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+                location = os.getenv("VERTEX_AI_LOCATION")
+                if project_id and location:
+                    aiplatform.init(project=project_id, location=location)
+                    self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
+                    self.ai_available = True
+            else:
+                # Initialize Gemini
+                api_key = os.getenv("GEMINI_API_KEY")
+                if api_key:
+                    genai.configure(api_key=api_key)
+                    self.model = genai.GenerativeModel('gemini-1.5-pro')
+                    self.ai_available = True
         except Exception:
             self.ai_available = False
+            self.model = None
     
     async def execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
         """
@@ -58,14 +70,33 @@ class DestinationDiscoveryAgent(BaseAgent):
         
         try:
             prompt = self._create_discovery_prompt(input_data)
-            response = self.model.generate_content(prompt)
-            result = self._parse_response(response.text, input_data)
+            
+            # Call AI API
+            if self.ai_provider == "vertex":
+                response = await self._call_vertex_ai(prompt)
+            else:
+                response = self.model.generate_content(prompt)
+            
+            # Parse response
+            if self.ai_provider == "vertex":
+                result = self._parse_response(response, input_data)
+            else:
+                result = self._parse_response(response.text, input_data)
+            
             self.log("✅ AI-powered destination suggestions generated")
             return self.format_output(result)
             
         except Exception as e:
             self.log(f"⚠️ AI generation failed ({e}), falling back to intelligent mock suggestions")
             return self._generate_fallback_suggestions(input_data)
+    
+    async def _call_vertex_ai(self, prompt: str) -> str:
+        """Call Vertex AI Gemini model"""
+        from vertexai.generative_models import GenerativeModel
+        
+        model = GenerativeModel('gemini-1.5-pro')
+        response = await model.generate_content_async(prompt)
+        return response.text
     
     def _create_discovery_prompt(self, input_data: Dict[str, Any]) -> str:
         destination_type = input_data.get("destination_type")
@@ -173,7 +204,7 @@ Focus on destinations that are:
     
     def _generate_fallback_suggestions(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate context-aware destination suggestions without AI"""
-        destination_type = input_data.get("destination_type", "").lower()
+        destination_type = (input_data.get("destination_type") or "").lower()
         budget = input_data.get("budget", 0)
         departure_date = input_data.get("departure_date")
         duration = input_data.get("duration", 7)

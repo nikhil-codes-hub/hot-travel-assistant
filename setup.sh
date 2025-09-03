@@ -14,6 +14,7 @@ echo "✅ Using conda environment: $CONDA_DEFAULT_ENV"
 python -m venv hotenv
 source hotenv/bin/activate
 echo "📦 Installing Python dependencies..."
+pip install fastapi uvicorn pymysql cryptography sqlalchemy pydantic python-dotenv structlog
 pip install -r requirements.txt
 
 # Create .env file for SQLite

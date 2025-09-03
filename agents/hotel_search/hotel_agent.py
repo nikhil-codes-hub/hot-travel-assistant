@@ -75,6 +75,11 @@ class HotelSearchAgent(BaseAgent):
             # First, search for hotels by city
             hotel_list = await self._search_hotels_by_city(input_data)
             
+            # Check if no hotels found (common in test environment)
+            if not hotel_list:
+                self.log("🔄 Using realistic mock hotel data (provides full experience)")
+                return self._generate_fallback_hotels(input_data)
+            
             # Then get offers for the hotels
             hotels_with_offers = await self._get_hotel_offers(hotel_list, input_data)
             
@@ -93,16 +98,16 @@ class HotelSearchAgent(BaseAgent):
             city_code = input_data.get("cityCode", "unknown")
             latitude, longitude = self._get_city_coordinates(city_code)
             
-            if "400" in error_msg and ("NOTHING FOUND" in error_msg or "Nothing found" in error_msg):
-                self.log(f"ℹ️ Amadeus Hotels API: No hotels available in test environment")
-                self.log(f"🗺️ Searched coordinates ({latitude}, {longitude}) for city {city_code}")
-                self.log("💡 This is normal - Amadeus test API has very limited hotel data")
+            if "400" in error_msg and ("NOTHING FOUND" in error_msg or "Nothing found" in error_msg or "NOTHING FOUND FOR REQUESTED CITY" in error_msg):
+                self.log(f"ℹ️ Amadeus Hotels API: No hotels available for {city_code} in test environment")
+                self.log(f"🗺️ Searched coordinates ({latitude}, {longitude}) - API working correctly")
+                self.log("💡 This is expected - Amadeus test API has very limited hotel data")
             elif "400" in error_msg and "INVALID FACILITY" in error_msg:
                 self.log(f"⚠️ Amadeus Hotels API: Invalid facility/amenity codes - fixed in next request")
             else:
                 self.log(f"⚠️ Amadeus Hotels API error: {e}")
             
-            self.log("🔄 Using mock hotel data (provides full experience)")
+            self.log("🔄 Using realistic mock hotel data (provides full experience)")
             return self._generate_fallback_hotels(input_data)
     
     async def _ensure_access_token(self):
@@ -136,6 +141,7 @@ class HotelSearchAgent(BaseAgent):
     def _get_city_coordinates(self, flight_city_code: str) -> tuple:
         """Get coordinates for major cities to use with Hotels by Geocode API"""
         coordinates = {
+            "ZUR": (47.3769, 8.5417),     # Zurich
             "PAR": (48.8566, 2.3522),     # Paris
             "LON": (51.5074, -0.1278),    # London  
             "NYC": (40.7128, -74.0060),   # New York
@@ -183,6 +189,21 @@ class HotelSearchAgent(BaseAgent):
                 headers=headers,
                 timeout=30.0
             )
+            
+            # Check for specific API errors before raising
+            if response.status_code == 400:
+                try:
+                    error_data = response.json()
+                    if error_data.get("errors") and error_data["errors"][0].get("code") == 895:
+                        city_code = input_data.get("cityCode", "unknown")
+                        self.log(f"ℹ️ Amadeus Hotels API: No hotels available for {city_code} in test environment")
+                        self.log(f"🗺️ Searched coordinates ({latitude}, {longitude}) - API working correctly")  
+                        self.log("💡 This is expected - Amadeus test API has very limited hotel data")
+                        # Return empty list so main flow will handle fallback properly
+                        return []
+                except:
+                    pass  # Fall through to general error handling
+            
             response.raise_for_status()
             
             hotels_response = response.json()
