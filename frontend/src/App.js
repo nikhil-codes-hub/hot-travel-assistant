@@ -164,9 +164,12 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 🗓️ **Itinerary Status:**
 ${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
 
+${formatFlightDetails(data)}
+
+${formatHotelDetails(data)}
+
 🚀 **Next Steps:**
 ${generateFlightCurationStatus(data)}
-• Hotel recommendations based on your loyalty tier
 • Activities and dining suggestions being compiled
 • Travel documents and requirements being checked
 
@@ -284,6 +287,158 @@ ${generateFlightCurationStatus(data)}
 • 🎯 Personalizing based on your travel history and loyalty benefits
 • 📈 Applying intelligent ranking and value optimization`;
     }
+  };
+
+  const formatFlightDetails = (data) => {
+    const curatedFlights = data?.data?.curated_flights?.data?.curated_flights || [];
+    const flightOffers = data?.data?.flight_offers || [];
+    const profile = data?.data?.profile?.data || {};
+    const loyaltyTier = profile.loyalty_tier || 'STANDARD';
+    
+    if (curatedFlights.length === 0 && flightOffers.length === 0) {
+      return `
+✈️ **Flight Options**
+🔍 Searching for the best flight options for your trip...
+`;
+    }
+    
+    let flightSection = `
+✈️ **Curated Flight Options for ${loyaltyTier} Member**
+`;
+    
+    // Show top 3 curated flights
+    const displayFlights = curatedFlights.length > 0 ? curatedFlights.slice(0, 3) : flightOffers.slice(0, 3);
+    
+    displayFlights.forEach((flight, index) => {
+      const originalOffer = flight.original_offer || flight;
+      const price = originalOffer.price || {};
+      const itineraries = originalOffer.itineraries || [];
+      const segments = itineraries[0]?.segments || [];
+      const validatingAirline = originalOffer.validatingAirlineCodes?.[0] || 'Airline';
+      
+      const rank = flight.rank || (index + 1);
+      const highlights = flight.highlights || [];
+      const recommendationReason = flight.recommendation_reason || '';
+      
+      flightSection += `
+**Option ${rank}${recommendationReason ? ` - ${recommendationReason}` : ''}**`;
+      
+      if (segments.length > 0) {
+        const firstSegment = segments[0];
+        const lastSegment = segments[segments.length - 1];
+        const departure = firstSegment.departure || {};
+        const arrival = lastSegment.arrival || {};
+        
+        flightSection += `
+• 🛫 ${departure.iataCode || 'DEP'} → ${arrival.iataCode || 'ARR'}`;
+        
+        if (departure.at) {
+          const depTime = new Date(departure.at).toLocaleString();
+          flightSection += `
+• 📅 Departure: ${depTime}`;
+        }
+        
+        if (segments.length === 1) {
+          flightSection += `
+• ✅ Direct flight (no connections)`;
+        } else {
+          flightSection += `
+• 🔄 ${segments.length - 1} connection(s)`;
+        }
+        
+        flightSection += `
+• 🏢 Airline: ${validatingAirline}
+• 💰 Price: ${price.currency || 'USD'} ${price.total || 'TBD'}`;
+        
+        if (highlights.length > 0) {
+          flightSection += `
+• 🌟 ${highlights.slice(0, 2).join(' • ')}`;
+        }
+      } else {
+        flightSection += `
+• 💰 Price: ${price.currency || 'USD'} ${price.total || 'TBD'}
+• 🏢 Airline: ${validatingAirline}`;
+        
+        if (highlights.length > 0) {
+          flightSection += `
+• 🌟 ${highlights.slice(0, 2).join(' • ')}`;
+        }
+      }
+      
+      flightSection += `
+`;
+    });
+    
+    return flightSection;
+  };
+
+  const formatHotelDetails = (data) => {
+    const hotelOffers = data?.data?.hotel_offers || [];
+    const profile = data?.data?.profile?.data || {};
+    const loyaltyTier = profile.loyalty_tier || 'STANDARD';
+    
+    if (hotelOffers.length === 0) {
+      return `
+🏨 **Hotel Options**
+🔍 Searching for the best hotel options for your stay...
+`;
+    }
+    
+    let hotelSection = `
+🏨 **Hotel Recommendations for ${loyaltyTier} Member**
+`;
+    
+    // Show top 3 hotels
+    const displayHotels = hotelOffers.slice(0, 3);
+    
+    displayHotels.forEach((hotel, index) => {
+      const hotelName = hotel.name || `Hotel Option ${index + 1}`;
+      const rating = hotel.rating ? `${hotel.rating}⭐` : '';
+      const offers = hotel.offers || [];
+      const firstOffer = offers[0] || {};
+      const price = firstOffer.price || {};
+      const room = firstOffer.room || {};
+      const address = hotel.address || {};
+      
+      hotelSection += `
+**${hotelName}** ${rating}`;
+      
+      if (address.lines?.[0]) {
+        hotelSection += `
+• 📍 ${address.lines[0]}`;
+        if (address.cityName) {
+          hotelSection += `, ${address.cityName}`;
+        }
+      }
+      
+      if (price.total) {
+        hotelSection += `
+• 💰 From ${price.currency || 'USD'} ${price.total} per night`;
+      }
+      
+      if (room.type || room.typeEstimated?.category) {
+        const roomType = room.type || room.typeEstimated?.category || 'Standard Room';
+        hotelSection += `
+• 🏠 Room: ${roomType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}`;
+      }
+      
+      if (loyaltyTier !== 'STANDARD') {
+        hotelSection += `
+• ⭐ ${loyaltyTier} member benefits included`;
+      }
+      
+      const amenities = hotel.amenities || [];
+      if (amenities.length > 0) {
+        const amenityNames = amenities.slice(0, 3).map(a => a.description).join(', ');
+        hotelSection += `
+• 🎯 Amenities: ${amenityNames}`;
+      }
+      
+      hotelSection += `
+`;
+    });
+    
+    return hotelSection;
   };
 
   return (
