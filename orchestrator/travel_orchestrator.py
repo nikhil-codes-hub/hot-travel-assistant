@@ -374,8 +374,28 @@ class TravelOrchestrator:
             # Prepare search parameters
             departure_date = requirements.get("departure_date", "2024-07-01")
             return_date = requirements.get("return_date")
+            duration = requirements.get("duration", 7)
             adults = requirements.get("passengers", 1)
             travel_class = requirements.get("travel_class", "ECONOMY")
+            
+            # Calculate check-out date if not provided
+            if not return_date:
+                try:
+                    from datetime import datetime, timedelta
+                    dep_date = datetime.fromisoformat(departure_date)
+                    return_date = (dep_date + timedelta(days=duration-1)).isoformat()[:10]
+                except:
+                    # Fallback: add duration to departure date string
+                    return_date = departure_date  # This should be fixed with proper date calculation
+                    
+            # Ensure check-out is at least 1 day after check-in
+            if return_date == departure_date:
+                try:
+                    from datetime import datetime, timedelta
+                    dep_date = datetime.fromisoformat(departure_date)
+                    return_date = (dep_date + timedelta(days=1)).isoformat()[:10]
+                except:
+                    return_date = departure_date
             
             # Parse destination for airport/city codes (simplified)
             origin = "LAX"  # Default origin (would be determined from user location)
@@ -395,7 +415,7 @@ class TravelOrchestrator:
             hotel_task = self._search_hotels({
                 "cityCode": city_code,
                 "checkInDate": departure_date,
-                "checkOutDate": return_date or departure_date,
+                "checkOutDate": return_date,
                 "adults": adults,
                 "rooms": 1
             }, state["session_id"])
