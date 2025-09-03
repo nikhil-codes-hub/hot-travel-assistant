@@ -89,7 +89,13 @@ class HotelSearchAgent(BaseAgent):
             return self.format_output(result)
             
         except Exception as e:
-            self.log(f"⚠️ Amadeus Hotels API error: {e}")
+            error_msg = str(e)
+            city_code = input_data.get("cityCode", "unknown")
+            if "400" in error_msg and "NOTHING FOUND" in error_msg:
+                self.log(f"ℹ️ Amadeus Hotels API: No hotels found in test environment for city {city_code}")
+                self.log("💡 This is expected - test environment has limited hotel data")
+            else:
+                self.log(f"⚠️ Amadeus Hotels API error: {e}")
             self.log("🔄 Falling back to mock hotel data")
             return self._generate_fallback_hotels(input_data)
     
@@ -121,8 +127,30 @@ class HotelSearchAgent(BaseAgent):
             expires_in = token_response.get("expires_in", 1799)
             self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
+    def _get_city_coordinates(self, flight_city_code: str) -> tuple:
+        """Get coordinates for major cities to use with Hotels by Geocode API"""
+        coordinates = {
+            "PAR": (48.8566, 2.3522),     # Paris
+            "LON": (51.5074, -0.1278),    # London  
+            "NYC": (40.7128, -74.0060),   # New York
+            "TYO": (35.6762, 139.6503),   # Tokyo
+            "LAX": (34.0522, -118.2437),  # Los Angeles
+            "SFO": (37.7749, -122.4194),  # San Francisco
+            "BKK": (13.7563, 100.5018),   # Bangkok
+            "SIN": (1.3521, 103.8198),    # Singapore
+            "DXB": (25.2048, 55.2708),    # Dubai
+            "SYD": (-33.8688, 151.2093)   # Sydney
+        }
+        return coordinates.get(flight_city_code, (48.8566, 2.3522))  # Default to Paris
+    
     async def _search_hotels_by_city(self, input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Search for hotels in a city using Amadeus Hotel List API"""
+        """Search for hotels in a city using Amadeus Hotel List API with coordinates"""
+        # Get coordinates for the city instead of using city codes
+        original_city_code = input_data["cityCode"]
+        latitude, longitude = self._get_city_coordinates(original_city_code)
+        
+        self.log(f"🏨 Using coordinates for {original_city_code}: ({latitude}, {longitude})")
+        
         async with httpx.AsyncClient() as client:
             headers = {
                 "Authorization": f"Bearer {self.access_token}",
@@ -130,7 +158,8 @@ class HotelSearchAgent(BaseAgent):
             }
             
             params = {
-                "cityCode": input_data["cityCode"],
+                "latitude": latitude,
+                "longitude": longitude,
                 "radius": input_data.get("radius", 20),
                 "radiusUnit": input_data.get("radiusUnit", "KM"),
                 "amenities": input_data.get("amenities", ""),
@@ -139,7 +168,7 @@ class HotelSearchAgent(BaseAgent):
             }
             
             response = await client.get(
-                f"{self.amadeus_base_url}/v1/reference-data/locations/hotels/by-city",
+                f"{self.amadeus_base_url}/v1/reference-data/locations/hotels/by-geocode",
                 params=params,
                 headers=headers,
                 timeout=30.0
