@@ -39,7 +39,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [customerData, setCustomerData] = useState({
-    email_id: '',
+    email_id: 'henry.thomas596@yahoo.com',
     nationality: '',
     passport_number: ''
   });
