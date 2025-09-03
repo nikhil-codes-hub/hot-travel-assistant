@@ -219,33 +219,28 @@ class HotelSearchAgent(BaseAgent):
         
         async with httpx.AsyncClient() as client:
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {self.access_token}"
             }
             
-            search_body = {
-                "criteria": {
-                    "hotelIds": hotel_ids,
-                    "checkInDate": input_data["checkInDate"],
-                    "checkOutDate": input_data["checkOutDate"],
-                    "guests": {
-                        "adults": input_data["adults"],
-                        "children": input_data.get("children", 0)
-                    },
-                    "rooms": input_data.get("rooms", 1)
-                }
+            # Build query parameters for GET request
+            params = {
+                "hotelIds": ",".join(hotel_ids),
+                "checkInDate": input_data["checkInDate"],
+                "checkOutDate": input_data["checkOutDate"],
+                "adults": input_data["adults"],
+                "roomQuantity": input_data.get("rooms", 1)
             }
             
-            # Add optional filters
+            # Add optional parameters
             if input_data.get("currency"):
-                search_body["criteria"]["currency"] = input_data["currency"]
+                params["currency"] = input_data["currency"]
             
-            if input_data.get("priceRange"):
-                search_body["criteria"]["priceRange"] = input_data["priceRange"]
+            if input_data.get("children"):
+                params["children"] = input_data["children"]
             
-            response = await client.post(
-                f"{self.amadeus_base_url}/v2/shopping/hotel-offers",
-                json=search_body,
+            response = await client.get(
+                f"{self.amadeus_base_url}/v3/shopping/hotel-offers",
+                params=params,
                 headers=headers,
                 timeout=30.0
             )

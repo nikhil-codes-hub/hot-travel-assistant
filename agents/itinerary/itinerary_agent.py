@@ -203,7 +203,7 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "location": "City/Area",
             "activities": ["Arrival", "Hotel check-in", "Explore area"],
             "meals": ["Lunch at local restaurant", "Dinner recommendation"],
-            "accommodation": {{"name": "Hotel Name", "type": "Hotel/Hostel/etc"}},
+            "accommodation": "Hotel info if relevant",
             "budget_estimate": 200
         }}
     ],
@@ -243,27 +243,13 @@ Focus on:
         # Build daily itinerary
         days = []
         for plan in daily_plans:
-            # Handle accommodation field - convert string to dict if needed
-            accommodation = plan.get("accommodation")
-            if isinstance(accommodation, str):
-                accommodation = {"description": accommodation, "type": "accommodation"}
-            elif not isinstance(accommodation, dict):
-                accommodation = None
-                
-            # Handle transportation field - convert string to dict if needed  
-            transportation = plan.get("transportation")
-            if isinstance(transportation, str):
-                transportation = {"description": transportation, "type": "transport"}
-            elif not isinstance(transportation, dict):
-                transportation = None
-                
             day = ItineraryDay(
                 day=plan.get("day", 1),
                 date=plan.get("date", "2024-06-01"),
                 location=plan.get("location", "Destination"),
                 activities=plan.get("activities", []),
-                accommodation=accommodation,
-                transportation=transportation,
+                accommodation=plan.get("accommodation"),
+                transportation=plan.get("transportation"),
                 meals=plan.get("meals", []),
                 budget_estimate=plan.get("budget_estimate")
             )
