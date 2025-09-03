@@ -164,6 +164,8 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 🗓️ **Itinerary Status:**
 ${itinerary.rationale || 'AI-powered itinerary generation in progress...'}
 
+${formatDataDump(data)}
+
 ${formatFlightDetails(data)}
 
 ${formatHotelDetails(data)}
@@ -295,19 +297,30 @@ ${generateFlightCurationStatus(data)}
     const profile = data?.data?.profile?.data || {};
     const loyaltyTier = profile.loyalty_tier || 'STANDARD';
     
+    // Debug logging
+    console.log('formatFlightDetails data:', {
+      curatedFlights: curatedFlights.length,
+      flightOffers: flightOffers.length,
+      curatedFlightsData: data?.data?.curated_flights?.data,
+      flightOffersData: data?.data?.flight_offers
+    });
+    
     if (curatedFlights.length === 0 && flightOffers.length === 0) {
       return `
 ✈️ **Flight Options**
+🔍 Found ${flightOffers.length} flight offers and ${curatedFlights.length} curated flights
+📊 Debug: Checking data structure...
 🔍 Searching for the best flight options for your trip...
 `;
     }
     
     let flightSection = `
-✈️ **Curated Flight Options for ${loyaltyTier} Member**
+✈️ **Flight Options for ${loyaltyTier} Member**
+📊 Found ${flightOffers.length} flight offers • ${curatedFlights.length} curated flights
 `;
     
-    // Show top 3 curated flights
-    const displayFlights = curatedFlights.length > 0 ? curatedFlights.slice(0, 3) : flightOffers.slice(0, 3);
+    // Show more flights - up to 10
+    const displayFlights = curatedFlights.length > 0 ? curatedFlights.slice(0, 10) : flightOffers.slice(0, 10);
     
     displayFlights.forEach((flight, index) => {
       const originalOffer = flight.original_offer || flight;
@@ -377,19 +390,27 @@ ${generateFlightCurationStatus(data)}
     const profile = data?.data?.profile?.data || {};
     const loyaltyTier = profile.loyalty_tier || 'STANDARD';
     
+    // Debug logging
+    console.log('formatHotelDetails data:', {
+      hotelOffers: hotelOffers.length,
+      hotelOffersData: data?.data?.hotel_offers
+    });
+    
     if (hotelOffers.length === 0) {
       return `
 🏨 **Hotel Options**
+📊 Found ${hotelOffers.length} hotel offers
 🔍 Searching for the best hotel options for your stay...
 `;
     }
     
     let hotelSection = `
-🏨 **Hotel Recommendations for ${loyaltyTier} Member**
+🏨 **Hotel Options for ${loyaltyTier} Member**
+📊 Found ${hotelOffers.length} hotel offers available
 `;
     
-    // Show top 3 hotels
-    const displayHotels = hotelOffers.slice(0, 3);
+    // Show more hotels - up to 8
+    const displayHotels = hotelOffers.slice(0, 8);
     
     displayHotels.forEach((hotel, index) => {
       const hotelName = hotel.name || `Hotel Option ${index + 1}`;
@@ -439,6 +460,20 @@ ${generateFlightCurationStatus(data)}
     });
     
     return hotelSection;
+  };
+
+  const formatDataDump = (data) => {
+    return `
+🔍 **Debug Information**
+📊 Raw Data Structure Available:
+• Flight Offers: ${data?.data?.flight_offers?.length || 0} items
+• Curated Flights: ${data?.data?.curated_flights?.data?.curated_flights?.length || 0} items
+• Hotel Offers: ${data?.data?.hotel_offers?.length || 0} items
+• Enhanced Offers: ${data?.data?.enhanced_offers?.data?.enhanced_offers?.length || 0} items
+
+**Sample Flight Data:** ${data?.data?.flight_offers?.[0]?.id || 'No flight ID found'}
+**Sample Hotel Data:** ${data?.data?.hotel_offers?.[0]?.name || 'No hotel name found'}
+`;
   };
 
   return (
