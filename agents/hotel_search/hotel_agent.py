@@ -65,8 +65,8 @@ class HotelSearchAgent(BaseAgent):
         
         # Check Amadeus API availability
         if not self.amadeus_client_id or not self.amadeus_client_secret:
-            self.log("⚠️ Amadeus API credentials not configured, using mock hotel data")
-            return self._generate_fallback_hotels(input_data)
+            self.log("⚠️ Amadeus API credentials not configured - hotels unavailable")
+            return self._generate_no_hotels_message(input_data)
         
         try:
             # Ensure we have valid access token
@@ -77,8 +77,8 @@ class HotelSearchAgent(BaseAgent):
             
             # Check if no hotels found (common in test environment)
             if not hotel_list:
-                self.log("🔄 Using realistic mock hotel data (provides full experience)")
-                return self._generate_fallback_hotels(input_data)
+                self.log("❌ No hotels found in destination - hotels unavailable")
+                return self._generate_no_hotels_message(input_data)
             
             # Then get offers for the hotels
             hotels_with_offers = await self._get_hotel_offers(hotel_list, input_data)
@@ -107,8 +107,8 @@ class HotelSearchAgent(BaseAgent):
             else:
                 self.log(f"⚠️ Amadeus Hotels API error: {e}")
             
-            self.log("🔄 Using realistic mock hotel data (provides full experience)")
-            return self._generate_fallback_hotels(input_data)
+            self.log("❌ No hotels found from live API - returning unavailable message")
+            return self._generate_no_hotels_message(input_data)
     
     async def _ensure_access_token(self):
         """Ensure we have a valid Amadeus access token"""
@@ -324,81 +324,27 @@ class HotelSearchAgent(BaseAgent):
         except Exception as e:
             raise Exception(f"Error processing hotel response: {e}")
     
-    def _generate_fallback_hotels(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate mock hotel data when Amadeus API is unavailable"""
+    def _generate_no_hotels_message(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Return clear message when no hotels are available"""
         
-        mock_offers = [
-            HotelOffer(
-                id="MOCK_HOTEL_OFFER_1",
-                check_in_date=input_data["checkInDate"],
-                check_out_date=input_data["checkOutDate"],
-                room_quantity=input_data.get("rooms", 1),
-                price={
-                    "currency": "USD",
-                    "total": "199.00",
-                    "base": "179.00",
-                    "taxes": [{"amount": "20.00", "code": "VAT"}]
-                },
-                room={
-                    "type": "STANDARD",
-                    "typeEstimated": {
-                        "category": "STANDARD_ROOM",
-                        "beds": 1,
-                        "bedType": "DOUBLE"
-                    }
-                },
-                guests={"adults": input_data["adults"]},
-                policies={}
-            )
-        ]
-        
-        mock_amenities = [
-            HotelAmenity(description="FREE_WIFI", chargeable=False),
-            HotelAmenity(description="RESTAURANT", chargeable=False),
-            HotelAmenity(description="FITNESS_CENTER", chargeable=False)
-        ]
-        
-        mock_hotels = [
-            Hotel(
-                hotel_id="MOCK_HOTEL_1",
-                chain_code="AC",
-                name="Grand City Hotel",
-                rating=4.2,
-                address={
-                    "lines": ["123 Main Street"],
-                    "cityName": input_data["cityCode"],
-                    "countryCode": "US"
-                },
-                contact={
-                    "phone": "+1-555-0123",
-                    "email": "info@grandcityhotel.com"
-                },
-                description="A comfortable city center hotel with modern amenities",
-                amenities=mock_amenities,
-                media=[],
-                offers=mock_offers
-            )
-        ]
-        
-        fallback_result = HotelSearchResult(
-            hotels=mock_hotels,
+        no_hotels_result = HotelSearchResult(
+            hotels=[],  # Empty list - no hotels
             search_criteria={
-                "cityCode": input_data["cityCode"],
-                "checkInDate": input_data["checkInDate"],
-                "checkOutDate": input_data["checkOutDate"],
-                "adults": input_data["adults"],
+                "cityCode": input_data.get("cityCode", "Unknown"),
+                "checkInDate": input_data.get("checkInDate", ""),
+                "checkOutDate": input_data.get("checkOutDate", ""),
+                "adults": input_data.get("adults", 1),
                 "children": input_data.get("children", 0),
                 "rooms": input_data.get("rooms", 1)
             },
             meta={
-                "count": 1,
-                "search_radius": 20,
-                "currency": "USD",
-                "data_source": "mock_fallback",
-                "is_fallback": True,
-                "mode": "fallback_mock_data"
+                "count": 0,
+                "message": "No hotels available for this destination",
+                "status": "no_results",
+                "data_source": "amadeus_api",
+                "search_attempted": True
             }
         )
         
-        self.log("📝 Generated mock hotel data as fallback")
-        return self.format_output(fallback_result.model_dump())
+        self.log("❌ No hotels available - returning empty results with clear message")
+        return self.format_output(no_hotels_result.model_dump())
