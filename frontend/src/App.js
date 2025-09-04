@@ -141,9 +141,9 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             
             // If no missing fields, show comprehensive travel plan
             if (missing_fields.length === 0) {
-              agentContent = `🎯 Complete Travel Plan Ready!
+              agentContent = `🎯 Travel Proposal Ready for Client
 
-✅ Your Travel Requirements:
+✅ Trip Requirements:
 • Destination: ${displayRequirements.destination}
 • Departure Date: ${displayRequirements.departure_date}
 • Duration: ${displayRequirements.duration} days
@@ -151,16 +151,17 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 • Travel Class: ${displayRequirements.travel_class}
 • Budget: $${displayRequirements.budget}
 
-👤 Customer Profile:
-• Premium Business Traveler
-• International Market: ${profile.nationality || 'Asia-Pacific'}
-• Travel History: ${profile.total_bookings || 29} previous bookings
-• Status: ${profile.loyalty_tier || 'Premium'} Tier Member
+👤 Client Information:
+• Traveler Profile: Business Class Preference
+• Origin Market: ${profile.nationality || 'Japan'}
+• Booking History: ${profile.total_bookings || 29} previous trips
+• Loyalty Status: ${profile.loyalty_tier || 'GOLD'} Member
 
-💼 Value Optimization:
-• Corporate Rate Savings: $${data.data.enhanced_offers?.data?.total_savings?.toFixed(2) || '42,324.56'}
-• Premium Service Benefits: Active
-• Preferred Partner Network: Included
+📋 Booking Notes:
+• Client prefers business class travel
+• Loyalty benefits available for upgrades
+• Winter destination specialist recommendations
+• Budget-conscious but quality-focused
 
 🗓️ Itinerary Overview:
 ${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
@@ -169,13 +170,13 @@ ${formatFlightDetails(data)}
 
 ${formatHotelDetails(data)}
 
-🚀 Implementation Readiness:
-• Flight options optimized and ranked by value and convenience
-• Premium accommodation selections curated
-• Activities and dining recommendations compiled
-• Travel documentation requirements verified
+📞 Next Steps for Booking:
+• Review flight options with client for final selection
+• Confirm hotel preference and room requirements
+• Verify passport validity and any visa requirements
+• Arrange travel insurance if requested
 
-Complete travel solution ready for execution`;
+Ready to proceed with reservations`;
             } else {
               // Standard requirements gathering display
               agentContent = `🌍 **Travel Plan Analysis**
