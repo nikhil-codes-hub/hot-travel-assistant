@@ -82,7 +82,8 @@ class LLMExtractorAgent(BaseAgent):
         
         # Check if AI is available - now enforcing LLM usage
         if not self.ai_available:
-            self.log("⚠️  LLM not available - applying intelligent defaults")
+            self.log("⚠️  LLM not available - this limits destination coverage to hardcoded patterns")
+            self.log("🔧  Please configure GEMINI_API_KEY in .env file for comprehensive destination extraction")
             return self._generate_fallback_extraction(user_request, conversation_context)
         
         try:
@@ -410,6 +411,25 @@ INTELLIGENT DEFAULTS EXAMPLES:
             destination = "London"
         elif "tokyo" in user_lower:
             destination = "Tokyo"
+        else:
+            # Generic extraction for any location mentioned
+            # Try to extract destination from patterns like "plan trip to X", "visit X", "travel to X"
+            import re
+            location_patterns = [
+                r'(?:plan\s+(?:a\s+)?trip\s+to|visit|travel\s+to|going\s+to)\s+([A-Za-z][A-Za-z\s,\-]{1,30}?)(?:\s+next|\s+in|\s+for|\s*$|\.)',
+                r'trip\s+to\s+([A-Za-z][A-Za-z\s,\-]{1,30}?)(?:\s+next|\s+in|\s+for|\s*$|\.)',
+                r'to\s+([A-Za-z][A-Za-z\s,\-]{2,30}?)(?:\s+next|\s+in|\s+for|\s*$|\.)',
+            ]
+            
+            for pattern in location_patterns:
+                match = re.search(pattern, user_lower, re.IGNORECASE)
+                if match:
+                    potential_dest = match.group(1).strip()
+                    # Clean up common trailing words
+                    potential_dest = re.sub(r'\s+(next|in|for|on|at|this|month|year|week)$', '', potential_dest, flags=re.IGNORECASE)
+                    if len(potential_dest.strip()) > 2:  # Must be more than 2 characters
+                        destination = potential_dest.strip().title()
+                        break
         
         # Extract duration if mentioned (only override if new one found)
         import re
