@@ -252,7 +252,15 @@ class TravelOrchestrator:
                 "conversation_context": state.get("conversation_context")
             }
             
+            logger.info(f"Calling LLM extractor", 
+                       session_id=state["session_id"],
+                       user_request=state["user_request"])
+            
             result = await agent.execute(input_data, state["session_id"])
+            
+            logger.info(f"LLM extractor result", 
+                       session_id=state["session_id"],
+                       result_keys=list(result.keys()) if result else "None")
             state["extracted_requirements"] = result
             
             # Determine if destination discovery is needed
@@ -354,6 +362,11 @@ class TravelOrchestrator:
                 "special_requirements": requirements.get("special_requirements", [])
             }
             
+            logger.info(f"Destination discovery input", 
+                       session_id=state["session_id"],
+                       destination_type=requirements.get("destination_type"),
+                       original_destination=requirements.get("destination"))
+            
             result = await agent.execute(input_data, state["session_id"])
             state["destination_suggestions"] = result
             
@@ -389,6 +402,11 @@ class TravelOrchestrator:
                     requirements["travel_class"] = "economy"
                 if not requirements.get("budget_currency"):
                     requirements["budget_currency"] = "USD"
+                if not requirements.get("departure_date"):
+                    # Set a reasonable future departure date
+                    from datetime import datetime, timedelta
+                    future_date = datetime.now() + timedelta(days=30)  # 30 days from now
+                    requirements["departure_date"] = future_date.strftime("%Y-%m-%d")
                 
                 # Update the state with enhanced requirements
                 state["extracted_requirements"]["data"]["requirements"] = requirements
