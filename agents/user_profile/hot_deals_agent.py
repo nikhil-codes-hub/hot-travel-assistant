@@ -8,7 +8,14 @@ import os
 import structlog
 import io
 from contextlib import redirect_stdout
-from playwright.async_api import async_playwright
+
+logger = structlog.get_logger()
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    async_playwright = None
 import json
 import asyncio
 
@@ -96,7 +103,11 @@ class HotDealsAgent(BaseAgent):
         """Generate AI-powered deals information"""
         
         # Get hot deals
-        hot_deals = await self._scrape_houseoftravel_deals()
+        if PLAYWRIGHT_AVAILABLE:
+            hot_deals = await self._scrape_houseoftravel_deals()
+        else:
+            hot_deals = []
+            logger.warning("Playwright not available - cannot scrape hot deals. Using fallback empty list.")
 
         # Create system prompt
         prompt = f"""

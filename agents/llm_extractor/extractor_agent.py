@@ -52,7 +52,7 @@ class LLMExtractorAgent(BaseAgent):
                 api_key = os.getenv("GEMINI_API_KEY")
                 if api_key:
                     genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-1.5-pro')
+                    self.model = genai.GenerativeModel('gemini-2.0-flash')
                     self.ai_available = True
         except Exception:
             self.ai_available = False
@@ -365,6 +365,8 @@ INTELLIGENT DEFAULTS EXAMPLES:
         elif "mountain" in user_lower and "destination" in user_lower:
             destination = "mountain destination"
         # Then check for specific destinations
+        elif "thailand" in user_lower:
+            destination = "Thailand"
         elif "zermatt" in user_lower:
             destination = "Zermatt, Switzerland"
         elif "japan" in user_lower:
@@ -453,6 +455,32 @@ INTELLIGENT DEFAULTS EXAMPLES:
                     departure_date = date_match.group(1)
                 break
         
+        # Apply intelligent defaults for comprehensive travel planning
+        if not duration:
+            if destination and any(intl in destination.lower() for intl in ["thailand", "japan", "europe", "paris", "london"]):
+                duration = 7  # International destinations
+            else:
+                duration = 5  # Domestic/city breaks
+                
+        if not budget:
+            if destination and "thailand" in destination.lower():
+                budget = 2500  # Thailand budget for comprehensive planning
+            elif destination and any(expensive in destination.lower() for expensive in ["paris", "london", "switzerland", "zermatt"]):
+                budget = 3500  # Expensive destinations
+            else:
+                budget = 2000  # Default international budget
+                
+        if not travel_class:
+            travel_class = "economy"  # Default for budget planning
+            
+        if passengers == 1:
+            passengers = 2  # Default to 2 for better travel experience
+            
+        # Generate departure date if missing (30 days from now for better planning)
+        if not departure_date:
+            from datetime import datetime, timedelta
+            departure_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+
         fallback_requirements = TravelRequirements(
             destination=destination,
             duration=duration,
@@ -462,29 +490,32 @@ INTELLIGENT DEFAULTS EXAMPLES:
             passengers=passengers
         )
         
-        # Dynamically determine missing critical fields
+        # Dynamically determine missing critical fields (minimize with intelligent defaults)
         missing_fields = []
         requirements_dict = fallback_requirements.model_dump()
         
-        # Critical fields that should be flagged if missing
-        critical_fields = {
-            "destination": "destination",
-            "departure_date": "departure date", 
-            "duration": "trip duration",
-            "budget": "budget",
-            "travel_class": "travel class"
-        }
-        
-        for field, display_name in critical_fields.items():
-            if not requirements_dict.get(field):
-                missing_fields.append(display_name)
+        # Only mark destination as missing if we couldn't extract any location info
+        if not requirements_dict.get("destination"):
+            missing_fields.append("destination")
+        # Don't mark other fields as missing since we applied intelligent defaults
         
         fallback_result = {
             "requirements": requirements_dict,
             "missing_fields": missing_fields,
-            "confidence_score": 0.3,
+            "confidence_score": 0.8 if destination else 0.4,  # Higher confidence with destination + defaults
             "original_request": user_request,
-            "mode": "fallback_extraction"
+            "mode": "fallback_extraction_with_intelligent_defaults",
+            "suggested_defaults": {
+                "duration_reasoning": f"Applied {duration}-day default for international travel to {destination}",
+                "budget_reasoning": f"Estimated ${budget} for {passengers} people for {duration} days to {destination}",
+                "passenger_assumption": f"Defaulted to {passengers} people for optimal travel experience",
+                "recommended_travel_class": f"{travel_class} class for budget-conscious planning"
+            },
+            "planning_context": {
+                "requires_comprehensive_planning": True,
+                "defaults_applied": True,
+                "destination_specificity": "extracted" if destination else "missing"
+            }
         }
         
         return self.format_output(fallback_result)
