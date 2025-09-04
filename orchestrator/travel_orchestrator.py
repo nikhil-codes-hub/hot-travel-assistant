@@ -351,9 +351,13 @@ class TravelOrchestrator:
             result = await agent.execute(input_data, state["session_id"])
             state["destination_suggestions"] = result
             
+            # Extract suggestions from agent response format
+            suggestions_data = result.get("data", {})
+            suggestions = suggestions_data.get("suggestions", [])
+            
             logger.info(f"Destinations discovered", 
                        session_id=state["session_id"],
-                       suggestion_count=len(result.get("suggestions", [])))
+                       suggestion_count=len(suggestions))
             
         except Exception as e:
             logger.error(f"Destination discovery failed", session_id=state["session_id"], error=str(e))
@@ -369,9 +373,13 @@ class TravelOrchestrator:
             
             # Determine final destination
             destination = requirements.get("destination")
-            if not destination and state["destination_suggestions"].get("suggestions"):
-                # Use first suggestion if no specific destination
-                destination = state["destination_suggestions"]["suggestions"][0].get("destination")
+            if not destination:
+                # Check destination suggestions with proper data format
+                suggestions_data = state["destination_suggestions"].get("data", {})
+                suggestions = suggestions_data.get("suggestions", [])
+                if suggestions:
+                    # Use first suggestion if no specific destination
+                    destination = suggestions[0].get("destination")
             
             if not destination:
                 logger.warning(f"No destination available for search", session_id=state["session_id"])
@@ -555,7 +563,10 @@ class TravelOrchestrator:
             requirements = result_data.get("requirements", {})
             
             # Check if we have minimum required information - with intelligent defaults, we should rarely hit this
-            if not requirements.get("destination") and not state.get("destination_suggestions", {}).get("suggestions"):
+            suggestions_data = state.get("destination_suggestions", {}).get("data", {})
+            suggestions = suggestions_data.get("suggestions", [])
+            
+            if not requirements.get("destination") and not suggestions:
                 logger.warning(f"No destination available for itinerary planning", session_id=state["session_id"])
                 # Even without destination, we can provide general travel planning guidance
                 state["itinerary"] = {
@@ -587,7 +598,7 @@ class TravelOrchestrator:
                 "customer_profile": state["user_profile"].get("data", {}),
                 "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
-                "destination_suggestions": state["destination_suggestions"].get("suggestions", []),
+                "destination_suggestions": suggestions,
                 "curated_flights": curated_flight_data  # Include curation data
             }
             
