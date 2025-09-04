@@ -33,15 +33,15 @@ class HotDealsAgent(BaseAgent):
         if self.ai_model:
             try:
                 response = await self._generate_hot_deals(query)
+                return self.format_output({
+                    "hot_deals": response,
+                    "disclaimer": "For personalized advice on travel deals, always consult a qualified travel professional"
+                    })
             except Exception as e:
                 logger.error(f"Hot Deals Agent AI error: {e}")
 
-        return self.format_output({
-            "hot_deals": response,
-            "disclaimer": "For personalized advice on travel deals, always consult a qualified travel professional"
-        })
 
-    async def _scrape_houseoftravel_deals():
+    async def _scrape_houseoftravel_deals(self):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
