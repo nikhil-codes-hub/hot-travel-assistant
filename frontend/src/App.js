@@ -327,7 +327,33 @@ ${generateFlightCurationStatus(data)}
       const price = originalOffer.price || {};
       const itineraries = originalOffer.itineraries || [];
       const segments = itineraries[0]?.segments || [];
-      const validatingAirline = originalOffer.validatingAirlineCodes?.[0] || 'Airline';
+      
+      // Better airline extraction
+      const validatingAirline = originalOffer.validatingAirlineCodes?.[0] || 
+                               segments[0]?.carrierCode || 
+                               segments[0]?.operating?.carrierCode || 
+                               'Unknown Airline';
+      
+      // Map airline codes to names
+      const airlineNames = {
+        'AA': 'American Airlines',
+        'DL': 'Delta Air Lines', 
+        'UA': 'United Airlines',
+        'LH': 'Lufthansa',
+        'BA': 'British Airways',
+        'AF': 'Air France',
+        'KL': 'KLM',
+        'LX': 'Swiss International',
+        'OS': 'Austrian Airlines',
+        'AC': 'Air Canada',
+        'JL': 'Japan Airlines',
+        'NH': 'ANA',
+        'EK': 'Emirates',
+        'QR': 'Qatar Airways',
+        'SQ': 'Singapore Airlines'
+      };
+      
+      const airlineName = airlineNames[validatingAirline] || validatingAirline;
       
       const rank = flight.rank || (index + 1);
       const highlights = flight.highlights || [];
@@ -360,8 +386,13 @@ ${generateFlightCurationStatus(data)}
         }
         
         flightSection += `
-• 🏢 Airline: ${validatingAirline}
+• 🏢 Airline: ${airlineName}
 • 💰 Price: ${price.currency || 'USD'} ${price.total || 'TBD'}`;
+        
+        if (segments[0]?.cabin) {
+          flightSection += `
+• 🥇 Class: ${segments[0].cabin}`;
+        }
         
         if (highlights.length > 0) {
           flightSection += `
@@ -369,8 +400,8 @@ ${generateFlightCurationStatus(data)}
         }
       } else {
         flightSection += `
-• 💰 Price: ${price.currency || 'USD'} ${price.total || 'TBD'}
-• 🏢 Airline: ${validatingAirline}`;
+• 🏢 Airline: ${airlineName}
+• 💰 Price: ${price.currency || 'USD'} ${price.total || 'TBD'}`;
         
         if (highlights.length > 0) {
           flightSection += `
@@ -463,6 +494,9 @@ ${generateFlightCurationStatus(data)}
   };
 
   const formatDataDump = (data) => {
+    const sampleFlight = data?.data?.flight_offers?.[0];
+    const sampleSegment = sampleFlight?.itineraries?.[0]?.segments?.[0];
+    
     return `
 🔍 **Debug Information**
 📊 Raw Data Structure Available:
@@ -471,7 +505,11 @@ ${generateFlightCurationStatus(data)}
 • Hotel Offers: ${data?.data?.hotel_offers?.length || 0} items
 • Enhanced Offers: ${data?.data?.enhanced_offers?.data?.enhanced_offers?.length || 0} items
 
-**Sample Flight Data:** ${data?.data?.flight_offers?.[0]?.id || 'No flight ID found'}
+**Sample Flight Data:** ${sampleFlight?.id || 'No flight ID found'}
+**Validating Airline:** ${sampleFlight?.validatingAirlineCodes?.[0] || 'None'}
+**Segment Carrier:** ${sampleSegment?.carrierCode || 'None'}
+**Departure:** ${sampleSegment?.departure?.iataCode || 'None'}
+**Arrival:** ${sampleSegment?.arrival?.iataCode || 'None'}
 **Sample Hotel Data:** ${data?.data?.hotel_offers?.[0]?.name || 'No hotel name found'}
 `;
   };
