@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Any, List, Optional
 import httpx
+import openai
 from pydantic import BaseModel, Field
 from agents.base_agent import BaseAgent
 
@@ -30,6 +31,9 @@ class VisaRequirementAgent(BaseAgent):
         self.amadeus_base_url = os.getenv("AMADEUS_BASE_URL", "https://test.api.amadeus.com")
         self.access_token = None
         self.token_expires_at = None
+        
+        # OpenAI for LLM fallback
+        self.openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
         # Static visa database for common routes (fallback)
         self.visa_database = self._load_visa_database()
@@ -86,6 +90,17 @@ class VisaRequirementAgent(BaseAgent):
         
         # Use static database
         result = self._check_static_visa_requirements(origin, destination, input_data)
+        
+        # If static database doesn't have information, try LLM fallback
+        if (result.get("data", {}).get("visa_requirement", {}).get("notes", [])) and \
+           any("not available in database" in note for note in result.get("data", {}).get("visa_requirement", {}).get("notes", [])):
+            try:
+                llm_result = await self._get_llm_visa_requirements(origin, destination, input_data)
+                return self.format_output(llm_result)
+            except Exception as e:
+                self.log(f"LLM fallback failed: {e}")
+                # Return the static database result as final fallback
+        
         return self.format_output(result)
     
     async def _ensure_access_token(self):
@@ -241,6 +256,151 @@ class VisaRequirementAgent(BaseAgent):
             ],
             last_updated="2024-01-01",
             source="Static visa database"
+        )
+        
+        return result.model_dump()
+    
+    async def _get_llm_visa_requirements(self, origin: str, destination: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Get visa requirements using LLM based on nationality and destination"""
+        
+        # Map country codes to names for better LLM understanding
+        country_names = {
+            "US": "United States", "UK": "United Kingdom", "JP": "Japan", "CA": "Canada",
+            "AU": "Australia", "TH": "Thailand", "IN": "India", "BR": "Brazil", 
+            "FR": "France", "DE": "Germany", "IT": "Italy", "ES": "Spain", "CH": "Switzerland",
+            "NL": "Netherlands", "BE": "Belgium", "AT": "Austria", "SE": "Sweden", "NO": "Norway",
+            "DK": "Denmark", "FI": "Finland", "PT": "Portugal", "GR": "Greece", "IE": "Ireland",
+            "CN": "China", "KR": "South Korea", "SG": "Singapore", "MY": "Malaysia", "ID": "Indonesia",
+            "PH": "Philippines", "VN": "Vietnam", "NZ": "New Zealand", "ZA": "South Africa"
+        }
+        
+        origin_name = country_names.get(origin, origin)
+        destination_name = country_names.get(destination, destination)
+        
+        travel_purpose = input_data.get("travel_purpose", "tourism")
+        
+        prompt = f"""
+        You are a travel visa expert. Provide general visa requirements for {origin_name} citizens traveling to {destination_name} for {travel_purpose} purposes.
+
+        Please provide:
+        1. Whether a visa is required (true/false)
+        2. Type of visa if required (tourist_visa, e_visa, visa_waiver, etc.)
+        3. Maximum stay duration if known
+        4. Typical processing time if visa required
+        5. General required documents
+        6. Important notes about requirements
+
+        Format your response as factual and helpful general information. Include disclaimers that this is general information and requirements should be verified with official sources.
+
+        Be concise but informative. If you're uncertain about specific details, indicate that verification with official sources is needed.
+        """
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a knowledgeable travel visa expert providing general visa requirement information."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,  # Lower temperature for more factual responses
+                max_tokens=800
+            )
+            
+            llm_response = response.choices[0].message.content
+            
+            # Parse LLM response and structure it
+            visa_required = "visa is required" in llm_response.lower() or "require a visa" in llm_response.lower()
+            
+            # Extract key information (simplified parsing)
+            if "no visa required" in llm_response.lower() or "visa-free" in llm_response.lower():
+                visa_required = False
+                visa_type = "visa_waiver"
+            else:
+                visa_type = "tourist_visa"  # Default assumption
+                if "e-visa" in llm_response.lower() or "evisa" in llm_response.lower():
+                    visa_type = "e_visa"
+                elif "on arrival" in llm_response.lower():
+                    visa_type = "visa_on_arrival"
+            
+            visa_requirement = VisaRequirement(
+                required=visa_required,
+                type=visa_type,
+                duration="Check with embassy for exact duration",
+                processing_time="Varies - consult official sources",
+                cost=None,
+                documents=[
+                    "Valid passport (minimum 6 months validity)",
+                    "Completed application form",
+                    "Passport photos",
+                    "Proof of accommodation",
+                    "Return/onward travel booking",
+                    "Financial documentation"
+                ],
+                application_url=None,
+                notes=[
+                    "This is general information based on AI knowledge",
+                    "Requirements may change frequently",
+                    "Verify current requirements with destination country's embassy/consulate",
+                    "Individual circumstances may affect requirements"
+                ]
+            )
+            
+            result = VisaResult(
+                origin_country=origin,
+                destination_country=destination,
+                visa_requirement=visa_requirement,
+                disclaimers=[
+                    "⚠️ IMPORTANT: This information is AI-generated based on general knowledge",
+                    "Visa requirements change frequently and vary by individual circumstances", 
+                    "Always verify current requirements with official government sources",
+                    "Embassy or consulate has final authority on visa requirements",
+                    "Processing times and costs may vary significantly"
+                ],
+                last_updated="AI-generated",
+                source=f"LLM General Knowledge - {origin_name} to {destination_name}"
+            )
+            
+            return result.model_dump()
+            
+        except Exception as e:
+            self.log(f"LLM visa lookup failed: {e}")
+            # Return a safe fallback response
+            return self._create_llm_fallback_response(origin, destination)
+    
+    def _create_llm_fallback_response(self, origin: str, destination: str) -> Dict[str, Any]:
+        """Create minimal fallback when LLM fails"""
+        visa_requirement = VisaRequirement(
+            required=True,  # Safe assumption
+            type="tourist_visa",
+            duration="Contact embassy for details",
+            processing_time="Contact embassy for details",
+            cost=None,
+            documents=[
+                "Valid passport (minimum 6 months validity)",
+                "Visa application (contact embassy for forms)",
+                "Passport photos",
+                "Travel itinerary",
+                "Financial proof"
+            ],
+            application_url=None,
+            notes=[
+                "LLM visa service temporarily unavailable",
+                "Contact embassy or consulate for current requirements",
+                "Requirements vary by nationality and travel purpose"
+            ]
+        )
+        
+        result = VisaResult(
+            origin_country=origin,
+            destination_country=destination,
+            visa_requirement=visa_requirement,
+            disclaimers=[
+                "⚠️ Visa information service temporarily unavailable",
+                "Contact destination country's embassy or consulate immediately",
+                "Verify all requirements through official government channels"
+            ],
+            last_updated="Service unavailable",
+            source="Emergency fallback"
         )
         
         return result.model_dump()

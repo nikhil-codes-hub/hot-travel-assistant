@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import openai
 from pydantic import BaseModel, Field
 from agents.base_agent import BaseAgent
 
@@ -39,6 +40,10 @@ class HealthAdvisoryResult(BaseModel):
 class HealthAdvisoryAgent(BaseAgent):
     def __init__(self):
         super().__init__("HealthAdvisoryAgent")
+        
+        # OpenAI for LLM fallback
+        self.openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
         # Health advisory database (in production, integrate with CDC/WHO APIs)
         self.health_database = self._load_health_database()
     
@@ -124,7 +129,14 @@ class HealthAdvisoryAgent(BaseAgent):
             if destination in self.health_database:
                 result = self._create_detailed_advisory(destination, input_data)
             else:
-                result = self._create_general_advisory(destination, input_data)
+                # Try LLM fallback first for unknown destinations
+                try:
+                    llm_result = await self._get_llm_health_advisory(destination, input_data)
+                    return self.format_output(llm_result)
+                except Exception as llm_e:
+                    self.log(f"LLM health advisory failed: {llm_e}")
+                    # Fall back to general advisory
+                    result = self._create_general_advisory(destination, input_data)
             
             return self.format_output(result)
             
@@ -388,3 +400,238 @@ class HealthAdvisoryAgent(BaseAgent):
         )
         
         return self.format_output(result.model_dump())
+    
+    async def _get_llm_health_advisory(self, destination: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Get health advisory using LLM for unknown destinations"""
+        
+        # Map country codes to names for better LLM understanding
+        country_names = {
+            "US": "United States", "UK": "United Kingdom", "JP": "Japan", "CA": "Canada",
+            "AU": "Australia", "TH": "Thailand", "IN": "India", "BR": "Brazil", 
+            "FR": "France", "DE": "Germany", "IT": "Italy", "ES": "Spain", "CH": "Switzerland",
+            "NL": "Netherlands", "BE": "Belgium", "AT": "Austria", "SE": "Sweden", "NO": "Norway",
+            "DK": "Denmark", "FI": "Finland", "PT": "Portugal", "GR": "Greece", "IE": "Ireland",
+            "CN": "China", "KR": "South Korea", "SG": "Singapore", "MY": "Malaysia", "ID": "Indonesia",
+            "PH": "Philippines", "VN": "Vietnam", "NZ": "New Zealand", "ZA": "South Africa",
+            "MX": "Mexico", "AR": "Argentina", "CL": "Chile", "PE": "Peru", "CO": "Colombia",
+            "EG": "Egypt", "ZA": "South Africa", "KE": "Kenya", "NG": "Nigeria", "MA": "Morocco",
+            "TR": "Turkey", "RU": "Russia", "UA": "Ukraine", "PL": "Poland", "CZ": "Czech Republic"
+        }
+        
+        destination_name = country_names.get(destination, destination)
+        origin_country = input_data.get("origin_country", "JP")
+        origin_name = country_names.get(origin_country, origin_country)
+        travel_activities = input_data.get("travel_activities", "tourism")
+        
+        prompt = f"""
+        You are a travel health expert. Provide general health advisory information for travelers from {origin_name} visiting {destination_name} for {travel_activities} activities.
+
+        Please provide information about:
+        1. Vaccination recommendations (routine and destination-specific)
+        2. Common health risks and diseases
+        3. Prevention measures
+        4. Medical preparations recommended
+        5. Healthcare quality and availability
+        6. Emergency contact information if known
+
+        Structure your response to cover:
+        - Required vs recommended vaccinations
+        - Disease risks with risk levels (low/medium/high)
+        - Prevention strategies for each risk
+        - Essential medical kit items
+        - Healthcare system information
+        - General health advisories
+
+        Be factual and helpful. Include disclaimers that this is general information and professional medical consultation is recommended before travel.
+        
+        If you're uncertain about specific medical details, indicate that consultation with a travel medicine specialist is needed.
+        """
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a knowledgeable travel health expert providing general health advisory information for international travelers."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,  # Lower temperature for more factual responses
+                max_tokens=1000
+            )
+            
+            llm_response = response.choices[0].message.content
+            
+            # Parse the LLM response and structure it
+            # This is a simplified parsing - in production, you might want more sophisticated parsing
+            
+            # General vaccinations based on common international travel needs
+            vaccinations = [
+                Vaccination(
+                    name="Routine Vaccines",
+                    required=True,
+                    timing="Up to date",
+                    notes="MMR, DPT, flu, COVID-19 as recommended"
+                ),
+                Vaccination(
+                    name="Hepatitis A",
+                    required=False,
+                    timing="2 weeks before travel",
+                    notes="Recommended for most international destinations"
+                ),
+                Vaccination(
+                    name="Hepatitis B",
+                    required=False,
+                    timing="1 month before travel", 
+                    notes="Consider for travelers with risk factors or extended stays"
+                ),
+                Vaccination(
+                    name="Typhoid",
+                    required=False,
+                    timing="1-2 weeks before travel",
+                    notes="Recommended for areas with poor sanitation"
+                )
+            ]
+            
+            # Add destination-specific vaccinations based on LLM response
+            if "yellow fever" in llm_response.lower():
+                vaccinations.append(Vaccination(
+                    name="Yellow Fever",
+                    required="required" in llm_response.lower() and "yellow fever" in llm_response.lower(),
+                    timing="10 days before travel",
+                    notes="May be required for entry or recommended for certain regions"
+                ))
+            
+            if "japanese encephalitis" in llm_response.lower():
+                vaccinations.append(Vaccination(
+                    name="Japanese Encephalitis",
+                    required=False,
+                    timing="1 month before travel",
+                    notes="Recommended for rural areas and extended stays"
+                ))
+            
+            # Determine common health risks based on destination
+            health_risks = []
+            
+            if "malaria" in llm_response.lower():
+                risk_level = "medium" if "medium" in llm_response.lower() else ("high" if "high" in llm_response.lower() else "low")
+                health_risks.append(HealthRisk(
+                    disease="Malaria",
+                    risk_level=risk_level,
+                    prevention=["Antimalarial medication", "Mosquito nets", "Insect repellent"],
+                    symptoms=["Fever", "Chills", "Flu-like symptoms"]
+                ))
+            
+            if "dengue" in llm_response.lower():
+                risk_level = "medium" if "medium" in llm_response.lower() else ("high" if "high" in llm_response.lower() else "low")
+                health_risks.append(HealthRisk(
+                    disease="Dengue",
+                    risk_level=risk_level,
+                    prevention=["Mosquito protection", "Day and evening precautions"],
+                    symptoms=["High fever", "Severe headache", "Joint/muscle pain"]
+                ))
+            
+            if "traveler" in llm_response.lower() and "diarrhea" in llm_response.lower():
+                health_risks.append(HealthRisk(
+                    disease="Traveler's Diarrhea",
+                    risk_level="medium",
+                    prevention=["Safe food and water practices", "Hand hygiene"],
+                    symptoms=["Diarrhea", "Nausea", "Abdominal cramps"]
+                ))
+            
+            # If no specific risks mentioned, add general ones
+            if not health_risks:
+                health_risks = [
+                    HealthRisk(
+                        disease="Traveler's Diarrhea",
+                        risk_level="medium",
+                        prevention=["Safe food/water practices", "Hand hygiene"],
+                        symptoms=["Diarrhea", "Nausea", "Cramps"]
+                    ),
+                    HealthRisk(
+                        disease="Respiratory Infections",
+                        risk_level="low",
+                        prevention=["Hand washing", "Avoid crowded areas when ill"],
+                        symptoms=["Cough", "Fever", "Shortness of breath"]
+                    )
+                ]
+            
+            # Medical preparations
+            medical_preparations = [
+                MedicalPreparation(
+                    category="Travel Medicine Kit",
+                    items=[
+                        "Personal prescription medications",
+                        "Pain relievers (acetaminophen, ibuprofen)",
+                        "Antidiarrheal medication",
+                        "Antiseptic wipes and bandages",
+                        "Thermometer", 
+                        "Hand sanitizer",
+                        "Insect repellent (DEET-based)",
+                        "Sunscreen (SPF 30+)",
+                        "Oral rehydration salts"
+                    ],
+                    priority="essential"
+                ),
+                MedicalPreparation(
+                    category="Insurance and Documentation",
+                    items=[
+                        "Travel health insurance with medical evacuation",
+                        "Copies of prescriptions and medical records",
+                        "Emergency contact information",
+                        "Blood type and allergy information"
+                    ],
+                    priority="essential"
+                )
+            ]
+            
+            # Healthcare info
+            healthcare_info = {
+                "healthcare_quality": "Research local healthcare facilities before travel",
+                "emergency_services": "Identify local emergency numbers and services",
+                "payment_method": "Many locations require upfront payment - insurance crucial",
+                "language": "Consider language barriers for medical situations"
+            }
+            
+            # Emergency contacts
+            emergency_contacts = {
+                "local_emergency": "Research local emergency service numbers",
+                "embassy": "Contact your embassy for assistance",
+                "travel_insurance": "Keep travel insurance contact information accessible"
+            }
+            
+            # Advisories
+            advisories = [
+                f"Consult a travel medicine specialist 4-6 weeks before traveling to {destination_name}",
+                "Ensure routine vaccinations are current before travel",
+                "Research destination-specific health risks and requirements",
+                "Obtain comprehensive travel health insurance",
+                "Register with your embassy if staying extended periods"
+            ]
+            
+            health_advisory = HealthAdvisory(
+                destination=destination_name,
+                vaccinations=vaccinations,
+                health_risks=health_risks,
+                medical_preparations=medical_preparations,
+                healthcare_info=healthcare_info,
+                emergency_contacts=emergency_contacts,
+                advisories=advisories
+            )
+            
+            result = HealthAdvisoryResult(
+                health_advisory=health_advisory,
+                disclaimers=[
+                    "⚠️ IMPORTANT: This health information is AI-generated based on general knowledge",
+                    "Individual health conditions and risk factors may require different precautions",
+                    "Consult a travel medicine specialist for personalized medical advice",
+                    "Health risks and requirements can change rapidly - verify current information",
+                    "This information supplements but does not replace professional medical consultation"
+                ],
+                last_updated="AI-generated",
+                sources=[f"LLM General Knowledge - Travel to {destination_name}"]
+            )
+            
+            return result.model_dump()
+            
+        except Exception as e:
+            self.log(f"LLM health advisory failed: {e}")
+            raise e  # Re-raise to trigger fallback in calling method

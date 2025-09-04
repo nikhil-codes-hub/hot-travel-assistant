@@ -490,47 +490,18 @@ ${airlineName} - ${price.currency || 'USD'} ${price.total || 'TBD'}`;
     if (hotelOffers.length === 0) {
       // Generate mock hotel data for presentation
       const mockHotels = [
-        {
-          name: "Fairmont Banff Springs",
-          rating: 5,
-          address: { lines: ["405 Spray Avenue"], cityName: "Banff" },
-          offers: [{ price: { currency: "USD", total: "299" } }],
-          room: { typeEstimated: { category: "DELUXE_SUITE" } },
-          amenities: [
-            { description: "Mountain Views" },
-            { description: "Spa & Wellness Center" },
-            { description: "Fine Dining" }
-          ]
-        },
-        {
-          name: "Chateau Lake Louise",
-          rating: 5,
-          address: { lines: ["111 Lake Louise Drive"], cityName: "Lake Louise" },
-          offers: [{ price: { currency: "USD", total: "279" } }],
-          room: { typeEstimated: { category: "PREMIUM_SUITE" } },
-          amenities: [
-            { description: "Lakefront Location" },
-            { description: "Premium Spa" },
-            { description: "Alpine Activities" }
-          ]
-        },
-        {
-          name: "Rimrock Resort Hotel",
-          rating: 4,
-          address: { lines: ["300 Mountain Avenue"], cityName: "Banff" },
-          offers: [{ price: { currency: "USD", total: "229" } }],
-          room: { typeEstimated: { category: "EXECUTIVE_ROOM" } },
-          amenities: [
-            { description: "Mountain Resort" },
-            { description: "Conference Facilities" },
-            { description: "Fitness Center" }
-          ]
-        }
-      ];
+];
       
       hotelOffers = mockHotels;
     }
     
+    if (hotelOffers.length === 0) {
+      return `
+🏨 Recommended Accommodations
+
+No hotels found for this destination.`;
+    }
+
     let hotelSection = `
 🏨 Recommended Accommodations
 `;
@@ -611,7 +582,7 @@ ${hotelName} ${rating}`;
     
     try {
       // Fetch visa requirements from API
-      const response = await fetch(`/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
+      const response = await fetch(`http://localhost:8000/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
       const visaData = await response.json();
       
       if (response.ok && visaData.visa_requirements?.data) {
@@ -665,13 +636,66 @@ Travel Document Requirements for ${originCountry} Citizens to ${destCountry}:
       }
     } catch (error) {
       console.error('Error fetching visa requirements:', error);
+      
+      // Try to get LLM-generated visa requirements as fallback
+      try {
+        const fallbackResponse = await fetch(`http://localhost:8000/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
+        const fallbackData = await fallbackResponse.json();
+        
+        if (fallbackResponse.ok && fallbackData.visa_requirements?.data) {
+          const visa = fallbackData.visa_requirements.data.visa_requirement;
+          const originCountry = fallbackData.visa_requirements.data.origin_country;
+          const destCountry = fallbackData.visa_requirements.data.destination_country;
+          
+          let visaSection = `
+📋 Visa & Entry Requirements
+
+Travel Document Requirements for ${originCountry} Citizens to ${destCountry}:
+`;
+          
+          if (visa.required) {
+            visaSection += `• ${visa.type?.toUpperCase().replace('_', ' ') || 'VISA'} REQUIRED`;
+            if (visa.duration) visaSection += `\n• Maximum stay: ${visa.duration}`;
+            if (visa.processing_time) visaSection += `\n• Processing time: ${visa.processing_time}`;
+          } else {
+            visaSection += `• NO VISA REQUIRED`;
+            if (visa.duration) visaSection += ` for stays up to ${visa.duration}`;
+            if (visa.type) visaSection += `\n• Entry type: ${visa.type.replace('_', ' ')}`;
+          }
+          
+          if (visa.documents && visa.documents.length > 0) {
+            visaSection += `\n\nRequired Documents:`;
+            visa.documents.forEach(doc => {
+              visaSection += `\n• ${doc}`;
+            });
+          }
+          
+          if (visa.notes && visa.notes.length > 0) {
+            visaSection += `\n\n⚠️ IMPORTANT NOTES:`;
+            visa.notes.forEach(note => {
+              visaSection += `\n• ${note}`;
+            });
+          }
+          
+          if (fallbackData.visa_requirements.data.disclaimers) {
+            visaSection += `\n\n⚠️ DISCLAIMERS:`;
+            fallbackData.visa_requirements.data.disclaimers.forEach(disclaimer => {
+              visaSection += `\n• ${disclaimer}`;
+            });
+          }
+          
+          return visaSection;
+        }
+      } catch (fallbackError) {
+        console.error('LLM fallback also failed:', fallbackError);
+      }
     }
     
-    // Fallback to simplified static data
+    // Final emergency fallback
     return `
 📋 Visa & Entry Requirements
 
-⚠️ Unable to retrieve current visa requirements from Amadeus API.
+⚠️ Unable to retrieve current visa requirements.
 Please verify visa requirements with the destination country's embassy or consulate.
 
 General Requirements:
@@ -709,7 +733,7 @@ General Requirements:
     
     try {
       // Fetch health advisory from API
-      const response = await fetch(`/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
+      const response = await fetch(`http://localhost:8000/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
       const healthData = await response.json();
       
       if (response.ok && healthData.health_advisory?.data) {
@@ -799,9 +823,103 @@ Health Requirements for ${advisory.destination}:
       }
     } catch (error) {
       console.error('Error fetching health advisory:', error);
+      
+      // Try to get LLM-generated health advisory as fallback
+      try {
+        const fallbackResponse = await fetch(`http://localhost:8000/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
+        const fallbackData = await fallbackResponse.json();
+        
+        if (fallbackResponse.ok && fallbackData.health_advisory?.data) {
+          const advisory = fallbackData.health_advisory.data.health_advisory;
+          
+          let healthSection = `
+🏥 Health & Medical Advisory
+
+Health Requirements for ${advisory.destination}:
+`;
+          
+          // Vaccinations
+          if (advisory.vaccinations && advisory.vaccinations.length > 0) {
+            healthSection += `\nVaccination Requirements:`;
+            advisory.vaccinations.forEach(vacc => {
+              const status = vacc.required ? 'REQUIRED' : 'Recommended';
+              healthSection += `\n• ${vacc.name} - ${status}`;
+              if (vacc.timing) healthSection += ` (${vacc.timing})`;
+              if (vacc.notes) healthSection += `\n  ${vacc.notes}`;
+            });
+          }
+          
+          // Health risks
+          if (advisory.health_risks && advisory.health_risks.length > 0) {
+            healthSection += `\n\nHealth Risks:`;
+            advisory.health_risks.forEach(risk => {
+              healthSection += `\n• ${risk.disease} (${risk.risk_level.replace('_', ' ').toUpperCase()} risk)`;
+              if (risk.prevention && risk.prevention.length > 0) {
+                healthSection += `\n  Prevention: ${risk.prevention.join(', ')}`;
+              }
+              if (risk.symptoms && risk.symptoms.length > 0) {
+                healthSection += `\n  Symptoms: ${risk.symptoms.join(', ')}`;
+              }
+            });
+          }
+          
+          // Medical preparations
+          if (advisory.medical_preparations && advisory.medical_preparations.length > 0) {
+            healthSection += `\n\nMedical Preparations:`;
+            advisory.medical_preparations.forEach(prep => {
+              healthSection += `\n• ${prep.category} (${prep.priority.toUpperCase()})`;
+              if (prep.items && prep.items.length > 0) {
+                prep.items.forEach(item => {
+                  healthSection += `\n  - ${item}`;
+                });
+              }
+            });
+          }
+          
+          // Healthcare info
+          if (advisory.healthcare_info) {
+            healthSection += `\n\nHealthcare Information:`;
+            Object.entries(advisory.healthcare_info).forEach(([key, value]) => {
+              if (value) {
+                healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
+              }
+            });
+          }
+          
+          // Emergency contacts
+          if (advisory.emergency_contacts) {
+            healthSection += `\n\nEmergency Contacts:`;
+            Object.entries(advisory.emergency_contacts).forEach(([key, value]) => {
+              if (value) {
+                healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
+              }
+            });
+          }
+          
+          // General advisories
+          if (advisory.advisories && advisory.advisories.length > 0) {
+            healthSection += `\n\n⚠️ AGENT RECOMMENDATIONS:`;
+            advisory.advisories.forEach(advice => {
+              healthSection += `\n• ${advice}`;
+            });
+          }
+          
+          // Disclaimers
+          if (fallbackData.health_advisory.data.disclaimers) {
+            healthSection += `\n\n⚠️ IMPORTANT DISCLAIMERS:`;
+            fallbackData.health_advisory.data.disclaimers.forEach(disclaimer => {
+              healthSection += `\n• ${disclaimer}`;
+            });
+          }
+          
+          return healthSection;
+        }
+      } catch (fallbackError) {
+        console.error('LLM health advisory fallback also failed:', fallbackError);
+      }
     }
     
-    // Fallback to simplified static data
+    // Final emergency fallback
     return `
 🏥 Health & Medical Advisory
 
