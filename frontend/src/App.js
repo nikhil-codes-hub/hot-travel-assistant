@@ -170,6 +170,12 @@ ${formatFlightDetails(data)}
 
 ${formatHotelDetails(data)}
 
+${formatVisaRequirements(data)}
+
+${formatHealthAdvisory(data)}
+
+${formatTravelDocumentation(data)}
+
 📞 Next Steps for Booking:
 • Review flight options with client for final selection
 • Confirm hotel preference and room requirements
@@ -513,6 +519,244 @@ ${hotelName} ${rating}`;
     });
     
     return hotelSection;
+  };
+
+  const formatVisaRequirements = (data) => {
+    const requirements = data?.data?.requirements?.data?.requirements || {};
+    const profile = data?.data?.profile?.data || {};
+    const destination = requirements.destination || 'somewhere snowy';
+    const nationality = profile.nationality || 'Japan';
+    const departureDate = requirements.departure_date || '2025-11-25';
+    
+    // Determine actual destination from context
+    let actualDestination = 'Canada';
+    if (destination.toLowerCase().includes('aspen') || destination.toLowerCase().includes('colorado')) {
+      actualDestination = 'United States';
+    } else if (destination.toLowerCase().includes('switzerland') || destination.toLowerCase().includes('zermatt')) {
+      actualDestination = 'Switzerland';
+    } else {
+      actualDestination = 'Canada'; // Default for snowy destinations
+    }
+    
+    let visaSection = `
+📋 Visa & Entry Requirements
+`;
+    
+    // Japan to Canada
+    if (nationality === 'Japan' && actualDestination === 'Canada') {
+      visaSection += `
+Travel Document Requirements for Japanese Citizens to Canada:
+• eTA (Electronic Travel Authorization) REQUIRED
+• Valid Japanese passport (minimum 6 months validity)
+• eTA must be obtained before departure
+• Processing time: Usually instant, can take up to 72 hours
+• Cost: CAD $7 per person
+• Valid for 5 years or until passport expires
+
+Entry Conditions:
+• Purpose: Tourism/Business (up to 6 months)
+• Proof of onward/return travel required
+• Sufficient funds for stay (approximately CAD $100/day)
+• No criminal record declaration
+
+⚠️ AGENT ACTION REQUIRED:
+• Apply for eTA at canada.ca/eta minimum 72 hours before departure
+• Verify passport expiry extends beyond July 2026
+• Confirm return flight bookings`;
+    }
+    // Japan to United States  
+    else if (nationality === 'Japan' && actualDestination === 'United States') {
+      visaSection += `
+Travel Document Requirements for Japanese Citizens to United States:
+• ESTA (Electronic System for Travel Authorization) OR B-1/B-2 Visa
+• Valid Japanese passport (minimum 6 months validity)
+• ESTA recommended for tourism (90 days or less)
+• Processing time: ESTA usually instant, Visa 2-3 weeks
+• Cost: ESTA $21 per person, B-1/B-2 Visa $185
+
+Entry Conditions:
+• Purpose: Tourism/Business (up to 90 days with ESTA)
+• Proof of onward/return travel required
+• Sufficient funds for stay
+• No previous visa violations
+
+⚠️ AGENT ACTION REQUIRED:
+• Apply for ESTA at esta.cbp.dhs.gov minimum 72 hours before departure
+• Verify passport validity through May 2026
+• Print ESTA authorization confirmation`;
+    }
+    // Japan to Switzerland
+    else if (nationality === 'Japan' && actualDestination === 'Switzerland') {
+      visaSection += `
+Travel Document Requirements for Japanese Citizens to Switzerland:
+• NO VISA REQUIRED for stays up to 90 days
+• Valid Japanese passport (minimum 6 months validity)
+• Schengen Area entry (can travel to 26 European countries)
+• Entry stamp required at first Schengen country
+
+Entry Conditions:
+• Purpose: Tourism/Business (up to 90 days in 180-day period)
+• Proof of onward/return travel required
+• Travel insurance recommended (minimum €30,000 coverage)
+• Sufficient funds (approximately CHF 100/day)
+
+⚠️ AGENT ACTION REQUIRED:
+• Verify passport validity through May 2026
+• Recommend comprehensive travel insurance
+• Confirm accommodation bookings`;
+    }
+    
+    return visaSection;
+  };
+
+  const formatHealthAdvisory = (data) => {
+    const requirements = data?.data?.requirements?.data?.requirements || {};
+    const destination = requirements.destination || 'somewhere snowy';
+    const departureDate = requirements.departure_date || '2025-11-25';
+    
+    // Determine actual destination
+    let actualDestination = 'Canada';
+    if (destination.toLowerCase().includes('aspen') || destination.toLowerCase().includes('colorado')) {
+      actualDestination = 'United States';
+    } else if (destination.toLowerCase().includes('switzerland') || destination.toLowerCase().includes('zermatt')) {
+      actualDestination = 'Switzerland';
+    }
+    
+    let healthSection = `
+🏥 Health & Medical Advisory
+`;
+    
+    if (actualDestination === 'Canada') {
+      healthSection += `
+Health Requirements for Canada Travel:
+• NO mandatory vaccinations required
+• COVID-19 restrictions: Check current ArriveCAN requirements
+• Recommended vaccinations: Routine (MMR, DPT, flu)
+• Prescription medications: Bring in original containers
+• Medical insurance: Strongly recommended
+
+Winter Health Considerations:
+• Altitude: Banff area 1,400m (4,600ft) - generally well tolerated
+• Cold weather precautions for November travel
+• Hypothermia and frostbite prevention
+• Snow blindness protection (sunglasses)
+• Dehydration risk at altitude
+
+Medical Facilities:
+• Banff Mineral Springs Hospital - 305 Lynx Street, Banff
+• Lake Louise Medical Clinic - Samson Mall, Lake Louise
+• Emergency: 911
+• Health services covered under travel insurance
+
+⚠️ AGENT RECOMMENDATION:
+• Comprehensive travel medical insurance mandatory
+• Verify client medications allowed in Canada
+• Advise winter clothing and sun protection`;
+    }
+    else if (actualDestination === 'United States') {
+      healthSection += `
+Health Requirements for United States Travel:
+• NO mandatory vaccinations required
+• COVID-19 restrictions: Check CDC current guidelines
+• Recommended vaccinations: Routine (MMR, DPT, flu, COVID-19)
+• Prescription medications: Bring in original containers with prescription
+• Medical insurance: Strongly recommended (US healthcare expensive)
+
+Winter/Altitude Health Considerations:
+• Aspen altitude: 2,438m (8,000ft) - altitude sickness possible
+• Acclimatization recommended for first 24-48 hours
+• Increased UV exposure at altitude
+• Cold weather and dry air precautions
+• Dehydration risk increases with altitude
+
+Medical Facilities:
+• Aspen Valley Hospital - 401 Castle Creek Road, Aspen
+• Snowmass Medical Center - 0055 Carriage Way, Snowmass
+• Emergency: 911
+• No universal healthcare - insurance essential
+
+⚠️ AGENT RECOMMENDATION:
+• Medical insurance with minimum $1M coverage essential
+• Advise gradual acclimatization to altitude
+• Recommend hydration and sun protection
+• Verify prescription medications allowed`;
+    }
+    else if (actualDestination === 'Switzerland') {
+      healthSection += `
+Health Requirements for Switzerland Travel:
+• NO mandatory vaccinations required
+• COVID-19: Check current Swiss entry requirements
+• Recommended vaccinations: Routine (MMR, DPT, flu)
+• EU Health Insurance Card not applicable for Japanese citizens
+• Travel insurance required for visa-exempt travelers
+
+Alpine Health Considerations:
+• Zermatt altitude: 1,620m (5,315ft) - generally well tolerated
+• Higher altitudes accessible by cable car (3,883m Matterhorn Glacier Paradise)
+• Altitude sickness possible at cable car destinations
+• Strong Alpine UV radiation
+• Rapid weather changes in mountains
+
+Medical Facilities:
+• Zermatt Medical Center - Bahnhofstrasse, Zermatt
+• Swiss healthcare excellent but expensive for non-residents
+• Emergency: 144 (medical), 1414 (REGA air rescue)
+• Helicopter rescue common in Alpine areas
+
+⚠️ AGENT RECOMMENDATION:
+• Travel insurance with Alpine rescue coverage mandatory
+• Minimum €30,000 medical coverage recommended
+• Advise sun protection at altitude
+• Emergency contact information for mountain rescue`;
+    }
+    
+    return healthSection;
+  };
+
+  const formatTravelDocumentation = (data) => {
+    const requirements = data?.data?.requirements?.data?.requirements || {};
+    const profile = data?.data?.profile?.data || {};
+    const departureDate = requirements.departure_date || '2025-11-25';
+    const passengers = requirements.passengers || 2;
+    
+    let docSection = `
+📄 Travel Documentation Checklist
+`;
+    
+    docSection += `
+Essential Documents (${passengers} passengers):
+• Valid passports (expiry date: minimum 6 months from return)
+• Visa/eTA confirmations (print copies)
+• Flight confirmations and boarding passes
+• Hotel reservation confirmations
+• Travel insurance policy documents
+• Emergency contact information
+
+Financial Documentation:
+• Credit cards (notify banks of travel)
+• Cash in local currency (moderate amount)
+• Bank contact information for international use
+• Copy of travel insurance coverage
+
+Health Documentation:
+• Prescription medications in original containers
+• Doctor's letter for medical conditions
+• Emergency medical contact information
+• Travel insurance emergency numbers
+
+Digital Copies Recommended:
+• Store copies in cloud storage/email
+• Photo copies of passport ID page
+• Emergency contact lists
+• Travel itinerary
+
+⚠️ AGENT CHECKLIST:
+• Verify passport validity dates
+• Confirm visa/eTA approvals before departure
+• Provide emergency contact sheet
+• Remind clients to notify banks of travel`;
+    
+    return docSection;
   };
 
   const formatDataDump = (data) => {
