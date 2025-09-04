@@ -194,12 +194,22 @@ ${docSection}
 
 Ready to proceed with reservations`;
                   
-                  // Update the agent content with complete information
-                  setAgentResponse(completeContent);
+                  // Update the latest agent message with complete information
+                  setMessages(prev => {
+                    const updatedMessages = [...prev];
+                    const lastIndex = updatedMessages.length - 1;
+                    if (lastIndex >= 0 && updatedMessages[lastIndex].type === 'agent') {
+                      updatedMessages[lastIndex] = {
+                        ...updatedMessages[lastIndex],
+                        content: completeContent
+                      };
+                    }
+                    return updatedMessages;
+                  });
                 } catch (error) {
                   console.error('Error loading visa/health information:', error);
                   // Fall back to base content with error message
-                  setAgentResponse(baseContent + `
+                  const fallbackContent = baseContent + `
 
 ⚠️ Additional Information Loading...
 Visa requirements and health advisory information are being retrieved.
@@ -210,7 +220,19 @@ Visa requirements and health advisory information are being retrieved.
 • Verify passport validity and any visa requirements
 • Arrange travel insurance if requested
 
-Ready to proceed with reservations`);
+Ready to proceed with reservations`;
+                  
+                  setMessages(prev => {
+                    const updatedMessages = [...prev];
+                    const lastIndex = updatedMessages.length - 1;
+                    if (lastIndex >= 0 && updatedMessages[lastIndex].type === 'agent') {
+                      updatedMessages[lastIndex] = {
+                        ...updatedMessages[lastIndex],
+                        content: fallbackContent
+                      };
+                    }
+                    return updatedMessages;
+                  });
                 }
               })();
               
