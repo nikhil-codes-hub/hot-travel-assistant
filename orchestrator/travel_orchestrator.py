@@ -283,7 +283,13 @@ class TravelOrchestrator:
             
             logger.info(f"Requirements extracted", 
                        session_id=state["session_id"],
+                       destination=destination,
                        destination_discovery_needed=state["needs_destination_discovery"])
+            
+            # Debug: Log the full extracted requirements
+            logger.debug(f"Full extracted requirements", 
+                        session_id=state["session_id"],
+                        requirements=requirements)
             
         except Exception as e:
             logger.error(f"Requirements extraction failed", session_id=state["session_id"], error=str(e))
@@ -355,6 +361,43 @@ class TravelOrchestrator:
             suggestions_data = result.get("data", {})
             suggestions = suggestions_data.get("suggestions", [])
             
+            # If we have suggestions, update requirements with the first suggestion
+            if suggestions:
+                first_suggestion = suggestions[0]
+                # Update the extracted requirements with intelligent defaults from suggestion
+                result_data = state["extracted_requirements"].get("data", {})
+                if "requirements" not in result_data:
+                    result_data["requirements"] = {}
+                    
+                requirements = result_data["requirements"]
+                
+                # Apply intelligent defaults from destination discovery
+                if not requirements.get("destination"):
+                    requirements["destination"] = first_suggestion.get("destination")
+                if not requirements.get("duration"):
+                    # Parse duration from suggestion (e.g., "7 days recommended" -> 7)
+                    duration_str = first_suggestion.get("best_duration", "7 days")
+                    try:
+                        import re
+                        duration_match = re.search(r'(\d+)', duration_str)
+                        requirements["duration"] = int(duration_match.group(1)) if duration_match else 7
+                    except:
+                        requirements["duration"] = 7
+                if not requirements.get("passengers"):
+                    requirements["passengers"] = 2  # Default to 2 people
+                if not requirements.get("travel_class"):
+                    requirements["travel_class"] = "economy"
+                if not requirements.get("budget_currency"):
+                    requirements["budget_currency"] = "USD"
+                
+                # Update the state with enhanced requirements
+                state["extracted_requirements"]["data"]["requirements"] = requirements
+                
+                logger.info(f"Requirements enhanced with destination discovery", 
+                           session_id=state["session_id"],
+                           destination=requirements.get("destination"),
+                           duration=requirements.get("duration"))
+            
             logger.info(f"Destinations discovered", 
                        session_id=state["session_id"],
                        suggestion_count=len(suggestions))
@@ -392,7 +435,7 @@ class TravelOrchestrator:
             return_date = requirements.get("return_date")
             duration = requirements.get("duration", 7)  # LLM or system default
             adults = requirements.get("passengers", 2)  # Default to 2 people for better experience
-            travel_class = requirements.get("travel_class", "ECONOMY").upper()
+            travel_class = (requirements.get("travel_class") or "ECONOMY").upper()  # Handle None case
             
             # Calculate check-out date if not provided
             if not return_date:
