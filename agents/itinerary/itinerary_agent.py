@@ -104,7 +104,14 @@ class PrepareItineraryAgent(BaseAgent):
             
         except Exception as e:
             self.log(f"PrepareItineraryAgent error: {e}")
-            return self._generate_fallback_itinerary(input_data)
+            # Use rule-based method instead of basic fallback to preserve event functionality
+            try:
+                self.log(f"Falling back to rule-based itinerary generation")
+                result = self._create_rule_based_itinerary(input_data)
+                return self.format_output(result)
+            except Exception as fallback_error:
+                self.log(f"Rule-based fallback also failed: {fallback_error}")
+                return self._generate_fallback_itinerary(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
