@@ -124,7 +124,7 @@ class LLMExtractorAgent(BaseAgent):
         """Call Vertex AI Gemini model"""
         from vertexai.generative_models import GenerativeModel
         
-        model = GenerativeModel('gemini-1.5-pro')
+        model = GenerativeModel('gemini-2.0-flash')
         response = await model.generate_content_async(prompt)
         return response.text
     
@@ -300,6 +300,25 @@ INTELLIGENT DEFAULTS EXAMPLES:
                 requirements_dict["destination"] = "Thailand"
                 requirements_dict["budget"] = 2000  # Reasonable Thailand budget for 2 people
                 requirements_dict["destination_type"] = "tropical"
+            elif "bangalore" in user_lower or "bengaluru" in user_lower:
+                requirements_dict["destination"] = "Bangalore, India"
+                requirements_dict["budget"] = 1500  # Indian city budget
+                requirements_dict["duration"] = 4  # City break duration
+                requirements_dict["destination_type"] = "city"
+            elif any(city in user_lower for city in ["mumbai", "bombay", "delhi", "chennai", "hyderabad", "kolkata"]):
+                if "mumbai" in user_lower or "bombay" in user_lower:
+                    requirements_dict["destination"] = "Mumbai, India"
+                elif "delhi" in user_lower:
+                    requirements_dict["destination"] = "Delhi, India"
+                elif "chennai" in user_lower:
+                    requirements_dict["destination"] = "Chennai, India"
+                elif "hyderabad" in user_lower:
+                    requirements_dict["destination"] = "Hyderabad, India"
+                elif "kolkata" in user_lower:
+                    requirements_dict["destination"] = "Kolkata, India"
+                requirements_dict["budget"] = 1500  # Indian city budget
+                requirements_dict["duration"] = 4
+                requirements_dict["destination_type"] = "city"
             elif "paris" in user_lower:
                 requirements_dict["destination"] = "Paris"
                 requirements_dict["duration"] = 5  # City break duration
@@ -367,6 +386,18 @@ INTELLIGENT DEFAULTS EXAMPLES:
         # Then check for specific destinations
         elif "thailand" in user_lower:
             destination = "Thailand"
+        elif "bangalore" in user_lower or "bengaluru" in user_lower:
+            destination = "Bangalore, India"
+        elif "mumbai" in user_lower or "bombay" in user_lower:
+            destination = "Mumbai, India"
+        elif "delhi" in user_lower or "new delhi" in user_lower:
+            destination = "Delhi, India"
+        elif "hyderabad" in user_lower:
+            destination = "Hyderabad, India"
+        elif "chennai" in user_lower or "madras" in user_lower:
+            destination = "Chennai, India"
+        elif "kolkata" in user_lower or "calcutta" in user_lower:
+            destination = "Kolkata, India"
         elif "zermatt" in user_lower:
             destination = "Zermatt, Switzerland"
         elif "japan" in user_lower:
@@ -459,12 +490,16 @@ INTELLIGENT DEFAULTS EXAMPLES:
         if not duration:
             if destination and any(intl in destination.lower() for intl in ["thailand", "japan", "europe", "paris", "london"]):
                 duration = 7  # International destinations
+            elif destination and "india" in destination.lower():
+                duration = 4  # Indian city breaks
             else:
-                duration = 5  # Domestic/city breaks
+                duration = 5  # Other destinations
                 
         if not budget:
             if destination and "thailand" in destination.lower():
                 budget = 2500  # Thailand budget for comprehensive planning
+            elif destination and "india" in destination.lower():
+                budget = 1500  # Indian cities budget (more affordable)
             elif destination and any(expensive in destination.lower() for expensive in ["paris", "london", "switzerland", "zermatt"]):
                 budget = 3500  # Expensive destinations
             else:
