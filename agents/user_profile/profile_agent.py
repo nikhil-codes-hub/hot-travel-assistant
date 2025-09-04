@@ -4,11 +4,17 @@ from agents.base_agent import BaseAgent
 from config.database import get_db
 from models.database_models import UserProfile
 import hashlib
-import pandas as pd
 import os
 import structlog
 import io
 from contextlib import redirect_stdout
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None
+    PANDAS_AVAILABLE = False
 
 try:
     import vertexai
@@ -234,8 +240,12 @@ class UserProfileAgent(BaseAgent):
         finally:
             db.close()
     
-    def _load_customer_dataset(self) -> Optional[pd.DataFrame]:
+    def _load_customer_dataset(self):
         """Load customer travel dataset from CSV"""
+        if not PANDAS_AVAILABLE:
+            logger.info("📊 Pandas not available - skipping CSV dataset loading")
+            return None
+            
         try:
             csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resources', 'customer_travel_dataset.csv')
             if os.path.exists(csv_path):
