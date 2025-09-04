@@ -38,7 +38,7 @@ class HotDealsAgent(BaseAgent):
 
         return self.format_output({
             "hot_deals": response,
-            "disclaimer": "Always consult a qualified medical professional for personalized travel health advice."
+            "disclaimer": "For personalized advice on travel deals, always consult a qualified travel professional"
         })
 
     async def _scrape_houseoftravel_deals():
