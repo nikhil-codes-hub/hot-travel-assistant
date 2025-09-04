@@ -379,6 +379,7 @@ Focus on:
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
         destination_suggestions = input_data.get("destination_suggestions", [])
+        event_details = input_data.get("event_details", {})
         
         duration = requirements.get("duration", 7)
         destination = requirements.get("destination", "Destination")
@@ -486,19 +487,60 @@ Focus on:
         # Build enhanced travel readiness
         travel_readiness = self._generate_travel_readiness(requirements)
         
-        # Create personalized highlights and tips
+        # Extract event information
+        events = event_details.get("events", [])
+        main_event = events[0] if events else None
+        event_name = requirements.get("event_name")
+        
+        # Create personalized highlights and tips with event information
         highlights = self._get_destination_highlights(destination)
         tips = self._get_destination_tips(destination, loyalty_tier)
         
-        # Enhanced rationale
-        rationale = f"This {duration}-day itinerary for {destination} is curated for {passengers} travelers with {loyalty_tier} tier benefits. "
-        if destination_suggestions:
-            rationale += f"Selected from recommended destinations based on your preference for snowy destinations. "
-        rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
+        # Add event-specific highlights and tips
+        if main_event:
+            event_highlights = [
+                f"🎪 {main_event.get('name', event_name)} Experience",
+                f"📅 Event Date: {main_event.get('start_date')}",
+                f"📍 Event Location: {main_event.get('venue', main_event.get('location'))}",
+            ]
+            highlights = event_highlights + highlights
+            
+            # Add event-specific tips
+            if main_event.get('what_to_bring'):
+                event_tips = [f"🎒 For the event: {', '.join(main_event['what_to_bring'][:3])}"]
+                tips = event_tips + tips
+                
+        elif event_name:
+            # Even without detailed event info, mention the event
+            highlights = [f"🎪 {event_name} in {destination}"] + highlights
         
+        # Enhanced rationale with event focus
+        rationale = f"This {duration}-day itinerary for {destination} is curated for {passengers} travelers with {loyalty_tier} tier benefits. "
+        
+        if main_event or event_name:
+            event_display_name = main_event.get('name') if main_event else event_name
+            rationale += f"🎪 **EVENT FOCUS**: Built around the {event_display_name} experience. "
+            if main_event and main_event.get('cultural_significance'):
+                rationale += f"This {main_event.get('event_type', 'event')} offers {main_event['cultural_significance'][:100]}... "
+                
+        if destination_suggestions:
+            rationale += f"Selected from recommended destinations based on your preferences. "
+            
+        if main_event or event_name:
+            rationale += f"The itinerary ensures you experience the event while also exploring {destination}'s cultural attractions and maximizing your {loyalty_tier} member benefits."
+        else:
+            rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
+        
+        # Create event-focused title if applicable
+        if main_event or event_name:
+            event_display_name = main_event.get('name') if main_event else event_name
+            title = f"{duration}-Day {event_display_name} Experience in {destination}"
+        else:
+            title = f"{duration}-Day Premium Trip to {destination}"
+            
         # Create itinerary
         itinerary = Itinerary(
-            title=f"{duration}-Day Premium Trip to {destination}",
+            title=title,
             destination=destination,
             duration=duration,
             traveler_count=passengers,

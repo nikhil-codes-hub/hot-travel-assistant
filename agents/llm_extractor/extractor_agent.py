@@ -384,7 +384,7 @@ INTELLIGENT DEFAULTS EXAMPLES:
         import re
         
         # Check for specific festivals/events
-        if "water lantern festival" in user_lower:
+        if "water lantern festival" in user_lower or "lantern festival" in user_lower or ("lantern" in user_lower and ("event" in user_lower or "festival" in user_lower)):
             event_name = "Water Lantern Festival"
             event_type = "festival"
             if "thailand" in user_lower:

@@ -97,18 +97,11 @@ class TravelOrchestrator:
             {"discover": "discover_destinations", "search": "search_events"}
         )
         
-        # Conditional event search after destination discovery
-        workflow.add_conditional_edges(
-            "discover_destinations",
-            self._needs_event_search,
-            {"events": "search_events", "search": "search_flights_hotels"}
-        )
+        # Always check for events after destination discovery
+        workflow.add_edge("discover_destinations", "search_events")
         
-        workflow.add_conditional_edges(
-            "search_events",
-            self._always_continue_to_search,
-            {"search": "search_flights_hotels"}
-        )
+        # Always continue to search after event search (whether events found or not)
+        workflow.add_edge("search_events", "search_flights_hotels")
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
         workflow.add_edge("enhance_offers", "curate_flights")
@@ -481,10 +474,21 @@ class TravelOrchestrator:
             result_data = state["extracted_requirements"].get("data", {})
             requirements = result_data.get("requirements", {})
             
+            # Always search for events - either specific events mentioned by user 
+            # OR general events/festivals in the destination during travel dates
+            event_name = requirements.get("event_name")
+            event_type = requirements.get("event_type") 
+            destination = requirements.get("destination")
+            
+            # If no specific event mentioned, search for general events in destination
+            if not event_name and not event_type and destination:
+                event_name = f"events and festivals in {destination}"
+                event_type = "festival"
+                
             input_data = {
-                "event_name": requirements.get("event_name"),
-                "event_type": requirements.get("event_type"),
-                "destination": requirements.get("destination"),
+                "event_name": event_name,
+                "event_type": event_type,
+                "destination": destination,
                 "date_range": requirements.get("departure_date"),
                 "duration": requirements.get("duration", 7),
                 "preferences": requirements.get("special_requirements", [])
@@ -807,7 +811,8 @@ class TravelOrchestrator:
                 "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
                 "destination_suggestions": suggestions,
-                "curated_flights": curated_flight_data  # Include curation data
+                "curated_flights": curated_flight_data,  # Include curation data
+                "event_details": state.get("event_details", {}).get("data", {})  # Include event information
             }
             
             result = await agent.execute(input_data, state["session_id"])
