@@ -241,6 +241,72 @@ async def get_travel_recommendations(customer_id: str, db = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/travel/visa-requirements")
+async def get_visa_requirements(
+    origin_country: str, 
+    destination_country: str, 
+    travel_purpose: str = "tourism",
+    passport_type: str = "regular",
+    session_id: str = None
+):
+    """
+    Get visa requirements using Amadeus API and visa agent
+    """
+    try:
+        from agents.compliance.visa_agent import VisaRequirementAgent
+        
+        agent = VisaRequirementAgent()
+        input_data = {
+            "origin_country": origin_country.upper(),
+            "destination_country": destination_country.upper(),
+            "travel_purpose": travel_purpose,
+            "passport_type": passport_type
+        }
+        
+        result = await agent.execute(input_data, session_id or str(uuid.uuid4()))
+        
+        return {
+            "visa_requirements": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/travel/health-advisory")
+async def get_health_advisory(
+    destination_country: str,
+    origin_country: str = "JP",
+    session_id: str = None,
+    travel_activities: str = "tourism"
+):
+    """
+    Get health advisory information for destination
+    """
+    try:
+        from agents.compliance.health_agent import HealthAdvisoryAgent
+        
+        agent = HealthAdvisoryAgent()
+        input_data = {
+            "destination_country": destination_country.upper(),
+            "origin_country": origin_country.upper(),
+            "travel_activities": travel_activities,
+            "traveler_profile": {
+                "age_group": "adult",
+                "origin": origin_country.upper()
+            }
+        }
+        
+        result = await agent.execute(input_data, session_id or str(uuid.uuid4()))
+        
+        return {
+            "health_advisory": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

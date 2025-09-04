@@ -46,7 +46,7 @@ class LLMExtractorAgent(BaseAgent):
                 api_key = os.getenv("GEMINI_API_KEY")
                 if api_key:
                     genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash')
+                    self.model = genai.GenerativeModel('gemini-1.5-pro')
                     self.ai_available = True
         except Exception:
             self.ai_available = False
@@ -86,7 +86,7 @@ class LLMExtractorAgent(BaseAgent):
         """Call Vertex AI Gemini model"""
         from vertexai.generative_models import GenerativeModel
         
-        model = GenerativeModel('gemini-2.0-flash')
+        model = GenerativeModel('gemini-1.5-pro')
         response = await model.generate_content_async(prompt)
         return response.text
     

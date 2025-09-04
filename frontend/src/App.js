@@ -141,7 +141,8 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             
             // If no missing fields, show comprehensive travel plan
             if (missing_fields.length === 0) {
-              agentContent = `🎯 Travel Proposal Ready for Client
+              // Build the base content first
+              let baseContent = `🎯 Travel Proposal Ready for Client
 
 ✅ Trip Requirements:
 • Destination: ${displayRequirements.destination}
@@ -168,11 +169,55 @@ ${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
 
 ${formatFlightDetails(data)}
 
-${formatHotelDetails(data)}
+${formatHotelDetails(data)}`;
 
-${formatVisaRequirements(data)}
+              // Fetch visa and health information asynchronously
+              (async () => {
+                try {
+                  const visaSection = await formatVisaRequirements(data);
+                  const healthSection = await formatHealthAdvisory(data);
+                  const docSection = formatTravelDocumentation(data);
+                  
+                  const completeContent = baseContent + `
 
-${formatHealthAdvisory(data)}
+${visaSection}
+
+${healthSection}
+
+${docSection}
+
+📞 Next Steps for Booking:
+• Review flight options with client for final selection
+• Confirm hotel preference and room requirements
+• Verify passport validity and any visa requirements
+• Arrange travel insurance if requested
+
+Ready to proceed with reservations`;
+                  
+                  // Update the agent content with complete information
+                  setAgentResponse(completeContent);
+                } catch (error) {
+                  console.error('Error loading visa/health information:', error);
+                  // Fall back to base content with error message
+                  setAgentResponse(baseContent + `
+
+⚠️ Additional Information Loading...
+Visa requirements and health advisory information are being retrieved.
+
+📞 Next Steps for Booking:
+• Review flight options with client for final selection
+• Confirm hotel preference and room requirements
+• Verify passport validity and any visa requirements
+• Arrange travel insurance if requested
+
+Ready to proceed with reservations`);
+                }
+              })();
+              
+              // Set initial content while async operations complete
+              agentContent = baseContent + `
+
+⚠️ Loading visa requirements and health advisory...
 
 ${formatTravelDocumentation(data)}
 
@@ -521,196 +566,238 @@ ${hotelName} ${rating}`;
     return hotelSection;
   };
 
-  const formatVisaRequirements = (data) => {
+  const formatVisaRequirements = async (data) => {
     const requirements = data?.data?.requirements?.data?.requirements || {};
     const profile = data?.data?.profile?.data || {};
     const destination = requirements.destination || 'somewhere snowy';
     const nationality = profile.nationality || 'Japan';
-    const departureDate = requirements.departure_date || '2025-11-25';
     
-    // Determine actual destination from context
-    let actualDestination = 'Canada';
+    // Determine destination country code from context
+    let destinationCode = 'CA';
     if (destination.toLowerCase().includes('aspen') || destination.toLowerCase().includes('colorado')) {
-      actualDestination = 'United States';
+      destinationCode = 'US';
     } else if (destination.toLowerCase().includes('switzerland') || destination.toLowerCase().includes('zermatt')) {
-      actualDestination = 'Switzerland';
+      destinationCode = 'CH';
     } else {
-      actualDestination = 'Canada'; // Default for snowy destinations
+      destinationCode = 'CA'; // Default for snowy destinations
     }
     
-    let visaSection = `
+    let originCode = 'JP'; // Default to Japan
+    if (nationality === 'Japan') originCode = 'JP';
+    else if (nationality === 'United States') originCode = 'US';
+    else if (nationality === 'United Kingdom') originCode = 'GB';
+    
+    try {
+      // Fetch visa requirements from API
+      const response = await fetch(`/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
+      const visaData = await response.json();
+      
+      if (response.ok && visaData.visa_requirements?.data) {
+        const visa = visaData.visa_requirements.data.visa_requirement;
+        const originCountry = visaData.visa_requirements.data.origin_country;
+        const destCountry = visaData.visa_requirements.data.destination_country;
+        
+        let visaSection = `
 📋 Visa & Entry Requirements
+
+Travel Document Requirements for ${originCountry} Citizens to ${destCountry}:
 `;
-    
-    // Japan to Canada
-    if (nationality === 'Japan' && actualDestination === 'Canada') {
-      visaSection += `
-Travel Document Requirements for Japanese Citizens to Canada:
-• eTA (Electronic Travel Authorization) REQUIRED
-• Valid Japanese passport (minimum 6 months validity)
-• eTA must be obtained before departure
-• Processing time: Usually instant, can take up to 72 hours
-• Cost: CAD $7 per person
-• Valid for 5 years or until passport expires
-
-Entry Conditions:
-• Purpose: Tourism/Business (up to 6 months)
-• Proof of onward/return travel required
-• Sufficient funds for stay (approximately CAD $100/day)
-• No criminal record declaration
-
-⚠️ AGENT ACTION REQUIRED:
-• Apply for eTA at canada.ca/eta minimum 72 hours before departure
-• Verify passport expiry extends beyond July 2026
-• Confirm return flight bookings`;
+        
+        if (visa.required) {
+          visaSection += `• ${visa.type?.toUpperCase().replace('_', ' ') || 'VISA'} REQUIRED`;
+          if (visa.duration) visaSection += `\n• Maximum stay: ${visa.duration}`;
+          if (visa.processing_time) visaSection += `\n• Processing time: ${visa.processing_time}`;
+          if (visa.cost) visaSection += `\n• Cost: ${JSON.stringify(visa.cost)}`;
+        } else {
+          visaSection += `• NO VISA REQUIRED`;
+          if (visa.duration) visaSection += ` for stays up to ${visa.duration}`;
+          if (visa.type) visaSection += `\n• Entry type: ${visa.type.replace('_', ' ')}`;
+        }
+        
+        if (visa.documents && visa.documents.length > 0) {
+          visaSection += `\n\nRequired Documents:`;
+          visa.documents.forEach(doc => {
+            visaSection += `\n• ${doc}`;
+          });
+        }
+        
+        if (visa.application_url) {
+          visaSection += `\n\nApplication: ${visa.application_url}`;
+        }
+        
+        if (visa.notes && visa.notes.length > 0) {
+          visaSection += `\n\n⚠️ AGENT ACTION REQUIRED:`;
+          visa.notes.forEach(note => {
+            visaSection += `\n• ${note}`;
+          });
+        }
+        
+        if (visaData.visa_requirements.data.disclaimers) {
+          visaSection += `\n\n⚠️ IMPORTANT DISCLAIMERS:`;
+          visaData.visa_requirements.data.disclaimers.forEach(disclaimer => {
+            visaSection += `\n• ${disclaimer}`;
+          });
+        }
+        
+        return visaSection;
+      }
+    } catch (error) {
+      console.error('Error fetching visa requirements:', error);
     }
-    // Japan to United States  
-    else if (nationality === 'Japan' && actualDestination === 'United States') {
-      visaSection += `
-Travel Document Requirements for Japanese Citizens to United States:
-• ESTA (Electronic System for Travel Authorization) OR B-1/B-2 Visa
-• Valid Japanese passport (minimum 6 months validity)
-• ESTA recommended for tourism (90 days or less)
-• Processing time: ESTA usually instant, Visa 2-3 weeks
-• Cost: ESTA $21 per person, B-1/B-2 Visa $185
+    
+    // Fallback to simplified static data
+    return `
+📋 Visa & Entry Requirements
 
-Entry Conditions:
-• Purpose: Tourism/Business (up to 90 days with ESTA)
-• Proof of onward/return travel required
+⚠️ Unable to retrieve current visa requirements from Amadeus API.
+Please verify visa requirements with the destination country's embassy or consulate.
+
+General Requirements:
+• Valid passport (minimum 6 months validity)
+• Proof of onward/return travel
 • Sufficient funds for stay
-• No previous visa violations
+• No criminal record (may require police certificate)
 
 ⚠️ AGENT ACTION REQUIRED:
-• Apply for ESTA at esta.cbp.dhs.gov minimum 72 hours before departure
-• Verify passport validity through May 2026
-• Print ESTA authorization confirmation`;
-    }
-    // Japan to Switzerland
-    else if (nationality === 'Japan' && actualDestination === 'Switzerland') {
-      visaSection += `
-Travel Document Requirements for Japanese Citizens to Switzerland:
-• NO VISA REQUIRED for stays up to 90 days
-• Valid Japanese passport (minimum 6 months validity)
-• Schengen Area entry (can travel to 26 European countries)
-• Entry stamp required at first Schengen country
-
-Entry Conditions:
-• Purpose: Tourism/Business (up to 90 days in 180-day period)
-• Proof of onward/return travel required
-• Travel insurance recommended (minimum €30,000 coverage)
-• Sufficient funds (approximately CHF 100/day)
-
-⚠️ AGENT ACTION REQUIRED:
-• Verify passport validity through May 2026
-• Recommend comprehensive travel insurance
-• Confirm accommodation bookings`;
-    }
-    
-    return visaSection;
+• Check current visa requirements with official sources
+• Verify passport validity dates
+• Confirm entry requirements for travel purpose`;
   };
 
-  const formatHealthAdvisory = (data) => {
+  const formatHealthAdvisory = async (data) => {
     const requirements = data?.data?.requirements?.data?.requirements || {};
+    const profile = data?.data?.profile?.data || {};
     const destination = requirements.destination || 'somewhere snowy';
-    const departureDate = requirements.departure_date || '2025-11-25';
+    const nationality = profile.nationality || 'Japan';
     
-    // Determine actual destination
-    let actualDestination = 'Canada';
+    // Determine destination country code from context
+    let destinationCode = 'CA';
     if (destination.toLowerCase().includes('aspen') || destination.toLowerCase().includes('colorado')) {
-      actualDestination = 'United States';
+      destinationCode = 'US';
     } else if (destination.toLowerCase().includes('switzerland') || destination.toLowerCase().includes('zermatt')) {
-      actualDestination = 'Switzerland';
+      destinationCode = 'CH';
+    } else {
+      destinationCode = 'CA'; // Default for snowy destinations
     }
     
-    let healthSection = `
+    let originCode = 'JP'; // Default to Japan
+    if (nationality === 'Japan') originCode = 'JP';
+    else if (nationality === 'United States') originCode = 'US';
+    else if (nationality === 'United Kingdom') originCode = 'GB';
+    
+    try {
+      // Fetch health advisory from API
+      const response = await fetch(`/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
+      const healthData = await response.json();
+      
+      if (response.ok && healthData.health_advisory?.data) {
+        const advisory = healthData.health_advisory.data.health_advisory;
+        
+        let healthSection = `
 🏥 Health & Medical Advisory
+
+Health Requirements for ${advisory.destination}:
 `;
-    
-    if (actualDestination === 'Canada') {
-      healthSection += `
-Health Requirements for Canada Travel:
-• NO mandatory vaccinations required
-• COVID-19 restrictions: Check current ArriveCAN requirements
-• Recommended vaccinations: Routine (MMR, DPT, flu)
-• Prescription medications: Bring in original containers
-• Medical insurance: Strongly recommended
-
-Winter Health Considerations:
-• Altitude: Banff area 1,400m (4,600ft) - generally well tolerated
-• Cold weather precautions for November travel
-• Hypothermia and frostbite prevention
-• Snow blindness protection (sunglasses)
-• Dehydration risk at altitude
-
-Medical Facilities:
-• Banff Mineral Springs Hospital - 305 Lynx Street, Banff
-• Lake Louise Medical Clinic - Samson Mall, Lake Louise
-• Emergency: 911
-• Health services covered under travel insurance
-
-⚠️ AGENT RECOMMENDATION:
-• Comprehensive travel medical insurance mandatory
-• Verify client medications allowed in Canada
-• Advise winter clothing and sun protection`;
-    }
-    else if (actualDestination === 'United States') {
-      healthSection += `
-Health Requirements for United States Travel:
-• NO mandatory vaccinations required
-• COVID-19 restrictions: Check CDC current guidelines
-• Recommended vaccinations: Routine (MMR, DPT, flu, COVID-19)
-• Prescription medications: Bring in original containers with prescription
-• Medical insurance: Strongly recommended (US healthcare expensive)
-
-Winter/Altitude Health Considerations:
-• Aspen altitude: 2,438m (8,000ft) - altitude sickness possible
-• Acclimatization recommended for first 24-48 hours
-• Increased UV exposure at altitude
-• Cold weather and dry air precautions
-• Dehydration risk increases with altitude
-
-Medical Facilities:
-• Aspen Valley Hospital - 401 Castle Creek Road, Aspen
-• Snowmass Medical Center - 0055 Carriage Way, Snowmass
-• Emergency: 911
-• No universal healthcare - insurance essential
-
-⚠️ AGENT RECOMMENDATION:
-• Medical insurance with minimum $1M coverage essential
-• Advise gradual acclimatization to altitude
-• Recommend hydration and sun protection
-• Verify prescription medications allowed`;
-    }
-    else if (actualDestination === 'Switzerland') {
-      healthSection += `
-Health Requirements for Switzerland Travel:
-• NO mandatory vaccinations required
-• COVID-19: Check current Swiss entry requirements
-• Recommended vaccinations: Routine (MMR, DPT, flu)
-• EU Health Insurance Card not applicable for Japanese citizens
-• Travel insurance required for visa-exempt travelers
-
-Alpine Health Considerations:
-• Zermatt altitude: 1,620m (5,315ft) - generally well tolerated
-• Higher altitudes accessible by cable car (3,883m Matterhorn Glacier Paradise)
-• Altitude sickness possible at cable car destinations
-• Strong Alpine UV radiation
-• Rapid weather changes in mountains
-
-Medical Facilities:
-• Zermatt Medical Center - Bahnhofstrasse, Zermatt
-• Swiss healthcare excellent but expensive for non-residents
-• Emergency: 144 (medical), 1414 (REGA air rescue)
-• Helicopter rescue common in Alpine areas
-
-⚠️ AGENT RECOMMENDATION:
-• Travel insurance with Alpine rescue coverage mandatory
-• Minimum €30,000 medical coverage recommended
-• Advise sun protection at altitude
-• Emergency contact information for mountain rescue`;
+        
+        // Vaccinations
+        if (advisory.vaccinations && advisory.vaccinations.length > 0) {
+          healthSection += `\nVaccination Requirements:`;
+          advisory.vaccinations.forEach(vacc => {
+            const status = vacc.required ? 'REQUIRED' : 'Recommended';
+            healthSection += `\n• ${vacc.name} - ${status}`;
+            if (vacc.timing) healthSection += ` (${vacc.timing})`;
+            if (vacc.notes) healthSection += `\n  ${vacc.notes}`;
+          });
+        }
+        
+        // Health risks
+        if (advisory.health_risks && advisory.health_risks.length > 0) {
+          healthSection += `\n\nHealth Risks:`;
+          advisory.health_risks.forEach(risk => {
+            healthSection += `\n• ${risk.disease} (${risk.risk_level.replace('_', ' ').toUpperCase()} risk)`;
+            if (risk.prevention && risk.prevention.length > 0) {
+              healthSection += `\n  Prevention: ${risk.prevention.join(', ')}`;
+            }
+            if (risk.symptoms && risk.symptoms.length > 0) {
+              healthSection += `\n  Symptoms: ${risk.symptoms.join(', ')}`;
+            }
+          });
+        }
+        
+        // Medical preparations
+        if (advisory.medical_preparations && advisory.medical_preparations.length > 0) {
+          healthSection += `\n\nMedical Preparations:`;
+          advisory.medical_preparations.forEach(prep => {
+            healthSection += `\n• ${prep.category} (${prep.priority.toUpperCase()})`;
+            if (prep.items && prep.items.length > 0) {
+              prep.items.forEach(item => {
+                healthSection += `\n  - ${item}`;
+              });
+            }
+          });
+        }
+        
+        // Healthcare info
+        if (advisory.healthcare_info) {
+          healthSection += `\n\nHealthcare Information:`;
+          Object.entries(advisory.healthcare_info).forEach(([key, value]) => {
+            if (value) {
+              healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
+            }
+          });
+        }
+        
+        // Emergency contacts
+        if (advisory.emergency_contacts) {
+          healthSection += `\n\nEmergency Contacts:`;
+          Object.entries(advisory.emergency_contacts).forEach(([key, value]) => {
+            if (value) {
+              healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
+            }
+          });
+        }
+        
+        // General advisories
+        if (advisory.advisories && advisory.advisories.length > 0) {
+          healthSection += `\n\n⚠️ AGENT RECOMMENDATIONS:`;
+          advisory.advisories.forEach(advice => {
+            healthSection += `\n• ${advice}`;
+          });
+        }
+        
+        // Disclaimers
+        if (healthData.health_advisory.data.disclaimers) {
+          healthSection += `\n\n⚠️ IMPORTANT DISCLAIMERS:`;
+          healthData.health_advisory.data.disclaimers.forEach(disclaimer => {
+            healthSection += `\n• ${disclaimer}`;
+          });
+        }
+        
+        return healthSection;
+      }
+    } catch (error) {
+      console.error('Error fetching health advisory:', error);
     }
     
-    return healthSection;
+    // Fallback to simplified static data
+    return `
+🏥 Health & Medical Advisory
+
+⚠️ Unable to retrieve current health advisory information.
+Please consult a travel medicine specialist for destination-specific health requirements.
+
+General Health Preparations:
+• Ensure routine vaccinations are up to date (MMR, DPT, flu, COVID-19)
+• Consult healthcare provider 4-6 weeks before travel
+• Obtain comprehensive travel health insurance
+• Pack personal medications in original containers
+• Research local healthcare facilities at destination
+
+⚠️ AGENT RECOMMENDATIONS:
+• Schedule travel medicine consultation
+• Verify destination-specific vaccination requirements
+• Confirm travel insurance includes medical evacuation
+• Research emergency contact information for destination`;
   };
 
   const formatTravelDocumentation = (data) => {
