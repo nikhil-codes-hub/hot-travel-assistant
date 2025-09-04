@@ -10,6 +10,8 @@ from agents.cache.llm_cache import LLMCache
 class TravelRequirements(BaseModel):
     destination: Optional[str] = Field(None, description="Specific destination if mentioned")
     destination_type: Optional[str] = Field(None, description="Type of destination (beach, mountains, city, etc.)")
+    event_name: Optional[str] = Field(None, description="Specific event or festival name if mentioned")
+    event_type: Optional[str] = Field(None, description="Type of event (festival, concert, sports, cultural, etc.)")
     departure_date: Optional[str] = Field(None, description="Departure date in YYYY-MM-DD format")
     return_date: Optional[str] = Field(None, description="Return date in YYYY-MM-DD format")
     duration: Optional[int] = Field(None, description="Trip duration in days")
@@ -191,39 +193,43 @@ You are an expert travel planning assistant specializing in comprehensive travel
 CORE MISSION:
 - Extract explicit travel requirements from user requests
 - For ANY destination mentioned (even vague ones), provide comprehensive travel planning context
+- Extract EVENT-based travel requirements (festivals, concerts, cultural events, sports)
 - Enable full travel planning workflow including attractions, flights, hotels, visa requirements, health advisories
-- Handle both specific destinations (Thailand, Paris) and vague requests (somewhere warm, tropical place)
+- Handle both specific destinations (Thailand, Paris), vague requests (somewhere warm, tropical place), and EVENT-BASED requests (Water Lantern Festival in Thailand, Oktoberfest in Munich)
 
 CRITICAL RULES:
-1. Extract all explicitly mentioned travel information
-2. For destinations (specific OR vague): Always enable comprehensive planning
-3. Apply INTELLIGENT DEFAULTS for missing parameters to enable comprehensive planning:
-   - Duration: Suggest appropriate length based on destination (7 days international, 4-5 domestic)
+1. Extract all explicitly mentioned travel information including EVENTS and FESTIVALS
+2. For destinations (specific OR vague) AND EVENTS: Always enable comprehensive planning
+3. EVENT DETECTION: Look for patterns like "festival", "concert", "event", "celebration", specific event names
+4. Apply INTELLIGENT DEFAULTS for missing parameters to enable comprehensive planning:
+   - Duration: Suggest appropriate length based on destination/event (7 days international, 4-5 domestic, extend for festivals)
    - Passengers: Default to 2 people for better travel experience
    - Budget: Suggest realistic range based on destination and duration
    - Travel Class: Default to economy for budget planning
-4. MINIMIZE missing_fields - only mark as missing if absolutely critical and cannot be defaulted
-5. Vague destinations like 'Thailand next month' should trigger full travel planning workflow
-6. Never mark destination as missing if ANY location hint is provided
-7. If conversation context exists, merge new information with existing context{context_info}
+5. MINIMIZE missing_fields - only mark as missing if absolutely critical and cannot be defaulted
+6. EVENT-based requests like 'Water Lantern Festival in Thailand' should trigger full travel planning workflow
+7. Never mark destination as missing if ANY location hint is provided (including events in locations)
+8. If conversation context exists, merge new information with existing context{context_info}
 
 User Request: "{user_request}"
 
 Extract the following information and return ONLY valid JSON with intelligent defaults:
 {{
     "requirements": {{
-        "destination": "Always extract if any location is mentioned - specific ('Thailand', 'Paris') or vague ('somewhere tropical', 'beach destination', 'Europe'). Only null if absolutely no location mentioned",
-        "destination_type": "Infer from context: beach/mountains/city/adventure/cultural/romantic/tropical/ski/etc",
-        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or suggest reasonable near-future date",
+        "destination": "Always extract if any location is mentioned - specific ('Thailand', 'Paris') or vague ('somewhere tropical', 'beach destination', 'Europe'). Extract from event context if mentioned (Water Lantern Festival in Thailand -> Thailand). Only null if absolutely no location mentioned",
+        "destination_type": "Infer from context: beach/mountains/city/adventure/cultural/romantic/tropical/ski/festival/event/etc",
+        "event_name": "Extract specific event/festival name if mentioned (Water Lantern Festival, Oktoberfest, Diwali celebration, etc.)",
+        "event_type": "Classify event type if mentioned: festival/concert/sports/cultural/religious/seasonal/etc",
+        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or suggest reasonable near-future date. For events, consider event timing",
         "return_date": "YYYY-MM-DD if return date specified, calculate based on duration if available",
-        "duration": "Extract if mentioned, OR suggest intelligent default: 7 days for international, 4-5 days for domestic/city breaks, 10-14 days for Asia/distant destinations",
-        "budget": "Extract if currency mentioned, OR suggest reasonable range based on destination (e.g., 1500-3000 for Thailand, 2000-4000 for Europe per person for 7 days)",
+        "duration": "Extract if mentioned, OR suggest intelligent default: 7 days for international, 4-5 days for domestic/city breaks, 10-14 days for Asia/distant destinations, extend for festivals (5-8 days for festival experience)",
+        "budget": "Extract if currency mentioned, OR suggest reasonable range based on destination (e.g., 1500-3000 for Thailand, 2000-4000 for Europe per person for 7 days). Add festival premium if event-based",
         "budget_currency": "currency code if specified, 'USD' as default",
         "passengers": "Extract if mentioned, default to 2 people for better travel experience and planning",
         "children": "number of children if explicitly mentioned, null otherwise",
         "travel_class": "economy/premium_economy/business/first if mentioned, 'economy' as default for budget planning",
-        "accommodation_type": "hotel/resort/hostel/apartment/bnb if mentioned, suggest based on destination and inferred budget",
-        "special_requirements": ["explicit requirements or inferred from destination/context"]
+        "accommodation_type": "hotel/resort/hostel/apartment/bnb if mentioned, suggest based on destination and inferred budget. Consider festival proximity if event-based",
+        "special_requirements": ["explicit requirements or inferred from destination/context/events"]
     }},
     "suggested_defaults": {{
         "duration_reasoning": "Why this duration makes sense for the destination",
@@ -369,6 +375,51 @@ INTELLIGENT DEFAULTS EXAMPLES:
         passengers = conversation_context.get("passengers", 1)
         
         user_lower = user_request.lower()
+        
+        # Initialize event tracking
+        event_name = conversation_context.get("event_name")
+        event_type = conversation_context.get("event_type")
+        
+        # Extract event information first (events often contain destination info)
+        import re
+        
+        # Check for specific festivals/events
+        if "water lantern festival" in user_lower:
+            event_name = "Water Lantern Festival"
+            event_type = "festival"
+            if "thailand" in user_lower:
+                destination = "Thailand"
+        elif "oktoberfest" in user_lower:
+            event_name = "Oktoberfest"
+            event_type = "festival"
+            if "munich" in user_lower or "germany" in user_lower:
+                destination = "Munich, Germany"
+        elif "diwali" in user_lower and ("festival" in user_lower or "celebration" in user_lower):
+            event_name = "Diwali Festival"
+            event_type = "cultural"
+        elif "holi" in user_lower and ("festival" in user_lower or "celebration" in user_lower):
+            event_name = "Holi Festival"
+            event_type = "cultural"
+            if not destination and "india" in user_lower:
+                destination = "India"
+        elif "cherry blossom" in user_lower and ("festival" in user_lower or "season" in user_lower):
+            event_name = "Cherry Blossom Festival"
+            event_type = "seasonal"
+            if not destination and "japan" in user_lower:
+                destination = "Japan"
+        # Generic event/festival patterns
+        elif re.search(r'(\w+(?:\s+\w+)*)\s+festival', user_lower):
+            match = re.search(r'(\w+(?:\s+\w+)*)\s+festival', user_lower)
+            event_name = f"{match.group(1).title()} Festival"
+            event_type = "festival"
+        elif re.search(r'(\w+(?:\s+\w+)*)\s+concert', user_lower):
+            match = re.search(r'(\w+(?:\s+\w+)*)\s+concert', user_lower)
+            event_name = f"{match.group(1).title()} Concert"
+            event_type = "concert"
+        elif re.search(r'(\w+(?:\s+\w+)*)\s+event', user_lower):
+            match = re.search(r'(\w+(?:\s+\w+)*)\s+event', user_lower)
+            event_name = f"{match.group(1).title()} Event"
+            event_type = "event"
         
         # Extract destination (only override if new one is found)
         # First check for vague destination patterns
@@ -538,6 +589,8 @@ INTELLIGENT DEFAULTS EXAMPLES:
 
         fallback_requirements = TravelRequirements(
             destination=destination,
+            event_name=event_name,
+            event_type=event_type,
             duration=duration,
             departure_date=departure_date,
             budget=budget,

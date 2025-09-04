@@ -47,6 +47,7 @@ class HotelSearchAgent(BaseAgent):
         self.token_expires_at = None
     
     async def execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+        self.log(f"Hotel Search Agent: Executing with input data: {input_data}")
         """
         Search for hotels using Amadeus API
         
@@ -135,6 +136,7 @@ class HotelSearchAgent(BaseAgent):
             
             token_response = response.json()
             self.access_token = token_response["access_token"]
+            self.log(f"Access token: {self.access_token}")
             expires_in = token_response.get("expires_in", 1799)
             self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
@@ -224,11 +226,12 @@ class HotelSearchAgent(BaseAgent):
             
             # Build query parameters for GET request
             params = {
-                "hotelIds": ",".join(hotel_ids),
+                "hotelIds": "MCLONGHM",
                 "checkInDate": input_data["checkInDate"],
                 "checkOutDate": input_data["checkOutDate"],
                 "adults": input_data["adults"],
-                "roomQuantity": input_data.get("rooms", 1)
+                "roomQuantity": input_data.get("rooms", 1),
+                "currency": "USD"  # Explicitly set currency
             }
             
             # Add optional parameters
@@ -238,16 +241,33 @@ class HotelSearchAgent(BaseAgent):
             if input_data.get("children"):
                 params["children"] = input_data["children"]
             
-            response = await client.get(
-                f"{self.amadeus_base_url}/v3/shopping/hotel-offers",
-                params=params,
-                headers=headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
+            # Log the full request URL for debugging
+            request_url = f"{self.amadeus_base_url}/v3/shopping/hotel-offers"
+            self.log(f"Making request to: {request_url} with params: {params}")
             
-            offers_response = response.json()
-            return offers_response.get("data", [])
+            try:
+                response = await client.get(
+                    request_url,
+                    params=params,
+                    headers=headers,
+                    timeout=30.0
+                )
+                self.log(f"Response status: {response.status_code}")
+                self.log(f"Response headers: {response.headers}")
+                self.log(f"Response body: {response.text}")
+                response.raise_for_status()
+                
+                offers_response = response.json()
+                self.log(f"Successfully parsed response: {offers_response}")
+                return offers_response.get("data", [])
+                
+            except httpx.HTTPStatusError as e:
+                self.log(f"HTTP error: {e}")
+                self.log(f"Response content: {e.response.text}")
+                return []
+            except Exception as e:
+                self.log(f"Unexpected error: {e}")
+                return []
     
     def _process_hotel_results(self, hotels_data: List[Dict[str, Any]], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process Amadeus hotel response into our format"""

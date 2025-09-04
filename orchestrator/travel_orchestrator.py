@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from agents.llm_extractor.extractor_agent import LLMExtractorAgent
 from agents.user_profile.profile_agent import UserProfileAgent
 from agents.destination_discovery.destination_agent import DestinationDiscoveryAgent
+from agents.event_search.event_agent import EventSearchAgent
 from agents.flights_search.flights_agent import FlightsSearchAgent
 from agents.hotel_search.hotel_agent import HotelSearchAgent
 from agents.offers.offers_agent import OffersAgent
@@ -36,6 +37,7 @@ class TravelState(TypedDict):
     extracted_requirements: Dict[str, Any]
     user_profile: Dict[str, Any]
     destination_suggestions: Dict[str, Any]
+    event_details: Dict[str, Any]
     flight_offers: List[Dict[str, Any]]
     hotel_offers: List[Dict[str, Any]]
     enhanced_offers: Dict[str, Any]
@@ -71,6 +73,9 @@ class TravelOrchestrator:
         # Phase 2: Destination Discovery (conditional)
         workflow.add_node("discover_destinations", self._discover_destinations)
         
+        # Phase 2.5: Event Search (conditional)
+        workflow.add_node("search_events", self._search_events)
+        
         # Phase 3: Search & Offers (parallel)
         workflow.add_node("search_flights_hotels", self._search_flights_hotels_parallel)
         workflow.add_node("enhance_offers", self._enhance_offers)
@@ -89,9 +94,21 @@ class TravelOrchestrator:
         workflow.add_conditional_edges(
             "get_user_profile",
             self._needs_destination_discovery,
-            {"discover": "discover_destinations", "search": "search_flights_hotels"}
+            {"discover": "discover_destinations", "search": "search_events"}
         )
-        workflow.add_edge("discover_destinations", "search_flights_hotels")
+        
+        # Conditional event search after destination discovery
+        workflow.add_conditional_edges(
+            "discover_destinations",
+            self._needs_event_search,
+            {"events": "search_events", "search": "search_flights_hotels"}
+        )
+        
+        workflow.add_conditional_edges(
+            "search_events",
+            self._always_continue_to_search,
+            {"search": "search_flights_hotels"}
+        )
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
         workflow.add_edge("enhance_offers", "curate_flights")
@@ -145,6 +162,7 @@ class TravelOrchestrator:
                 "extracted_requirements": {},
                 "user_profile": {},
                 "destination_suggestions": {},
+                "event_details": {},
                 "flight_offers": [],
                 "hotel_offers": [],
                 "enhanced_offers": {},
@@ -173,6 +191,8 @@ class TravelOrchestrator:
             return {
                 "requirements": result.get('extracted_requirements', {}),
                 "profile": result.get('user_profile', {}),
+                "destination_suggestions": result.get('destination_suggestions', {}),
+                "event_details": result.get('event_details', {}),
                 "flight_offers": result.get('flight_offers', []),
                 "curated_flights": result.get('curated_flights', {}),
                 "hotel_offers": result.get('hotel_offers', []),
@@ -423,6 +443,133 @@ class TravelOrchestrator:
         except Exception as e:
             logger.error(f"Destination discovery failed", session_id=state["session_id"], error=str(e))
             state["destination_suggestions"] = {"error": str(e)}
+        
+        return state
+    
+    def _needs_event_search(self, state: TravelState) -> str:
+        """Determine if event search is needed based on extracted requirements"""
+        try:
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            # Check if event information is present
+            has_event_name = bool(requirements.get("event_name"))
+            has_event_type = bool(requirements.get("event_type"))
+            
+            if has_event_name or has_event_type:
+                logger.info(f"Event search needed", 
+                          session_id=state["session_id"],
+                          event_name=requirements.get("event_name"),
+                          event_type=requirements.get("event_type"))
+                return "events"
+            else:
+                return "search"
+                
+        except Exception as e:
+            logger.error(f"Event search check failed", session_id=state["session_id"], error=str(e))
+            return "search"
+    
+    def _always_continue_to_search(self, state: TravelState) -> str:
+        """Always continue to search after event search"""
+        return "search"
+    
+    async def _search_events(self, state: TravelState) -> TravelState:
+        """Phase 2.5: Search for events and festivals"""
+        try:
+            agent = EventSearchAgent()
+            
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            input_data = {
+                "event_name": requirements.get("event_name"),
+                "event_type": requirements.get("event_type"),
+                "destination": requirements.get("destination"),
+                "date_range": requirements.get("departure_date"),
+                "duration": requirements.get("duration", 7),
+                "preferences": requirements.get("special_requirements", [])
+            }
+            
+            logger.info(f"Event search input", 
+                       session_id=state["session_id"],
+                       event_name=requirements.get("event_name"),
+                       event_type=requirements.get("event_type"),
+                       destination=requirements.get("destination"))
+            
+            result = await agent.execute(input_data, state["session_id"])
+            state["event_details"] = result
+            
+            # Extract event information to enhance requirements
+            events_data = result.get("data", {})
+            events = events_data.get("events", [])
+            
+            # If we have event details, enhance the travel requirements
+            if events:
+                first_event = events[0]
+                
+                # Update requirements with event-specific information
+                if "requirements" not in result_data:
+                    result_data["requirements"] = {}
+                    
+                requirements = result_data["requirements"]
+                
+                # Update destination if event provides more specific location
+                event_location = first_event.get("location")
+                if event_location and not requirements.get("destination"):
+                    requirements["destination"] = event_location
+                
+                # Update dates based on event timing
+                event_start = first_event.get("start_date")
+                if event_start and not requirements.get("departure_date"):
+                    # Arrive a day before the event
+                    from datetime import datetime, timedelta
+                    try:
+                        event_date = datetime.strptime(event_start, "%Y-%m-%d")
+                        arrival_date = event_date - timedelta(days=1)
+                        requirements["departure_date"] = arrival_date.strftime("%Y-%m-%d")
+                    except:
+                        requirements["departure_date"] = event_start
+                
+                # Extend duration for multi-day events
+                event_duration = first_event.get("duration", "")
+                if "day" in event_duration.lower():
+                    try:
+                        import re
+                        duration_match = re.search(r'(\d+)', event_duration)
+                        if duration_match:
+                            event_days = int(duration_match.group(1))
+                            # Add buffer days before and after event
+                            total_duration = event_days + 3
+                            requirements["duration"] = max(requirements.get("duration", 7), total_duration)
+                    except:
+                        pass
+                
+                # Add event-specific requirements
+                if not requirements.get("special_requirements"):
+                    requirements["special_requirements"] = []
+                
+                event_requirements = [f"Attending {first_event.get('name', 'event')}"]
+                if first_event.get("what_to_bring"):
+                    event_requirements.extend(first_event["what_to_bring"])
+                
+                requirements["special_requirements"].extend(event_requirements)
+                
+                # Update the state with enhanced requirements
+                state["extracted_requirements"]["data"]["requirements"] = requirements
+                
+                logger.info(f"Requirements enhanced with event information", 
+                           session_id=state["session_id"],
+                           event_name=first_event.get("name"),
+                           event_location=event_location,
+                           event_dates=f"{first_event.get('start_date')} to {first_event.get('end_date', 'N/A')}")
+            
+            logger.info(f"Events searched", 
+                       session_id=state["session_id"],
+                       event_count=len(events))
+            
+        except Exception as e:
+            logger.error(f"Event search failed", session_id=state["session_id"], error=str(e))
+            state["event_details"] = {"error": str(e)}
         
         return state
     
