@@ -409,7 +409,7 @@ ${airlineName} - ${price.currency || 'USD'} ${price.total || 'TBD'}`;
   };
 
   const formatHotelDetails = (data) => {
-    const hotelOffers = data?.data?.hotel_offers || [];
+    let hotelOffers = data?.data?.hotel_offers || [];
     const profile = data?.data?.profile?.data || {};
     const loyaltyTier = profile.loyalty_tier || 'STANDARD';
     
