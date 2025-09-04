@@ -379,12 +379,12 @@ class TravelOrchestrator:
                 state["hotel_offers"] = []
                 return state
             
-            # Prepare search parameters
-            departure_date = requirements.get("departure_date", "2024-07-01")
+            # Prepare search parameters with intelligent defaults
+            departure_date = requirements.get("departure_date", "2025-12-01")  # Default to next month
             return_date = requirements.get("return_date")
-            duration = requirements.get("duration", 7)
-            adults = requirements.get("passengers", 1)
-            travel_class = requirements.get("travel_class", "ECONOMY")
+            duration = requirements.get("duration", 7)  # LLM or system default
+            adults = requirements.get("passengers", 2)  # Default to 2 people for better experience
+            travel_class = requirements.get("travel_class", "ECONOMY").upper()
             
             # Calculate check-out date if not provided
             if not return_date:
@@ -554,14 +554,21 @@ class TravelOrchestrator:
             result_data = state["extracted_requirements"].get("data", {})
             requirements = result_data.get("requirements", {})
             
-            # Check if we have minimum required information
+            # Check if we have minimum required information - with intelligent defaults, we should rarely hit this
             if not requirements.get("destination") and not state.get("destination_suggestions", {}).get("suggestions"):
-                logger.warning(f"Insufficient travel requirements for itinerary", session_id=state["session_id"])
+                logger.warning(f"No destination available for itinerary planning", session_id=state["session_id"])
+                # Even without destination, we can provide general travel planning guidance
                 state["itinerary"] = {
-                    "error": "Insufficient travel information provided. Please specify destination, dates, and travel preferences.",
-                    "requirements_needed": ["destination", "departure_date", "duration", "travelers"]
+                    "message": "Please specify a destination to complete your comprehensive travel plan. We have intelligent defaults for duration (7 days), passengers (2 people), and budget estimates ready for any destination you choose.",
+                    "available_defaults": {
+                        "duration": requirements.get("duration", 7),
+                        "passengers": requirements.get("passengers", 2),
+                        "travel_class": requirements.get("travel_class", "economy"),
+                        "budget_guidance": "We'll provide destination-specific budget estimates once you specify your preferred location"
+                    },
+                    "next_steps": ["Choose a destination", "We'll handle the rest with intelligent recommendations"]
                 }
-                state["status"] = "requirements_missing"
+                state["status"] = "destination_needed"
                 return state
             
             # Use curated flights if available, otherwise fall back to enhanced offers
@@ -753,13 +760,14 @@ class TravelOrchestrator:
             return "JFK"  # Default fallback
             
         destination_codes = {
+            "Thailand": "BKK",
+            "Bangkok": "BKK", 
             "Zermatt": "ZUR",  # Zurich airport for Zermatt
             "Switzerland": "ZUR",
             "Tokyo": "NRT",
             "Paris": "CDG",
             "London": "LHR",
             "New York": "JFK",
-            "Bangkok": "BKK",
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
@@ -781,13 +789,14 @@ class TravelOrchestrator:
     def _get_city_code(self, destination: str) -> str:
         """Convert destination name to city code (simplified mapping)"""
         city_codes = {
+            "Thailand": "BKK",
+            "Bangkok": "BKK",
             "Zermatt": "ZUR",  # Use Zurich city code for Zermatt hotels
             "Switzerland": "ZUR",
             "Tokyo": "TYO",
             "Paris": "PAR",
             "London": "LON",
             "New York": "NYC",
-            "Bangkok": "BKK",
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",

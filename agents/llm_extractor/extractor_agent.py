@@ -5,6 +5,7 @@ from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
+from agents.cache.llm_cache import LLMCache
 
 class TravelRequirements(BaseModel):
     destination: Optional[str] = Field(None, description="Specific destination if mentioned")
@@ -32,6 +33,11 @@ class LLMExtractorAgent(BaseAgent):
         self.ai_provider = os.getenv("AI_PROVIDER", "gemini")
         self.ai_available = False
         
+        # Initialize LLM response cache
+        cache_dir = os.getenv("LLM_CACHE_DIR", "cache/llm_responses")
+        cache_duration = int(os.getenv("LLM_CACHE_DURATION_HOURS", "24"))
+        self.cache = LLMCache(cache_dir=cache_dir, cache_duration_hours=cache_duration)
+        
         try:
             if self.ai_provider == "vertex":
                 # Initialize Vertex AI
@@ -58,13 +64,32 @@ class LLMExtractorAgent(BaseAgent):
         user_request = input_data["user_request"]
         conversation_context = input_data.get("conversation_context", {})
         
-        # Check if AI is available
+        # CRITICAL: Remove any PII before sending to LLM or using for cache
+        sanitized_request = self._sanitize_pii(user_request)
+        sanitized_context = self._sanitize_conversation_context(conversation_context)
+        
+        # Check cache first before making LLM call
+        cached_response = self.cache.get_cached_response(sanitized_request, sanitized_context)
+        if cached_response:
+            self.log(f"✅ Cache hit - returning cached travel planning data for similar request")
+            # Add cache hit information to response
+            cached_response["cache_info"] = {
+                "cache_hit": True,
+                "cached_at": cached_response.get("timestamp"),
+                "original_request": user_request
+            }
+            return self.format_output(cached_response)
+        
+        # Check if AI is available - now enforcing LLM usage
         if not self.ai_available:
+            self.log("⚠️  LLM not available - applying intelligent defaults")
             return self._generate_fallback_extraction(user_request, conversation_context)
         
         try:
-            # Create extraction prompt with conversation context
-            prompt = self._create_extraction_prompt(user_request, conversation_context)
+            self.log(f"🔄 Cache miss - calling LLM for travel planning extraction")
+            
+            # Create extraction prompt with sanitized data
+            prompt = self._create_extraction_prompt(sanitized_request, sanitized_context)
             
             # Call AI API
             if self.ai_provider == "vertex":
@@ -74,12 +99,25 @@ class LLMExtractorAgent(BaseAgent):
             
             # Parse response
             if self.ai_provider == "vertex":
-                extracted_data = self._parse_response(response, user_request, conversation_context)
+                extracted_data = self._parse_response(response, sanitized_request, sanitized_context)
             else:
-                extracted_data = self._parse_response(response.text, user_request, conversation_context)
+                extracted_data = self._parse_response(response.text, sanitized_request, sanitized_context)
+            
+            # Store in cache for future similar requests
+            cache_stored = self.cache.store_cached_response(sanitized_request, sanitized_context, extracted_data)
+            if cache_stored:
+                self.log(f"💾 LLM response cached successfully for future similar requests")
+            
+            # Add cache info to response
+            extracted_data["cache_info"] = {
+                "cache_hit": False,
+                "cached": cache_stored,
+                "original_request": user_request
+            }
             
             return self.format_output(extracted_data)
-        except Exception:
+        except Exception as e:
+            self.log(f"⚠️  LLM extraction failed: {str(e)} - using intelligent defaults")
             return self._generate_fallback_extraction(user_request, conversation_context)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
@@ -89,6 +127,52 @@ class LLMExtractorAgent(BaseAgent):
         model = GenerativeModel('gemini-1.5-pro')
         response = await model.generate_content_async(prompt)
         return response.text
+    
+    def _sanitize_pii(self, user_request: str) -> str:
+        """Remove PII information from user request before sending to LLM"""
+        import re
+        
+        if not user_request:
+            return user_request
+            
+        # Remove email addresses
+        sanitized = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL]', user_request)
+        
+        # Remove phone numbers (various formats)
+        sanitized = re.sub(r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', '[PHONE]', sanitized)
+        sanitized = re.sub(r'\b\d{3}-\d{3}-\d{4}\b', '[PHONE]', sanitized)
+        
+        # Remove passport numbers (basic pattern)
+        sanitized = re.sub(r'\b[A-Z]{1,2}\d{6,9}\b', '[PASSPORT]', sanitized)
+        
+        # Remove credit card numbers (basic pattern)
+        sanitized = re.sub(r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b', '[CARD]', sanitized)
+        
+        # Remove SSN patterns
+        sanitized = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN]', sanitized)
+        
+        return sanitized
+    
+    def _sanitize_conversation_context(self, conversation_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove PII from conversation context before sending to LLM"""
+        if not conversation_context:
+            return conversation_context
+            
+        # Create a clean copy without PII fields
+        sanitized_context = {}
+        
+        # Only include travel planning fields, exclude PII
+        safe_fields = [
+            'destination', 'departure_date', 'return_date', 'duration', 
+            'budget', 'budget_currency', 'passengers', 'children',
+            'travel_class', 'accommodation_type', 'special_requirements', 'destination_type'
+        ]
+        
+        for field in safe_fields:
+            if field in conversation_context:
+                sanitized_context[field] = conversation_context[field]
+                
+        return sanitized_context
     
     def _create_extraction_prompt(self, user_request: str, conversation_context: Dict[str, Any] = None) -> str:
         context_info = ""
@@ -101,42 +185,73 @@ PREVIOUS CONVERSATION CONTEXT:
 IMPORTANT: If the user request provides new information that wasn't in the previous context, update those fields. If the user request doesn't mention a field that exists in the previous context, keep the previous value."""
 
         return f"""
-You are a travel requirements extraction specialist. Extract travel requirements from the user request with NO GUESSING OR HALLUCINATION.
+You are an expert travel planning assistant specializing in comprehensive travel requirements extraction and destination insights. Your role is to extract travel requirements AND provide rich travel planning context for any destination mentioned.
+
+CORE MISSION:
+- Extract explicit travel requirements from user requests
+- For ANY destination mentioned (even vague ones), provide comprehensive travel planning context
+- Enable full travel planning workflow including attractions, flights, hotels, visa requirements, health advisories
+- Handle both specific destinations (Thailand, Paris) and vague requests (somewhere warm, tropical place)
 
 CRITICAL RULES:
-1. Only extract explicitly mentioned information from the current user request
-2. If information is vague or missing, mark as null and add to missing_fields
-3. Be conservative - err on the side of asking for clarification
-4. Do not make assumptions about dates, budgets, or preferences
-5. If conversation context exists, merge new information with existing context{context_info}
+1. Extract all explicitly mentioned travel information
+2. For destinations (specific OR vague): Always enable comprehensive planning
+3. Apply INTELLIGENT DEFAULTS for missing parameters to enable comprehensive planning:
+   - Duration: Suggest appropriate length based on destination (7 days international, 4-5 domestic)
+   - Passengers: Default to 2 people for better travel experience
+   - Budget: Suggest realistic range based on destination and duration
+   - Travel Class: Default to economy for budget planning
+4. MINIMIZE missing_fields - only mark as missing if absolutely critical and cannot be defaulted
+5. Vague destinations like 'Thailand next month' should trigger full travel planning workflow
+6. Never mark destination as missing if ANY location hint is provided
+7. If conversation context exists, merge new information with existing context{context_info}
 
 User Request: "{user_request}"
 
-Extract the following information and return ONLY valid JSON:
+Extract the following information and return ONLY valid JSON with intelligent defaults:
 {{
     "requirements": {{
-        "destination": "destination as mentioned - can be specific ('Paris') or vague ('somewhere snowy', 'beach destination'). Only null if not mentioned at all",
-        "destination_type": "type if mentioned: beach/mountains/city/adventure/cultural/romantic etc",
-        "departure_date": "YYYY-MM-DD if specific date given, null for 'next week'/'this summer'",
-        "return_date": "YYYY-MM-DD if return date specified, null otherwise",
-        "duration": "exact number of days/nights if mentioned, null otherwise",
-        "budget": "numeric amount only if currency value given, null for 'cheap'/'expensive'",
-        "budget_currency": "currency code if specified, null otherwise",
-        "passengers": "total number including adults and children, 1 if not specified",
+        "destination": "Always extract if any location is mentioned - specific ('Thailand', 'Paris') or vague ('somewhere tropical', 'beach destination', 'Europe'). Only null if absolutely no location mentioned",
+        "destination_type": "Infer from context: beach/mountains/city/adventure/cultural/romantic/tropical/ski/etc",
+        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or suggest reasonable near-future date",
+        "return_date": "YYYY-MM-DD if return date specified, calculate based on duration if available",
+        "duration": "Extract if mentioned, OR suggest intelligent default: 7 days for international, 4-5 days for domestic/city breaks, 10-14 days for Asia/distant destinations",
+        "budget": "Extract if currency mentioned, OR suggest reasonable range based on destination (e.g., 1500-3000 for Thailand, 2000-4000 for Europe per person for 7 days)",
+        "budget_currency": "currency code if specified, 'USD' as default",
+        "passengers": "Extract if mentioned, default to 2 people for better travel experience and planning",
         "children": "number of children if explicitly mentioned, null otherwise",
-        "travel_class": "economy/premium_economy/business/first if mentioned, null otherwise",
-        "accommodation_type": "hotel/resort/hostel/apartment/bnb if mentioned, null otherwise",
-        "special_requirements": ["explicit requirements: wheelchair_access, vegetarian_meals, pet_travel etc"]
+        "travel_class": "economy/premium_economy/business/first if mentioned, 'economy' as default for budget planning",
+        "accommodation_type": "hotel/resort/hostel/apartment/bnb if mentioned, suggest based on destination and inferred budget",
+        "special_requirements": ["explicit requirements or inferred from destination/context"]
     }},
-    "missing_fields": ["list CRITICAL fields needing clarification for booking"],
-    "confidence_score": "0.0-1.0 based on clarity and completeness of request"
+    "suggested_defaults": {{
+        "duration_reasoning": "Why this duration makes sense for the destination",
+        "budget_reasoning": "Budget estimate explanation and what it covers",
+        "passenger_assumption": "Why defaulting to this number of passengers",
+        "recommended_travel_class": "Suggested class based on budget and destination"
+    }},
+    "missing_fields": ["list ONLY truly critical fields that cannot be reasonably defaulted - minimize this list"],
+    "confidence_score": "0.8-1.0 for comprehensive planning with intelligent defaults",
+    "planning_context": {{
+        "requires_comprehensive_planning": true,
+        "destination_specificity": "specific/vague/general",
+        "defaults_applied": true,
+        "recommended_workflow": ["destination_discovery", "attractions", "flights", "hotels", "visa_requirements", "health_advisory"]
+    }}
 }}
 
-MISSING FIELDS PRIORITY:
-- Always include departure_date if not specified
-- Include budget if not specified
-- Include travel_class if not specified
-- Include destination ONLY if completely missing (not if vague like 'somewhere warm')
+COMPREHENSIVE PLANNING ENABLEMENT:
+- ANY destination mention should enable full travel planning workflow
+- Apply intelligent defaults for duration, passengers, budget to minimize missing fields
+- NEVER block comprehensive planning due to missing basic parameters that can be defaulted
+- For vague destinations, still extract what's available and let destination discovery handle specifics
+- Goal: Enable attractions research, flight/hotel search, visa requirements, health advisories for ALL queries
+- Even minimal input like "I want to visit Thailand" should result in comprehensive travel planning
+
+INTELLIGENT DEFAULTS EXAMPLES:
+- "Thailand trip" → Duration: 7-10 days, Passengers: 2, Budget: $2000-3000 per person
+- "Paris vacation" → Duration: 5 days, Passengers: 2, Budget: $2500-3500 per person
+- "Beach destination" → Duration: 7 days, Passengers: 2, Budget: varies by destination suggestion
 """
     
     def _parse_response(self, response_text: str, original_request: str) -> Dict[str, Any]:
@@ -160,32 +275,62 @@ MISSING FIELDS PRIORITY:
                 original_request=original_request
             )
             
-            return result.model_dump()
+            # Add planning context and suggested defaults if available
+            result_dict = result.model_dump()
+            if "planning_context" in parsed_data:
+                result_dict["planning_context"] = parsed_data["planning_context"]
+            if "suggested_defaults" in parsed_data:
+                result_dict["suggested_defaults"] = parsed_data["suggested_defaults"]
+            
+            return result_dict
             
         except Exception as e:
-            # Fallback parsing - determine missing fields dynamically
-            default_requirements = TravelRequirements()
+            # Apply intelligent defaults even in error scenarios
+            default_requirements = TravelRequirements(
+                passengers=2,  # Default to 2 people for better travel experience
+                duration=7,    # Default to 7 days for international travel
+                travel_class="economy",  # Default to economy for budget planning
+                budget_currency="USD"
+            )
             requirements_dict = default_requirements.model_dump()
             
-            # Determine missing critical fields
-            missing_fields = []
-            critical_fields = {
-                "destination": "destination",
-                "departure_date": "departure date", 
-                "duration": "trip duration",
-                "budget": "budget",
-                "travel_class": "travel class"
-            }
+            # Try to extract basic destination from original request
+            user_lower = original_request.lower()
+            if "thailand" in user_lower:
+                requirements_dict["destination"] = "Thailand"
+                requirements_dict["budget"] = 2000  # Reasonable Thailand budget for 2 people
+                requirements_dict["destination_type"] = "tropical"
+            elif "paris" in user_lower:
+                requirements_dict["destination"] = "Paris"
+                requirements_dict["duration"] = 5  # City break duration
+                requirements_dict["budget"] = 2500
+            elif any(pattern in user_lower for pattern in ["beach", "tropical", "warm"]):
+                requirements_dict["destination"] = "tropical beach destination"
+                requirements_dict["destination_type"] = "beach"
+                requirements_dict["budget"] = 2500
             
-            for field, display_name in critical_fields.items():
-                if not requirements_dict.get(field):
-                    missing_fields.append(display_name)
+            # Minimize missing fields - only mark truly critical ones as missing
+            missing_fields = []
+            if not requirements_dict.get("destination"):
+                missing_fields.append("destination")
+            # Don't mark duration, passengers, or budget as missing since we have defaults
             
             return {
                 "requirements": requirements_dict,
                 "missing_fields": missing_fields,
-                "confidence_score": 0.1,
+                "confidence_score": 0.6,  # Higher confidence with intelligent defaults
                 "original_request": original_request,
+                "suggested_defaults": {
+                    "duration_reasoning": "Applied 7-day default for international travel or 5 days for city breaks",
+                    "budget_reasoning": "Estimated based on destination and duration for 2 people",
+                    "passenger_assumption": "Defaulted to 2 people for optimal travel experience",
+                    "recommended_travel_class": "Economy class for budget-conscious planning"
+                },
+                "planning_context": {
+                    "requires_comprehensive_planning": True,
+                    "defaults_applied": True,
+                    "destination_specificity": "extracted" if requirements_dict.get("destination") else "missing"
+                },
                 "parsing_error": str(e)
             }
     
@@ -213,7 +358,7 @@ MISSING FIELDS PRIORITY:
             destination = "somewhere warm" 
         elif "somewhere tropical" in user_lower or "tropical place" in user_lower:
             destination = "somewhere tropical"
-        elif "beach destination" in user_lower or "beaches" in user_lower:
+        elif any(beach_term in user_lower for beach_term in ["beach", "beaches", "beach side", "beachside", "beach destination", "seaside", "coastal"]):
             destination = "beach destination"
         elif "ski destination" in user_lower or "skiing" in user_lower:
             destination = "ski destination"

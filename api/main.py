@@ -9,8 +9,13 @@ from config.database import get_db, engine
 from models.database_models import Base
 from orchestrator.travel_orchestrator import TravelOrchestrator
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables (optional - cache system works without DB)
+try:
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created successfully")
+except Exception as e:
+    print(f"⚠️  Database connection failed: {e}")
+    print("🔄 Cache system will work without database (file-based only)")
 
 app = FastAPI(
     title="HOT Intelligent Travel Assistant",
@@ -63,6 +68,38 @@ async def health_check(db = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Database connection failed: {e}")
+
+@app.post("/travel/search-simple")
+async def search_travel_simple(request: TravelRequest):
+    """
+    Process a travel search request using LLM with cache (works without database)
+    """
+    try:
+        # Use existing session_id if provided, otherwise create new one
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Test the LLM extractor with cache
+        from agents.llm_extractor.extractor_agent import LLMExtractorAgent
+        
+        agent = LLMExtractorAgent()
+        
+        input_data = {
+            "user_request": request.user_request,
+            "conversation_context": request.conversation_context or {}
+        }
+        
+        # Execute with cache
+        result = await agent.execute(input_data, session_id)
+        
+        return {
+            "session_id": session_id,
+            "status": "completed",
+            "data": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/travel/search", response_model=TravelResponse)
 async def search_travel(request: TravelRequest, db = Depends(get_db)):
@@ -301,6 +338,79 @@ async def get_health_advisory(
         
         return {
             "health_advisory": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cache/stats")
+async def get_cache_stats():
+    """
+    Get LLM cache statistics and performance metrics
+    """
+    try:
+        from agents.cache.llm_cache import LLMCache
+        
+        # Get stats for different cache directories
+        cache_stats = {}
+        
+        # Main LLM extractor cache
+        extractor_cache = LLMCache(cache_dir="cache/llm_responses")
+        cache_stats["extractor_cache"] = extractor_cache.get_cache_stats()
+        
+        # Destination discovery cache
+        destination_cache = LLMCache(cache_dir="cache/llm_responses/destination_discovery")
+        cache_stats["destination_discovery_cache"] = destination_cache.get_cache_stats()
+        
+        # Calculate totals
+        total_files = sum(stats.get("total_files", 0) for stats in cache_stats.values())
+        total_size_mb = sum(stats.get("total_size_mb", 0) for stats in cache_stats.values())
+        
+        return {
+            "cache_statistics": cache_stats,
+            "summary": {
+                "total_cache_files": total_files,
+                "total_cache_size_mb": total_size_mb,
+                "cache_enabled": True,
+                "cache_duration_hours": 24
+            },
+            "performance_benefits": {
+                "api_cost_savings": "Cached responses avoid repeated LLM API calls",
+                "response_time_improvement": "Cached responses return instantly",
+                "consistency": "Same queries return consistent travel planning data"
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/cache/clear-expired")
+async def clear_expired_cache():
+    """
+    Clear expired cache files to free up storage
+    """
+    try:
+        from agents.cache.llm_cache import LLMCache
+        
+        # Clear expired files from different caches
+        extractor_cache = LLMCache(cache_dir="cache/llm_responses")
+        extractor_removed = extractor_cache.clear_expired_cache()
+        
+        destination_cache = LLMCache(cache_dir="cache/llm_responses/destination_discovery")
+        destination_removed = destination_cache.clear_expired_cache()
+        
+        total_removed = extractor_removed + destination_removed
+        
+        return {
+            "status": "completed",
+            "files_removed": {
+                "extractor_cache": extractor_removed,
+                "destination_discovery_cache": destination_removed,
+                "total": total_removed
+            },
+            "message": f"Removed {total_removed} expired cache files",
             "timestamp": datetime.utcnow().isoformat()
         }
         
