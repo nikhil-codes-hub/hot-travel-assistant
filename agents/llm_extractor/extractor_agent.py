@@ -296,7 +296,7 @@ INTELLIGENT DEFAULTS EXAMPLES:
             default_requirements = TravelRequirements(
                 passengers=2,  # Default to 2 people for better travel experience
                 duration=7,    # Default to 7 days for international travel
-                travel_class="economy",  # Default to economy for budget planning
+                travel_class="business",  # Default to business for premium experience
                 budget_currency="USD"
             )
             requirements_dict = default_requirements.model_dump()
@@ -329,11 +329,20 @@ INTELLIGENT DEFAULTS EXAMPLES:
             elif "paris" in user_lower:
                 requirements_dict["destination"] = "Paris"
                 requirements_dict["duration"] = 5  # City break duration
-                requirements_dict["budget"] = 2500
+                requirements_dict["budget"] = 3500  # Expensive European city
+            elif "tokyo" in user_lower or "japan" in user_lower:
+                requirements_dict["destination"] = "Tokyo, Japan"
+                requirements_dict["duration"] = 5  # City break duration
+                requirements_dict["budget"] = 3000  # Japanese city budget
+                requirements_dict["destination_type"] = "city"
             elif any(pattern in user_lower for pattern in ["beach", "tropical", "warm"]):
                 requirements_dict["destination"] = "tropical beach destination"
                 requirements_dict["destination_type"] = "beach"
                 requirements_dict["budget"] = 2500
+            
+            # Set default budget if none was assigned
+            if not requirements_dict.get("budget"):
+                requirements_dict["budget"] = 3000  # Default international budget
             
             # Minimize missing fields - only mark truly critical ones as missing
             missing_fields = []
@@ -350,7 +359,7 @@ INTELLIGENT DEFAULTS EXAMPLES:
                     "duration_reasoning": "Applied 7-day default for international travel or 5 days for city breaks",
                     "budget_reasoning": "Estimated based on destination and duration for 2 people",
                     "passenger_assumption": "Defaulted to 2 people for optimal travel experience",
-                    "recommended_travel_class": "Economy class for budget-conscious planning"
+                    "recommended_travel_class": "Business class for premium travel experience"
                 },
                 "planning_context": {
                     "requires_comprehensive_planning": True,
@@ -574,10 +583,10 @@ INTELLIGENT DEFAULTS EXAMPLES:
             elif destination and any(expensive in destination.lower() for expensive in ["paris", "london", "switzerland", "zermatt"]):
                 budget = 3500  # Expensive destinations
             else:
-                budget = 2000  # Default international budget
+                budget = 3000  # Default international budget
                 
         if not travel_class:
-            travel_class = "economy"  # Default for budget planning
+            travel_class = "business"  # Default for premium experience
             
         if passengers == 1:
             passengers = 2  # Default to 2 for better travel experience
