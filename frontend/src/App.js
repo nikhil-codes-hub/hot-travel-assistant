@@ -142,30 +142,28 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             // If no missing fields, show comprehensive travel plan
             if (missing_fields.length === 0) {
               // Build the base content first
-              let baseContent = `🎯 Travel Proposal Ready for Client
+              // Create concise itinerary overview
+              const createItineraryOverview = (rationale) => {
+                if (!rationale || rationale.length < 100) {
+                  return 'Comprehensive travel plan crafted for optimal experience';
+                }
+                
+                // Extract key highlights and make it concise
+                const sentences = rationale.split('.').filter(s => s.trim().length > 20);
+                const keyPoints = sentences.slice(0, 3).map(s => s.trim()).join('. ');
+                return keyPoints + (keyPoints.endsWith('.') ? '' : '.');
+              };
 
-✅ Trip Requirements:
-• Destination: ${displayRequirements.destination}
-• Departure Date: ${displayRequirements.departure_date}
-• Duration: ${displayRequirements.duration} days
-• Passengers: ${displayRequirements.passengers} ${displayRequirements.passengers === 1 ? 'person' : 'people'}
-• Travel Class: ${displayRequirements.travel_class}
-• Budget: $${displayRequirements.budget}
+              let baseContent = `## 🎯 **${displayRequirements.destination} Travel Proposal**
+**${displayRequirements.duration} Days • ${displayRequirements.passengers} ${displayRequirements.passengers === 1 ? 'Traveler' : 'Travelers'} • ${displayRequirements.travel_class.charAt(0).toUpperCase() + displayRequirements.travel_class.slice(1)} Class**
 
-👤 Client Information:
-• Traveler Profile: Business Class Preference
-• Origin Market: ${profile.nationality || 'Japan'}
-• Booking History: ${profile.total_bookings || 29} previous trips
-• Loyalty Status: ${profile.loyalty_tier || 'GOLD'} Member
+### 📋 **Trip Summary**
+**🗓️ Dates:** ${displayRequirements.departure_date}  
+**💰 Budget:** $${displayRequirements.budget}  
+**👤 Traveler:** ${profile.loyalty_tier || 'GOLD'} Member (${profile.total_bookings || 29} trips)
 
-📋 Booking Notes:
-• Client prefers business class travel
-• Loyalty benefits available for upgrades
-• Winter destination specialist recommendations
-• Budget-conscious but quality-focused
-
-🗓️ Itinerary Overview:
-${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
+### 🎨 **Experience Highlights**
+${createItineraryOverview(itinerary.rationale)}
 
 ${formatFlightDetails(data)}
 
@@ -184,15 +182,18 @@ ${visaSection}
 
 ${healthSection}
 
-${docSection}
+### 📞 **Next Steps**
+✅ **Review & Confirm**  
+• Flight selection and preferences  
+• Hotel room type and amenities  
 
-📞 Next Steps for Booking:
-• Review flight options with client for final selection
-• Confirm hotel preference and room requirements
-• Verify passport validity and any visa requirements
-• Arrange travel insurance if requested
+✅ **Documentation**  
+• Passport validity check  
+• Visa requirements (if needed)  
+• Travel insurance coverage  
 
-Ready to proceed with reservations`;
+### 🎯 **Ready to Book!**
+*All requirements verified - proceed with reservation*`;
                   
                   // Update the latest agent message with complete information
                   setMessages(prev => {
@@ -211,16 +212,18 @@ Ready to proceed with reservations`;
                   // Fall back to base content with error message
                   const fallbackContent = baseContent + `
 
-⚠️ Additional Information Loading...
-Visa requirements and health advisory information are being retrieved.
+### ⚠️ **Loading Additional Info...**
+*Visa & health requirements being retrieved*
 
-📞 Next Steps for Booking:
-• Review flight options with client for final selection
-• Confirm hotel preference and room requirements
-• Verify passport validity and any visa requirements
-• Arrange travel insurance if requested
+### 📞 **Next Steps**
+✅ **Review & Confirm**  
+• Flight selection and preferences  
+• Hotel room type and amenities  
+• Passport validity and visa requirements  
+• Travel insurance coverage  
 
-Ready to proceed with reservations`;
+### 🎯 **Ready to Book!**
+*Proceed with reservation once info loads*`;
                   
                   setMessages(prev => {
                     const updatedMessages = [...prev];
