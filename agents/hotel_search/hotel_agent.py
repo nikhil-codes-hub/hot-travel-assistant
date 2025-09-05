@@ -81,11 +81,11 @@ class HotelSearchAgent(BaseAgent):
                 self.log("❌ No hotels found in destination - hotels unavailable")
                 return self._generate_no_hotels_message(input_data)
             
-            # Then get offers for the hotels
+            # Then try to get offers for the hotels
             hotels_with_offers = await self._get_hotel_offers(hotel_list, input_data)
             
-            # Process and format results
-            result = self._process_hotel_results(hotels_with_offers, input_data)
+            # Process and format results - combine hotels with offers when available
+            result = self._process_hotel_results_with_fallback(hotel_list, hotels_with_offers, input_data)
             
             # Add API source indicator
             result["meta"]["data_source"] = "amadeus_api"
@@ -359,6 +359,132 @@ class HotelSearchAgent(BaseAgent):
             
         except Exception as e:
             raise Exception(f"Error processing hotel response: {e}")
+    
+    def _process_hotel_results_with_fallback(self, hotel_list: List[Dict[str, Any]], 
+                                           hotels_with_offers: List[Dict[str, Any]], 
+                                           input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process hotel results, combining base hotel info with offers when available.
+        Always return hotels, sorted by preference (hotels with offers first).
+        """
+        try:
+            processed_hotels = []
+            
+            # Create a map of hotel IDs to offers for quick lookup
+            offers_map = {}
+            for hotel_offer in hotels_with_offers:
+                hotel_info = hotel_offer.get("hotel", {})
+                hotel_id = hotel_info.get("hotelId")
+                if hotel_id:
+                    offers_map[hotel_id] = hotel_offer
+            
+            # Process all hotels from the original search
+            for hotel_data in hotel_list[:input_data.get("max_results", 20)]:
+                try:
+                    hotel_id = hotel_data.get("hotelId")
+                    hotel_name = hotel_data.get("name", "Unknown Hotel")
+                    
+                    # Check if this hotel has offers
+                    hotel_with_offers = offers_map.get(hotel_id)
+                    
+                    if hotel_with_offers:
+                        # Use the hotel data with offers (full processing)
+                        hotel_info = hotel_with_offers.get("hotel", {})
+                        offers_data = hotel_with_offers.get("offers", [])
+                        
+                        # Process amenities from offers data
+                        amenities = []
+                        for amenity_data in hotel_info.get("amenities", []):
+                            amenity = HotelAmenity(
+                                description=amenity_data.get("description", ""),
+                                chargeable=amenity_data.get("chargeable", False)
+                            )
+                            amenities.append(amenity)
+                        
+                        # Process offers
+                        processed_offers = []
+                        for offer_data in offers_data:
+                            offer = HotelOffer(
+                                id=offer_data["id"],
+                                check_in_date=offer_data.get("checkInDate", input_data["checkInDate"]),
+                                check_out_date=offer_data.get("checkOutDate", input_data["checkOutDate"]),
+                                room_quantity=offer_data.get("roomQuantity", 1),
+                                price=offer_data.get("price", {}),
+                                room=offer_data.get("room", {}),
+                                guests=offer_data.get("guests", {}),
+                                policies=offer_data.get("policies", {})
+                            )
+                            processed_offers.append(offer)
+                        
+                        # Create hotel with offers
+                        hotel = Hotel(
+                            hotel_id=hotel_id,
+                            chain_code=hotel_info.get("chainCode"),
+                            name=hotel_info.get("name", hotel_name),
+                            rating=hotel_info.get("rating"),
+                            address=hotel_info.get("address", {}),
+                            contact=hotel_info.get("contact", {}),
+                            description=hotel_info.get("description", {}).get("text"),
+                            amenities=amenities,
+                            media=hotel_info.get("media", []),
+                            offers=processed_offers
+                        )
+                        
+                    else:
+                        # Create hotel without offers (basic info only)
+                        hotel = Hotel(
+                            hotel_id=hotel_id,
+                            chain_code=hotel_data.get("chainCode"),
+                            name=hotel_name,
+                            rating=None,  # Not available in basic search
+                            address={"countryCode": hotel_data.get("address", {}).get("countryCode", "")},
+                            contact={},
+                            description=None,
+                            amenities=[],
+                            media=[],
+                            offers=[]  # No offers available
+                        )
+                    
+                    processed_hotels.append(hotel)
+                    
+                except Exception as e:
+                    self.log(f"Error processing hotel {hotel_data.get('hotelId', 'unknown')}: {e}")
+                    continue
+            
+            # Sort hotels: those with offers first, then by name
+            processed_hotels.sort(key=lambda h: (len(h.offers) == 0, h.name))
+            
+            result = HotelSearchResult(
+                hotels=processed_hotels,
+                search_criteria={
+                    "cityCode": input_data["cityCode"],
+                    "checkInDate": input_data["checkInDate"],
+                    "checkOutDate": input_data["checkOutDate"],
+                    "adults": input_data["adults"],
+                    "children": input_data.get("children", 0),
+                    "rooms": input_data.get("rooms", 1)
+                },
+                meta={
+                    "count": len(processed_hotels),
+                    "hotels_with_offers": len([h for h in processed_hotels if h.offers]),
+                    "hotels_without_offers": len([h for h in processed_hotels if not h.offers]),
+                    "search_radius": input_data.get("radius", 20),
+                    "currency": input_data.get("currency", "USD"),
+                    "sorting": "offers_first"
+                }
+            )
+            
+            hotels_with_offers_count = result.meta["hotels_with_offers"]
+            hotels_without_offers_count = result.meta["hotels_without_offers"]
+            
+            self.log(f"🏨 Processed {len(processed_hotels)} hotels: "
+                    f"{hotels_with_offers_count} with offers, "
+                    f"{hotels_without_offers_count} without offers")
+            
+            return result.model_dump()
+            
+        except Exception as e:
+            raise Exception(f"Error processing hotel results with fallback: {e}")
     
     def _generate_no_hotels_message(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Return clear message when no hotels are available"""
