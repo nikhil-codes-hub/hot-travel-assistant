@@ -14,6 +14,8 @@ class EventDetails(BaseModel):
     event_type: str = Field(..., description="Event type (festival, concert, sports, cultural, etc.)")
     description: Optional[str] = Field(None, description="Event description")
     location: str = Field(..., description="Event location")
+    city: str = Field(..., description="Specific city where event takes place")
+    country: Optional[str] = Field(None, description="Country where event takes place")
     venue: Optional[str] = Field(None, description="Specific venue")
     start_date: str = Field(..., description="Event start date")
     end_date: Optional[str] = Field(None, description="Event end date")
@@ -173,6 +175,8 @@ Return ONLY valid JSON with comprehensive event information:
             "event_type": "festival/concert/sports/cultural/religious/seasonal",
             "description": "Detailed description of the event, its significance, and what to expect",
             "location": "City, Country",
+            "city": "Specific city where event takes place",
+            "country": "Country where event takes place",
             "venue": "Specific venue or area where event takes place",
             "start_date": "YYYY-MM-DD",
             "end_date": "YYYY-MM-DD (if multi-day event)",
@@ -287,6 +291,8 @@ SPECIFIC EVENT KNOWLEDGE:
                 "event_type": "festival",
                 "description": "Beautiful evening festival where participants release floating lanterns on water, creating a magical atmosphere. A peaceful, spiritual experience often associated with making wishes and letting go.",
                 "location": "Thailand (Chiang Mai, Bangkok)",
+                "city": "Chiang Mai",
+                "country": "Thailand",
                 "venue": "Various lakes, rivers, and designated water bodies",
                 "start_date": "2025-11-15",  # Typical timing
                 "end_date": "2025-11-15",
@@ -330,6 +336,8 @@ SPECIFIC EVENT KNOWLEDGE:
                 "event_type": "festival",
                 "description": "The world's largest beer festival and traveling funfair, featuring traditional Bavarian culture, beer, food, and music.",
                 "location": "Munich, Germany",
+                "city": "Munich",
+                "country": "Germany",
                 "venue": "Theresienwiese",
                 "start_date": "2025-09-20",
                 "end_date": "2025-10-05",
@@ -361,12 +369,19 @@ SPECIFIC EVENT KNOWLEDGE:
         
         # Generic fallback based on destination
         elif destination:
+            # Extract city and country from destination
+            destination_parts = destination.split(',')
+            destination_city = destination_parts[0].strip()
+            destination_country = destination_parts[-1].strip() if len(destination_parts) > 1 else destination_city
+            
             fallback_events.append({
                 "event_id": f"generic_event_{destination.replace(' ', '_')}",
                 "name": f"Cultural Events in {destination.title()}",
                 "event_type": "cultural",
                 "description": f"Various cultural events and festivals typically held in {destination.title()}",
                 "location": destination.title(),
+                "city": destination_city.title(),
+                "country": destination_country.title(),
                 "venue": "Various venues",
                 "start_date": "2025-12-01",
                 "end_date": "2025-12-01", 
@@ -382,6 +397,8 @@ SPECIFIC EVENT KNOWLEDGE:
                 "event_type": "festival",
                 "description": "Various local festivals and cultural events",
                 "location": "Multiple locations",
+                "city": "Bangkok",
+                "country": "Thailand",
                 "venue": "Various venues",
                 "start_date": "2025-12-01",
                 "end_date": "2025-12-01",

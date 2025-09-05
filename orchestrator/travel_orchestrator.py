@@ -21,6 +21,7 @@ from agents.compliance.health_agent import HealthAdvisoryAgent
 from agents.insurance.insurance_agent import InsuranceAgent
 from agents.seatmap.seatmap_agent import SeatMapAgent
 from models.database_models import SearchSession
+from services.amadeus_location_service import AmadeusLocationService
 
 logger = structlog.get_logger()
 
@@ -59,6 +60,7 @@ class TravelState(TypedDict):
 class TravelOrchestrator:
     def __init__(self, db: Session):
         self.db = db
+        self.location_service = AmadeusLocationService()
         self.planning_graph = self._build_planning_graph()
         self.compliance_graph = self._build_compliance_graph()
         
@@ -625,10 +627,9 @@ class TravelOrchestrator:
                 except:
                     return_date = departure_date
             
-            # Parse destination for airport/city codes (simplified)
+            # Get dynamic destination codes based on events or fallback to hardcoded
             origin = "LAX"  # Default origin (would be determined from user location)
-            dest_code = self._get_destination_code(destination)
-            city_code = self._get_city_code(destination)
+            dest_code, city_code = await self._get_dynamic_destination_codes(state, destination)
             
             # Run flights and hotels search in parallel
             flight_task = self._search_flights({
@@ -1081,6 +1082,48 @@ class TravelOrchestrator:
         
         # Default fallback
         return "US"
+    
+    async def _get_dynamic_destination_codes(self, state: TravelState, destination: str) -> tuple[str, str]:
+        """
+        Get destination and city codes dynamically, prioritizing event-specific locations
+        
+        Returns:
+            tuple: (airport_code, city_code)
+        """
+        # Check if we have event details with specific city information
+        event_details = state.get("event_details", {})
+        if event_details and event_details.get("data"):
+            events = event_details["data"].get("events", [])
+            if events:
+                # Use the first event's location
+                event = events[0]
+                event_city = event.get("city")
+                event_country = event.get("country")
+                
+                if event_city:
+                    logger.info(f"🎯 Using event-specific location: {event_city}, {event_country}")
+                    
+                    # Get dynamic codes using Amadeus API
+                    try:
+                        location_data = await self.location_service.get_city_and_airport_codes(
+                            event_city, event_country
+                        )
+                        airport_code = location_data.get("airport_code", "JFK")
+                        city_code = location_data.get("city_code", "PAR")
+                        
+                        logger.info(f"✅ Dynamic location codes: Airport={airport_code}, City={city_code}")
+                        return airport_code, city_code
+                        
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to get dynamic codes for {event_city}: {e}")
+                        # Fall through to hardcoded fallback
+        
+        # Fallback to existing hardcoded mapping methods
+        logger.info(f"📍 Using fallback location mapping for: {destination}")
+        dest_code = self._get_destination_code(destination)
+        city_code = self._get_city_code(destination)
+        
+        return dest_code, city_code
     
     async def _create_session_record(self, input_data: Dict[str, Any], session_id: str):
         """Create or update session record in MySQL"""
