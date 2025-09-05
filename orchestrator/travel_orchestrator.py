@@ -1108,8 +1108,20 @@ class TravelOrchestrator:
                         location_data = await self.location_service.get_city_and_airport_codes(
                             event_city, event_country
                         )
-                        airport_code = location_data.get("airport_code", "JFK")
-                        city_code = location_data.get("city_code", "PAR")
+                        # Use event-specific defaults based on country context
+                        country_defaults = {
+                            "thailand": {"airport": "BKK", "city": "BKK"},
+                            "germany": {"airport": "MUC", "city": "MUC"},  # Munich for Oktoberfest
+                            "brazil": {"airport": "GIG", "city": "RIO"},   # Rio for Carnival
+                            "india": {"airport": "BOM", "city": "BOM"},    # Mumbai
+                            "japan": {"airport": "NRT", "city": "TYO"},    # Tokyo
+                        }
+                        
+                        country_key = event_country.lower() if event_country else ""
+                        defaults = country_defaults.get(country_key, {"airport": "JFK", "city": "PAR"})
+                        
+                        airport_code = location_data.get("airport_code", defaults["airport"])
+                        city_code = location_data.get("city_code", defaults["city"])
                         
                         logger.info(f"✅ Dynamic location codes: Airport={airport_code}, City={city_code}")
                         return airport_code, city_code
