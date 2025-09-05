@@ -142,16 +142,73 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             // If no missing fields, show comprehensive travel plan
             if (missing_fields.length === 0) {
               // Build the base content first
-              // Create concise itinerary overview
-              const createItineraryOverview = (rationale) => {
-                if (!rationale || rationale.length < 100) {
-                  return 'Comprehensive travel plan crafted for optimal experience';
+              // Create comprehensive experience highlights with tourist attractions
+              const createItineraryOverview = (rationale, destination) => {
+                // Get destination-specific attractions
+                const getDestinationAttractions = (dest) => {
+                  const destLower = dest.toLowerCase();
+                  
+                  if (destLower.includes('delhi')) {
+                    return `**🏛️ Historical Wonders:** Red Fort, India Gate, Qutub Minar, Humayun's Tomb  
+**🕌 Cultural Sites:** Jama Masjid, Lotus Temple, Akshardham Temple  
+**🛒 Markets & Districts:** Chandni Chowk, Connaught Place, Khan Market  
+**🍽️ Culinary Experiences:** Street food tours, Mughlai cuisine, rooftop dining`;
+                  }
+                  
+                  if (destLower.includes('mumbai') || destLower.includes('bombay')) {
+                    return `**🌊 Iconic Landmarks:** Gateway of India, Marine Drive, Chhatrapati Shivaji Terminus  
+**🎬 Bollywood Experience:** Film City tours, celebrity spotting locations  
+**🏛️ Cultural Sites:** Elephanta Caves, Prince of Wales Museum  
+**🛒 Shopping:** Colaba Causeway, Crawford Market, Linking Road`;
+                  }
+                  
+                  if (destLower.includes('bangalore') || destLower.includes('bengaluru')) {
+                    return `**🏰 Royal Heritage:** Bangalore Palace, Tipu Sultan's Summer Palace  
+**🌺 Gardens:** Lalbagh Botanical Garden, Cubbon Park  
+**🍺 Modern Culture:** Brewery tours, UB City Mall, tech district exploration  
+**🛕 Spiritual Sites:** Bull Temple, ISKCON Temple, Dodda Ganesha Temple`;
+                  }
+                  
+                  if (destLower.includes('bangkok')) {
+                    return `**🛕 Temples:** Grand Palace, Wat Pho, Wat Arun, Wat Saket  
+**🛒 Markets:** Chatuchak Weekend Market, Damnoen Saduak Floating Market  
+**🍜 Street Food:** Khao San Road, Chinatown food tours  
+**🌃 Modern Bangkok:** Rooftop bars, shopping malls, river cruises`;
+                  }
+                  
+                  if (destLower.includes('tokyo')) {
+                    return `**🏯 Traditional:** Senso-ji Temple, Imperial Palace, Meiji Shrine  
+**🌸 Districts:** Shibuya, Harajuku, Ginza, Asakusa  
+**🍣 Culinary:** Tsukiji Fish Market, ramen tours, sake tasting  
+**🗼 Modern Icons:** Tokyo Tower, Tokyo Skytree, teamLab Borderless`;
+                  }
+                  
+                  if (destLower.includes('paris')) {
+                    return `**🗼 Iconic Landmarks:** Eiffel Tower, Louvre Museum, Notre-Dame Cathedral  
+**🎨 Art & Culture:** Versailles Palace, Montmartre, Seine River cruise  
+**🛒 Shopping:** Champs-Élysées, Le Marais district  
+**🍷 Culinary:** Wine tastings, café culture, French patisseries`;
+                  }
+                  
+                  // Default for other destinations
+                  return `**🏛️ Cultural Highlights:** Historic landmarks and local heritage sites  
+**🌟 Must-Visit Attractions:** Top-rated destinations and scenic viewpoints  
+**🍽️ Local Experiences:** Authentic cuisine and cultural immersion  
+**🛒 Shopping & Entertainment:** Local markets and entertainment districts`;
+                };
+                
+                let attractionsSection = getDestinationAttractions(destination);
+                
+                // Add rationale content if available and substantial
+                if (rationale && rationale.length > 100) {
+                  const sentences = rationale.split('.').filter(s => s.trim().length > 20);
+                  const keyInsights = sentences.slice(0, 2).map(s => s.trim()).join('. ');
+                  if (keyInsights) {
+                    attractionsSection += `\n\n**✨ Special Focus:** ${keyInsights}${keyInsights.endsWith('.') ? '' : '.'}`;
+                  }
                 }
                 
-                // Extract key highlights and make it concise
-                const sentences = rationale.split('.').filter(s => s.trim().length > 20);
-                const keyPoints = sentences.slice(0, 3).map(s => s.trim()).join('. ');
-                return keyPoints + (keyPoints.endsWith('.') ? '' : '.');
+                return attractionsSection;
               };
 
               let baseContent = `## 🎯 **${displayRequirements.destination} Travel Proposal**
@@ -163,7 +220,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 **👤 Traveler:** ${profile.loyalty_tier || 'GOLD'} Member (${profile.total_bookings || 29} trips)
 
 ### 🎨 **Experience Highlights**
-${createItineraryOverview(itinerary.rationale)}
+${createItineraryOverview(itinerary.rationale, displayRequirements.destination)}
 
 ${formatFlightDetails(data)}
 
