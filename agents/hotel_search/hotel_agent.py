@@ -198,6 +198,27 @@ class HotelSearchAgent(BaseAgent):
             # Get city name from airport code or use the code itself
             city_name = city_name_mapping.get(flight_city_code, flight_city_code)
             
+            # Normalize city names for consistent geocoding
+            city_name_normalizations = {
+                "bangalore": "bengaluru",
+                "bombay": "mumbai", 
+                "madras": "chennai",
+                "calcutta": "kolkata",
+                "poona": "pune",
+                "mysore": "mysuru",
+                "cochin": "kochi",
+                "trivandrum": "thiruvananthapuram",
+                "baroda": "vadodara",
+                "allahabad": "prayagraj"
+            }
+            
+            # Apply normalization (case-insensitive)
+            city_name_lower = city_name.lower()
+            if city_name_lower in city_name_normalizations:
+                normalized_name = city_name_normalizations[city_name_lower]
+                self.log(f"🔄 Normalizing '{city_name}' → '{normalized_name}'")
+                city_name = normalized_name
+            
             self.log(f"🔍 Geocoding {flight_city_code} -> '{city_name}' using Nominatim API")
             
             # Use OpenStreetMap Nominatim (free geocoding service)
