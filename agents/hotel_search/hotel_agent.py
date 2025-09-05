@@ -97,7 +97,7 @@ class HotelSearchAgent(BaseAgent):
         except Exception as e:
             error_msg = str(e)
             city_code = input_data.get("cityCode", "unknown")
-            latitude, longitude = self._get_city_coordinates(city_code)
+            latitude, longitude = await self._get_city_coordinates(city_code)
             
             if "400" in error_msg and ("NOTHING FOUND" in error_msg or "Nothing found" in error_msg or "NOTHING FOUND FOR REQUESTED CITY" in error_msg):
                 self.log(f"ℹ️ Amadeus Hotels API: No hotels available for {city_code} in test environment")
@@ -140,9 +140,10 @@ class HotelSearchAgent(BaseAgent):
             expires_in = token_response.get("expires_in", 1799)
             self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
-    def _get_city_coordinates(self, flight_city_code: str) -> tuple:
-        """Get coordinates for major cities to use with Hotels by Geocode API"""
-        coordinates = {
+    async def _get_city_coordinates(self, flight_city_code: str) -> tuple:
+        """Get coordinates for cities dynamically using geocoding API"""
+        # First try known airport/city code mappings for faster response
+        known_coordinates = {
             "ZUR": (47.3769, 8.5417),     # Zurich
             "PAR": (48.8566, 2.3522),     # Paris
             "LON": (51.5074, -0.1278),    # London  
@@ -153,15 +154,92 @@ class HotelSearchAgent(BaseAgent):
             "BKK": (13.7563, 100.5018),   # Bangkok
             "SIN": (1.3521, 103.8198),    # Singapore
             "DXB": (25.2048, 55.2708),    # Dubai
-            "SYD": (-33.8688, 151.2093)   # Sydney
+            "SYD": (-33.8688, 151.2093),  # Sydney
+            "DEL": (28.6139, 77.2090),    # Delhi
+            "BOM": (19.0760, 72.8777),    # Mumbai
+            "BLR": (12.9716, 77.5946),    # Bengaluru
+            "MAA": (13.0827, 80.2707),    # Chennai
+            "CCU": (22.5726, 88.3639),    # Kolkata
+            "HYD": (17.3850, 78.4867),    # Hyderabad
+            "AMD": (23.0225, 72.5714),    # Ahmedabad
+            "PNQ": (18.5204, 73.8567),    # Pune
+            "GOI": (15.3805, 73.8370),    # Goa
+            "COK": (9.9312, 76.2673),     # Kochi
         }
-        return coordinates.get(flight_city_code, (48.8566, 2.3522))  # Default to Paris
+        
+        # If we have the coordinates cached, return them
+        if flight_city_code in known_coordinates:
+            coordinates = known_coordinates[flight_city_code]
+            self.log(f"🗺️ Using cached coordinates for {flight_city_code}: {coordinates}")
+            return coordinates
+        
+        # Try to get coordinates dynamically via geocoding
+        try:
+            # Map common airport codes to city names for geocoding
+            city_name_mapping = {
+                "JFK": "New York", "LGA": "New York", "EWR": "New York",
+                "LAX": "Los Angeles", "SFO": "San Francisco", "OAK": "San Francisco",
+                "ORD": "Chicago", "MDW": "Chicago", "DFW": "Dallas", "IAH": "Houston",
+                "ATL": "Atlanta", "MIA": "Miami", "MCO": "Orlando", "LAS": "Las Vegas",
+                "SEA": "Seattle", "DEN": "Denver", "PHX": "Phoenix", "BOS": "Boston",
+                "IAD": "Washington DC", "DCA": "Washington DC", "BWI": "Baltimore",
+                "CDG": "Paris", "ORY": "Paris", "LHR": "London", "LGW": "London",
+                "STN": "London", "FCO": "Rome", "VCE": "Venice", "MXP": "Milan",
+                "FRA": "Frankfurt", "MUC": "Munich", "AMS": "Amsterdam", "MAD": "Madrid",
+                "BCN": "Barcelona", "LIS": "Lisbon", "ZUR": "Zurich", "VIE": "Vienna",
+                "CPH": "Copenhagen", "ARN": "Stockholm", "OSL": "Oslo", "HEL": "Helsinki",
+                "NRT": "Tokyo", "HND": "Tokyo", "KIX": "Osaka", "ICN": "Seoul",
+                "PVG": "Shanghai", "PEK": "Beijing", "HKG": "Hong Kong", "TPE": "Taipei",
+                "BOM": "Mumbai", "DEL": "Delhi", "BLR": "Bengaluru", "MAA": "Chennai",
+                "CCU": "Kolkata", "HYD": "Hyderabad", "AMD": "Ahmedabad", "PNQ": "Pune",
+                "GOI": "Goa", "COK": "Kochi", "TRV": "Thiruvananthapuram", "GAU": "Guwahati"
+            }
+            
+            # Get city name from airport code or use the code itself
+            city_name = city_name_mapping.get(flight_city_code, flight_city_code)
+            
+            self.log(f"🔍 Geocoding {flight_city_code} -> '{city_name}' using Nominatim API")
+            
+            # Use OpenStreetMap Nominatim (free geocoding service)
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params={
+                        "q": city_name,
+                        "format": "json",
+                        "limit": 1,
+                        "addressdetails": 1
+                    },
+                    headers={
+                        "User-Agent": "HOT-Travel-Assistant/1.0"
+                    },
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                if data and len(data) > 0:
+                    result = data[0]
+                    latitude = float(result["lat"])
+                    longitude = float(result["lon"])
+                    
+                    self.log(f"✅ Geocoded {flight_city_code} ({city_name}): ({latitude}, {longitude})")
+                    return (latitude, longitude)
+                else:
+                    self.log(f"⚠️ No geocoding results found for {flight_city_code} ({city_name})")
+                    
+        except Exception as e:
+            self.log(f"⚠️ Geocoding failed for {flight_city_code}: {e}")
+        
+        # Fallback to Paris coordinates if everything fails
+        self.log(f"🔄 Using fallback coordinates (Paris) for {flight_city_code}")
+        return (48.8566, 2.3522)  # Paris as last resort
     
     async def _search_hotels_by_city(self, input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search for hotels in a city using Amadeus Hotel List API with coordinates"""
         # Get coordinates for the city instead of using city codes
         original_city_code = input_data["cityCode"]
-        latitude, longitude = self._get_city_coordinates(original_city_code)
+        latitude, longitude = await self._get_city_coordinates(original_city_code)
         
         self.log(f"🏨 Using coordinates for {original_city_code}: ({latitude}, {longitude})")
         
