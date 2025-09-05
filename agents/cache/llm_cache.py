@@ -20,15 +20,18 @@ class LLMCache:
         
         Args:
             cache_dir: Directory to store cache files (default: ./cache)
-            cache_duration_hours: How long to keep cache entries valid (default: 24 hours)
+            cache_duration_hours: How long to keep cache entries valid (default: 24 hours, 0 = disabled)
         """
         self.cache_dir = Path(cache_dir or "cache/llm_responses")
         self.cache_duration = timedelta(hours=cache_duration_hours)
+        self.cache_enabled = cache_duration_hours > 0
         
-        # Create cache directory if it doesn't exist
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"LLM cache initialized", cache_dir=str(self.cache_dir), duration_hours=cache_duration_hours)
+        if self.cache_enabled:
+            # Create cache directory if it doesn't exist
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"LLM cache initialized", cache_dir=str(self.cache_dir), duration_hours=cache_duration_hours)
+        else:
+            logger.info("🚫 LLM cache DISABLED (duration_hours=0)")
     
     def _generate_cache_key(self, user_request: str, conversation_context: Dict[str, Any] = None) -> str:
         """
@@ -149,6 +152,9 @@ class LLMCache:
         Returns:
             Cached response dictionary or None if not found/expired
         """
+        if not self.cache_enabled:
+            return None
+            
         cache_key = self._generate_cache_key(user_request, conversation_context)
         cache_file = self.cache_dir / f"{cache_key}.json"
         
@@ -191,6 +197,9 @@ class LLMCache:
         Returns:
             True if successfully cached, False otherwise
         """
+        if not self.cache_enabled:
+            return False
+            
         cache_key = self._generate_cache_key(user_request, conversation_context)
         cache_file = self.cache_dir / f"{cache_key}.json"
         

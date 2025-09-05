@@ -42,7 +42,7 @@ class EventSearchAgent(BaseAgent):
         
         # Initialize LLM response cache for event search
         cache_dir = os.getenv("LLM_CACHE_DIR", "cache/llm_responses")
-        cache_duration = int(os.getenv("LLM_CACHE_DURATION_HOURS", "24"))
+        cache_duration = int(os.getenv("LLM_CACHE_DURATION_HOURS", "0"))  # Disabled by default
         self.cache = LLMCache(cache_dir=f"{cache_dir}/event_search", cache_duration_hours=cache_duration)
         
         try:
