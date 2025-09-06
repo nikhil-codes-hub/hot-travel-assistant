@@ -18,8 +18,8 @@ except Exception as e:
     print("🔄 Cache system will work without database (file-based only)")
 
 app = FastAPI(
-    title="HOT Intelligent Travel Assistant",
-    description="Agentic AI Travel Assistant for House of Travel",
+    title="Smart Trip Assistant",
+    description="AI-powered travel planning companion",
     version="1.0.0"
 )
 
@@ -50,7 +50,7 @@ class TravelResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "HOT Intelligent Travel Assistant API", "version": "1.0.0"}
+    return {"message": "Smart Trip Assistant API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check(db = Depends(get_db)):

@@ -4,7 +4,7 @@ function App() {
   const [messages, setMessages] = useState([
     {
       type: 'agent',
-      content: `Welcome to HOT Intelligent Travel Assistant! 🌍
+      content: `Welcome to Smart Trip Assistant! 🌍
 
 I'm your AI-powered travel planning companion. I can help you with:
 
@@ -84,7 +84,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
     setIsLoading(true);
 
     // Add loading message
-    const loadingMessage = { type: 'loading', content: '🤔 Processing your travel request...' };
+    const loadingMessage = { type: 'loading', content: '⏳ Processing your travel request...' };
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
@@ -1070,7 +1070,7 @@ Digital Copies Recommended:
   return (
     <div className="container">
       <div className="header">
-        <h1>🌍 HOT Intelligent Travel Assistant</h1>
+        <h1>🌍 Smart Trip Assistant</h1>
         <p>Your AI-powered travel planning companion</p>
       </div>
 
@@ -1083,13 +1083,6 @@ Digital Copies Recommended:
             value={customerData.email_id}
             onChange={(e) => setCustomerData(prev => ({...prev, email_id: e.target.value}))}
             className="customer-input email-input"
-          />
-          <input
-            type="text"
-            placeholder="Your nationality (optional)"
-            value={customerData.nationality}
-            onChange={(e) => setCustomerData(prev => ({...prev, nationality: e.target.value}))}
-            className="customer-input nationality-input"
           />
         </div>
         <div className="customer-help">

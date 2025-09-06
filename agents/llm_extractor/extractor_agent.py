@@ -591,10 +591,58 @@ INTELLIGENT DEFAULTS EXAMPLES:
         if passengers == 1:
             passengers = 2  # Default to 2 for better travel experience
             
-        # Generate departure date if missing (30 days from now for better planning)
+        # Generate departure date if missing - handle year-only requests intelligently
         if not departure_date:
             from datetime import datetime, timedelta
-            departure_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+            import re
+            
+            # Check if user mentioned a specific year in their request
+            year_match = re.search(r'\b(20\d{2})\b', user_request)
+            if year_match:
+                mentioned_year = int(year_match.group(1))
+                current_year = datetime.now().year
+                current_date = datetime.now()
+                
+                if mentioned_year == current_year:
+                    # Same year - suggest reasonable future date within the year
+                    current_month = current_date.month
+                    current_day = current_date.day
+                    
+                    if current_month <= 3:
+                        # Q1 - suggest mid-year travel (6 months ahead)
+                        target_date = current_date + timedelta(days=180)
+                    elif current_month <= 6:
+                        # Q2 - suggest later in year (4-5 months ahead)  
+                        target_date = current_date + timedelta(days=120)
+                    elif current_month <= 9:
+                        # Q3 - suggest end of year travel (2-3 months ahead)
+                        target_date = current_date + timedelta(days=90)
+                    else:
+                        # Q4 - suggest next year (3-4 months ahead)
+                        target_date = current_date + timedelta(days=120)
+                    
+                    departure_date = target_date.strftime("%Y-%m-%d")
+                elif mentioned_year > current_year:
+                    # Future year - suggest reasonable date in that year
+                    # Calculate similar time of year, with reasonable lead time
+                    if current_date.month <= 6:
+                        # First half of current year - suggest similar period in target year
+                        target_month = max(3, current_date.month)  # At least March to avoid winter
+                        target_day = min(current_date.day, 28)  # Ensure valid day for any month
+                        departure_date = f"{mentioned_year}-{target_month:02d}-{target_day:02d}"
+                    else:
+                        # Second half of current year - suggest spring of target year
+                        # Calculate a date 3-4 months into the target year
+                        spring_months_in = 3 + (current_date.month % 4)  # 3-6 months into year
+                        target_day = min(current_date.day, 28)  # Ensure valid day
+                        target_date = datetime(mentioned_year, spring_months_in, target_day)
+                        departure_date = target_date.strftime("%Y-%m-%d")
+                else:
+                    # Past year mentioned - default to 30 days from now
+                    departure_date = (current_date + timedelta(days=30)).strftime("%Y-%m-%d")
+            else:
+                # No specific year mentioned - default to 30 days from now
+                departure_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
 
         fallback_requirements = TravelRequirements(
             destination=destination,
