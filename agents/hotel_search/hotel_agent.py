@@ -210,44 +210,64 @@ class HotelSearchAgent(BaseAgent):
             return hotels_response.get("data", [])
     
     async def _get_hotel_offers(self, hotels: List[Dict[str, Any]], input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get hotel offers for specific hotels"""
+        """Get hotel offers for specific hotels by searching each hotel individually"""
         if not hotels:
             return []
         
         # Take first 10 hotels to avoid too many API calls
         hotel_ids = [hotel["hotelId"] for hotel in hotels[:10]]
         
+        all_offers = []
+        
         async with httpx.AsyncClient() as client:
             headers = {
                 "Authorization": f"Bearer {self.access_token}"
             }
             
-            # Build query parameters for GET request
-            params = {
-                "hotelIds": ",".join(hotel_ids),
-                "checkInDate": input_data["checkInDate"],
-                "checkOutDate": input_data["checkOutDate"],
-                "adults": input_data["adults"],
-                "roomQuantity": input_data.get("rooms", 1)
-            }
+            # Iterate through each hotel ID individually
+            for hotel_id in hotel_ids:
+                try:
+                    # Build query parameters for individual hotel
+                    params = {
+                        "hotelIds": hotel_id,  # Single hotel ID, not comma-separated
+                        "checkInDate": input_data["checkInDate"],
+                        "checkOutDate": input_data["checkOutDate"],
+                        "adults": input_data["adults"],
+                        "roomQuantity": input_data.get("rooms", 1)
+                    }
+                    
+                    # Add optional parameters
+                    if input_data.get("currency"):
+                        params["currency"] = input_data["currency"]
+                    
+                    if input_data.get("children"):
+                        params["children"] = input_data["children"]
+                    
+                    self.log(f"🔍 Searching hotel offers for hotel ID: {hotel_id}")
+                    
+                    response = await client.get(
+                        f"{self.amadeus_base_url}/v3/shopping/hotel-offers",
+                        params=params,
+                        headers=headers,
+                        timeout=30.0
+                    )
+                    response.raise_for_status()
+                    
+                    offers_response = response.json()
+                    hotel_offers = offers_response.get("data", [])
+                    
+                    if hotel_offers:
+                        all_offers.extend(hotel_offers)
+                        self.log(f"✅ Found {len(hotel_offers)} offers for hotel {hotel_id}")
+                    else:
+                        self.log(f"⚠️  No offers available for hotel {hotel_id}")
+                        
+                except Exception as e:
+                    self.log(f"❌ Error searching hotel {hotel_id}: {str(e)}")
+                    continue  # Continue with next hotel if one fails
             
-            # Add optional parameters
-            if input_data.get("currency"):
-                params["currency"] = input_data["currency"]
-            
-            if input_data.get("children"):
-                params["children"] = input_data["children"]
-            
-            response = await client.get(
-                f"{self.amadeus_base_url}/v3/shopping/hotel-offers",
-                params=params,
-                headers=headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            
-            offers_response = response.json()
-            return offers_response.get("data", [])
+            self.log(f"📊 Total consolidated offers: {len(all_offers)} from {len(hotel_ids)} hotels searched")
+            return all_offers
     
     def _process_hotel_results(self, hotels_data: List[Dict[str, Any]], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process Amadeus hotel response into our format"""
