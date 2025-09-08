@@ -152,6 +152,7 @@ class HotelSearchAgent(BaseAgent):
             "LAX": (34.0522, -118.2437),  # Los Angeles
             "SFO": (37.7749, -122.4194),  # San Francisco
             "BKK": (13.7563, 100.5018),   # Bangkok
+            "BLR": (12.9716, 77.5946),    # Bangalore/Bengaluru
             "SIN": (1.3521, 103.8198),    # Singapore
             "DXB": (25.2048, 55.2708),    # Dubai
             "SYD": (-33.8688, 151.2093)   # Sydney
@@ -302,7 +303,6 @@ class HotelSearchAgent(BaseAgent):
                     "offers": []  # Empty offers array
                 }
                 hotels_without_offers_list.append(hotel_without_offers)
-                self.log(f"⚠️  Hotel {hotel.get('name', hotel_id)} has no offers, but will be displayed")
         
         # Sort: Hotels with offers first, then hotels without offers
         combined_hotels = hotels_with_offers_list + hotels_without_offers_list
