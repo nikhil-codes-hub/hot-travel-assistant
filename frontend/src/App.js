@@ -116,6 +116,10 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
         const filtered = prev.filter(msg => msg.type !== 'loading');
         
         let agentContent = '';
+        // Extract data for processing
+        const requirementsData = data.data?.requirements?.data || {};
+        const missing_fields = requirementsData.missing_fields || [];
+        
         if (data.data) {
           if (typeof data.data === 'string') {
             agentContent = data.data;
@@ -123,9 +127,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             agentContent = data.data.response;
           } else {
             // Format the travel assistant response properly
-            const requirementsData = data.data.requirements?.data || {};
             const newRequirements = requirementsData.requirements || {};
-            const missing_fields = requirementsData.missing_fields || [];
             const itinerary = data.data.itinerary?.data?.itinerary || {};
             const profile = data.data.profile?.data || {};
             
@@ -142,85 +144,30 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
             // If no missing fields, show comprehensive travel plan
             if (missing_fields.length === 0) {
               // Build the base content first
-              // Create comprehensive experience highlights with tourist attractions
-              const createItineraryOverview = (rationale, destination) => {
-                // Get destination-specific attractions
-                const getDestinationAttractions = (dest) => {
-                  const destLower = dest.toLowerCase();
-                  
-                  if (destLower.includes('delhi')) {
-                    return `**🏛️ Historical Wonders:** Red Fort, India Gate, Qutub Minar, Humayun's Tomb  
-**🕌 Cultural Sites:** Jama Masjid, Lotus Temple, Akshardham Temple  
-**🛒 Markets & Districts:** Chandni Chowk, Connaught Place, Khan Market  
-**🍽️ Culinary Experiences:** Street food tours, Mughlai cuisine, rooftop dining`;
-                  }
-                  
-                  if (destLower.includes('mumbai') || destLower.includes('bombay')) {
-                    return `**🌊 Iconic Landmarks:** Gateway of India, Marine Drive, Chhatrapati Shivaji Terminus  
-**🎬 Bollywood Experience:** Film City tours, celebrity spotting locations  
-**🏛️ Cultural Sites:** Elephanta Caves, Prince of Wales Museum  
-**🛒 Shopping:** Colaba Causeway, Crawford Market, Linking Road`;
-                  }
-                  
-                  if (destLower.includes('bangalore') || destLower.includes('bengaluru')) {
-                    return `**🏰 Royal Heritage:** Bangalore Palace, Tipu Sultan's Summer Palace  
-**🌺 Gardens:** Lalbagh Botanical Garden, Cubbon Park  
-**🍺 Modern Culture:** Brewery tours, UB City Mall, tech district exploration  
-**🛕 Spiritual Sites:** Bull Temple, ISKCON Temple, Dodda Ganesha Temple`;
-                  }
-                  
-                  if (destLower.includes('bangkok')) {
-                    return `**🛕 Temples:** Grand Palace, Wat Pho, Wat Arun, Wat Saket  
-**🛒 Markets:** Chatuchak Weekend Market, Damnoen Saduak Floating Market  
-**🍜 Street Food:** Khao San Road, Chinatown food tours  
-**🌃 Modern Bangkok:** Rooftop bars, shopping malls, river cruises`;
-                  }
-                  
-                  if (destLower.includes('tokyo')) {
-                    return `**🏯 Traditional:** Senso-ji Temple, Imperial Palace, Meiji Shrine  
-**🌸 Districts:** Shibuya, Harajuku, Ginza, Asakusa  
-**🍣 Culinary:** Tsukiji Fish Market, ramen tours, sake tasting  
-**🗼 Modern Icons:** Tokyo Tower, Tokyo Skytree, teamLab Borderless`;
-                  }
-                  
-                  if (destLower.includes('paris')) {
-                    return `**🗼 Iconic Landmarks:** Eiffel Tower, Louvre Museum, Notre-Dame Cathedral  
-**🎨 Art & Culture:** Versailles Palace, Montmartre, Seine River cruise  
-**🛒 Shopping:** Champs-Élysées, Le Marais district  
-**🍷 Culinary:** Wine tastings, café culture, French patisseries`;
-                  }
-                  
-                  // Default for other destinations
-                  return `**🏛️ Cultural Highlights:** Historic landmarks and local heritage sites  
-**🌟 Must-Visit Attractions:** Top-rated destinations and scenic viewpoints  
-**🍽️ Local Experiences:** Authentic cuisine and cultural immersion  
-**🛒 Shopping & Entertainment:** Local markets and entertainment districts`;
-                };
-                
-                let attractionsSection = getDestinationAttractions(destination);
-                
-                // Add rationale content if available and substantial
-                if (rationale && rationale.length > 100) {
-                  const sentences = rationale.split('.').filter(s => s.trim().length > 20);
-                  const keyInsights = sentences.slice(0, 2).map(s => s.trim()).join('. ');
-                  if (keyInsights) {
-                    attractionsSection += `\n\n**✨ Special Focus:** ${keyInsights}${keyInsights.endsWith('.') ? '' : '.'}`;
-                  }
-                }
-                
-                return attractionsSection;
-              };
+              let baseContent = `🎯 Travel Proposal Ready for Client
 
-              let baseContent = `## 🎯 **${displayRequirements.destination} Travel Proposal**
-**${displayRequirements.duration} Days • ${displayRequirements.passengers} ${displayRequirements.passengers === 1 ? 'Traveler' : 'Travelers'} • ${displayRequirements.travel_class.charAt(0).toUpperCase() + displayRequirements.travel_class.slice(1)} Class**
+✅ Trip Requirements:
+• Destination: ${displayRequirements.destination}
+• Departure Date: ${displayRequirements.departure_date}
+• Duration: ${displayRequirements.duration} days
+• Passengers: ${displayRequirements.passengers} ${displayRequirements.passengers === 1 ? 'person' : 'people'}
+• Travel Class: ${displayRequirements.travel_class}
+• Budget: $${displayRequirements.budget}
 
-### 📋 **Trip Summary**
-**🗓️ Dates:** ${displayRequirements.departure_date}  
-**💰 Budget:** $${displayRequirements.budget}  
-**👤 Traveler:** ${profile.loyalty_tier || 'GOLD'} Member (${profile.total_bookings || 29} trips)
+👤 Client Information:
+• Traveler Profile: Business Class Preference
+• Origin Market: ${profile.nationality || 'Japan'}
+• Booking History: ${profile.total_bookings || 29} previous trips
+• Loyalty Status: ${profile.loyalty_tier || 'GOLD'} Member
 
-### 🎨 **Experience Highlights**
-${createItineraryOverview(itinerary.rationale, displayRequirements.destination)}
+📋 Booking Notes:
+• Client prefers business class travel
+• Loyalty benefits available for upgrades
+• Winter destination specialist recommendations
+• Budget-conscious but quality-focused
+
+🗓️ Itinerary Overview:
+${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
 
 ${formatFlightDetails(data)}
 
@@ -239,18 +186,15 @@ ${visaSection}
 
 ${healthSection}
 
-### 📞 **Next Steps**
-✅ **Review & Confirm**  
-• Flight selection and preferences  
-• Hotel room type and amenities  
+${docSection}
 
-✅ **Documentation**  
-• Passport validity check  
-• Visa requirements (if needed)  
-• Travel insurance coverage  
+📞 Next Steps for Booking:
+• Review flight options with client for final selection
+• Confirm hotel preference and room requirements
+• Verify passport validity and any visa requirements
+• Arrange travel insurance if requested
 
-### 🎯 **Ready to Book!**
-*All requirements verified - proceed with reservation*`;
+Ready to proceed with reservations`;
                   
                   // Update the latest agent message with complete information
                   setMessages(prev => {
@@ -269,18 +213,16 @@ ${healthSection}
                   // Fall back to base content with error message
                   const fallbackContent = baseContent + `
 
-### ⚠️ **Loading Additional Info...**
-*Visa & health requirements being retrieved*
+⚠️ Additional Information Loading...
+Visa requirements and health advisory information are being retrieved.
 
-### 📞 **Next Steps**
-✅ **Review & Confirm**  
-• Flight selection and preferences  
-• Hotel room type and amenities  
-• Passport validity and visa requirements  
-• Travel insurance coverage  
+📞 Next Steps for Booking:
+• Review flight options with client for final selection
+• Confirm hotel preference and room requirements
+• Verify passport validity and any visa requirements
+• Arrange travel insurance if requested
 
-### 🎯 **Ready to Book!**
-*Proceed with reservation once info loads*`;
+Ready to proceed with reservations`;
                   
                   setMessages(prev => {
                     const updatedMessages = [...prev];
@@ -342,7 +284,6 @@ Ready to proceed with reservations`;
         }
 
         // Update conversation context with new information
-        const requirementsData = data.data.requirements?.data || {};
         const newRequirements = requirementsData.requirements || {};
         setConversationContext(prev => ({
           session_id: data.session_id || prev.session_id,
@@ -367,6 +308,8 @@ Ready to proceed with reservations`;
           type: 'agent',
           content: agentContent,
           sessionId: data.session_id,
+          isComplete: missing_fields.length === 0,
+          rawData: data,
           suggestions: [
             'Get more details about this trip',
             'Check travel requirements', 
@@ -399,6 +342,92 @@ Ready to proceed with reservations`;
 
   const handleSuggestionClick = (suggestion) => {
     sendMessage(suggestion);
+  };
+
+  const generateEmailJSON = (data) => {
+    const requirements = data?.data?.requirements?.data?.requirements || {};
+    const profile = data?.data?.profile?.data || {};
+    const flightOffers = data?.data?.curated_flights?.data?.curated_flights || data?.data?.flight_offers || [];
+    const hotelOffers = data?.data?.hotel_offers || [];
+
+    const emailData = {
+      customer: {
+        email: customerData.email_id,
+        name: profile.customer_name || "Valued Customer",
+        loyalty_tier: profile.loyalty_tier || "STANDARD",
+        nationality: profile.nationality || "Japan",
+        booking_history: profile.total_bookings || 29
+      },
+      trip_details: {
+        destination: requirements.destination,
+        departure_date: requirements.departure_date,
+        return_date: requirements.return_date,
+        duration: requirements.duration,
+        passengers: requirements.passengers,
+        travel_class: requirements.travel_class,
+        budget: requirements.budget,
+        budget_currency: requirements.budget_currency || "USD"
+      },
+      flights: flightOffers.slice(0, 3).map((flight, index) => {
+        const originalOffer = flight.original_offer || flight;
+        const price = originalOffer.price || {};
+        const itineraries = originalOffer.itineraries || [];
+        const segments = itineraries[0]?.segments || [];
+        
+        return {
+          rank: flight.rank || (index + 1),
+          airline: originalOffer.validatingAirlineCodes?.[0] || segments[0]?.carrierCode || "TBD",
+          price: `${price.currency || 'USD'} ${price.total || 'TBD'}`,
+          route: segments.length > 0 ? 
+            `${segments[0].departure?.iataCode} → ${segments[segments.length-1].arrival?.iataCode}` : 
+            "Route TBD",
+          connections: segments.length - 1,
+          recommendation_reason: flight.recommendation_reason || "Best value option"
+        };
+      }),
+      hotels: hotelOffers.slice(0, 3).map((hotel, index) => {
+        const offers = hotel.offers || [];
+        const firstOffer = offers[0] || {};
+        const price = firstOffer.price || {};
+        const address = hotel.address || {};
+        
+        return {
+          name: hotel.name || `Hotel Option ${index + 1}`,
+          rating: hotel.rating || 4,
+          location: address.lines?.[0] || "Premium Location",
+          city: address.cityName || requirements.destination,
+          price_per_night: `${price.currency || 'USD'} ${price.total || 'TBD'}`,
+          room_type: firstOffer.room?.typeEstimated?.category || "Standard Room"
+        };
+      }),
+      session_info: {
+        session_id: conversationContext.session_id,
+        generated_at: new Date().toISOString(),
+        agent_notes: "Travel proposal ready for client review and booking"
+      }
+    };
+
+    return emailData;
+  };
+
+  const handleEmailCustomer = (data) => {
+    const emailJSON = generateEmailJSON(data);
+    
+    // For now, log to console and show alert with JSON
+    console.log("Email JSON Data:", JSON.stringify(emailJSON, null, 2));
+    
+    // Create a downloadable JSON file
+    const blob = new Blob([JSON.stringify(emailJSON, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `travel_proposal_${emailJSON.customer.email.split('@')[0]}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    alert('Travel proposal JSON has been generated and downloaded. This data can be used by your colleague for email integration.');
   };
 
   const generateFlightCurationStatus = (data) => {
@@ -550,18 +579,47 @@ ${airlineName} - ${price.currency || 'USD'} ${price.total || 'TBD'}`;
     if (hotelOffers.length === 0) {
       // Generate mock hotel data for presentation
       const mockHotels = [
-];
+        {
+          name: "Fairmont Banff Springs",
+          rating: 5,
+          address: { lines: ["405 Spray Avenue"], cityName: "Banff" },
+          offers: [{ price: { currency: "USD", total: "299" } }],
+          room: { typeEstimated: { category: "DELUXE_SUITE" } },
+          amenities: [
+            { description: "Mountain Views" },
+            { description: "Spa & Wellness Center" },
+            { description: "Fine Dining" }
+          ]
+        },
+        {
+          name: "Chateau Lake Louise",
+          rating: 5,
+          address: { lines: ["111 Lake Louise Drive"], cityName: "Lake Louise" },
+          offers: [{ price: { currency: "USD", total: "279" } }],
+          room: { typeEstimated: { category: "PREMIUM_SUITE" } },
+          amenities: [
+            { description: "Lakefront Location" },
+            { description: "Premium Spa" },
+            { description: "Alpine Activities" }
+          ]
+        },
+        {
+          name: "Rimrock Resort Hotel",
+          rating: 4,
+          address: { lines: ["300 Mountain Avenue"], cityName: "Banff" },
+          offers: [{ price: { currency: "USD", total: "229" } }],
+          room: { typeEstimated: { category: "EXECUTIVE_ROOM" } },
+          amenities: [
+            { description: "Mountain Resort" },
+            { description: "Conference Facilities" },
+            { description: "Fitness Center" }
+          ]
+        }
+      ];
       
       hotelOffers = mockHotels;
     }
     
-    if (hotelOffers.length === 0) {
-      return `
-🏨 Recommended Accommodations
-
-No hotels found for this destination.`;
-    }
-
     let hotelSection = `
 🏨 Recommended Accommodations
 `;
@@ -642,7 +700,7 @@ ${hotelName} ${rating}`;
     
     try {
       // Fetch visa requirements from API
-      const response = await fetch(`http://localhost:8000/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
+      const response = await fetch(`/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
       const visaData = await response.json();
       
       if (response.ok && visaData.visa_requirements?.data) {
@@ -696,66 +754,13 @@ Travel Document Requirements for ${originCountry} Citizens to ${destCountry}:
       }
     } catch (error) {
       console.error('Error fetching visa requirements:', error);
-      
-      // Try to get LLM-generated visa requirements as fallback
-      try {
-        const fallbackResponse = await fetch(`http://localhost:8000/travel/visa-requirements?origin_country=${originCode}&destination_country=${destinationCode}&travel_purpose=tourism`);
-        const fallbackData = await fallbackResponse.json();
-        
-        if (fallbackResponse.ok && fallbackData.visa_requirements?.data) {
-          const visa = fallbackData.visa_requirements.data.visa_requirement;
-          const originCountry = fallbackData.visa_requirements.data.origin_country;
-          const destCountry = fallbackData.visa_requirements.data.destination_country;
-          
-          let visaSection = `
-📋 Visa & Entry Requirements
-
-Travel Document Requirements for ${originCountry} Citizens to ${destCountry}:
-`;
-          
-          if (visa.required) {
-            visaSection += `• ${visa.type?.toUpperCase().replace('_', ' ') || 'VISA'} REQUIRED`;
-            if (visa.duration) visaSection += `\n• Maximum stay: ${visa.duration}`;
-            if (visa.processing_time) visaSection += `\n• Processing time: ${visa.processing_time}`;
-          } else {
-            visaSection += `• NO VISA REQUIRED`;
-            if (visa.duration) visaSection += ` for stays up to ${visa.duration}`;
-            if (visa.type) visaSection += `\n• Entry type: ${visa.type.replace('_', ' ')}`;
-          }
-          
-          if (visa.documents && visa.documents.length > 0) {
-            visaSection += `\n\nRequired Documents:`;
-            visa.documents.forEach(doc => {
-              visaSection += `\n• ${doc}`;
-            });
-          }
-          
-          if (visa.notes && visa.notes.length > 0) {
-            visaSection += `\n\n⚠️ IMPORTANT NOTES:`;
-            visa.notes.forEach(note => {
-              visaSection += `\n• ${note}`;
-            });
-          }
-          
-          if (fallbackData.visa_requirements.data.disclaimers) {
-            visaSection += `\n\n⚠️ DISCLAIMERS:`;
-            fallbackData.visa_requirements.data.disclaimers.forEach(disclaimer => {
-              visaSection += `\n• ${disclaimer}`;
-            });
-          }
-          
-          return visaSection;
-        }
-      } catch (fallbackError) {
-        console.error('LLM fallback also failed:', fallbackError);
-      }
     }
     
-    // Final emergency fallback
+    // Fallback to simplified static data
     return `
 📋 Visa & Entry Requirements
 
-⚠️ Unable to retrieve current visa requirements.
+⚠️ Unable to retrieve current visa requirements from Amadeus API.
 Please verify visa requirements with the destination country's embassy or consulate.
 
 General Requirements:
@@ -793,7 +798,7 @@ General Requirements:
     
     try {
       // Fetch health advisory from API
-      const response = await fetch(`http://localhost:8000/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
+      const response = await fetch(`/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
       const healthData = await response.json();
       
       if (response.ok && healthData.health_advisory?.data) {
@@ -883,103 +888,9 @@ Health Requirements for ${advisory.destination}:
       }
     } catch (error) {
       console.error('Error fetching health advisory:', error);
-      
-      // Try to get LLM-generated health advisory as fallback
-      try {
-        const fallbackResponse = await fetch(`http://localhost:8000/travel/health-advisory?destination_country=${destinationCode}&origin_country=${originCode}&travel_activities=tourism`);
-        const fallbackData = await fallbackResponse.json();
-        
-        if (fallbackResponse.ok && fallbackData.health_advisory?.data) {
-          const advisory = fallbackData.health_advisory.data.health_advisory;
-          
-          let healthSection = `
-🏥 Health & Medical Advisory
-
-Health Requirements for ${advisory.destination}:
-`;
-          
-          // Vaccinations
-          if (advisory.vaccinations && advisory.vaccinations.length > 0) {
-            healthSection += `\nVaccination Requirements:`;
-            advisory.vaccinations.forEach(vacc => {
-              const status = vacc.required ? 'REQUIRED' : 'Recommended';
-              healthSection += `\n• ${vacc.name} - ${status}`;
-              if (vacc.timing) healthSection += ` (${vacc.timing})`;
-              if (vacc.notes) healthSection += `\n  ${vacc.notes}`;
-            });
-          }
-          
-          // Health risks
-          if (advisory.health_risks && advisory.health_risks.length > 0) {
-            healthSection += `\n\nHealth Risks:`;
-            advisory.health_risks.forEach(risk => {
-              healthSection += `\n• ${risk.disease} (${risk.risk_level.replace('_', ' ').toUpperCase()} risk)`;
-              if (risk.prevention && risk.prevention.length > 0) {
-                healthSection += `\n  Prevention: ${risk.prevention.join(', ')}`;
-              }
-              if (risk.symptoms && risk.symptoms.length > 0) {
-                healthSection += `\n  Symptoms: ${risk.symptoms.join(', ')}`;
-              }
-            });
-          }
-          
-          // Medical preparations
-          if (advisory.medical_preparations && advisory.medical_preparations.length > 0) {
-            healthSection += `\n\nMedical Preparations:`;
-            advisory.medical_preparations.forEach(prep => {
-              healthSection += `\n• ${prep.category} (${prep.priority.toUpperCase()})`;
-              if (prep.items && prep.items.length > 0) {
-                prep.items.forEach(item => {
-                  healthSection += `\n  - ${item}`;
-                });
-              }
-            });
-          }
-          
-          // Healthcare info
-          if (advisory.healthcare_info) {
-            healthSection += `\n\nHealthcare Information:`;
-            Object.entries(advisory.healthcare_info).forEach(([key, value]) => {
-              if (value) {
-                healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
-              }
-            });
-          }
-          
-          // Emergency contacts
-          if (advisory.emergency_contacts) {
-            healthSection += `\n\nEmergency Contacts:`;
-            Object.entries(advisory.emergency_contacts).forEach(([key, value]) => {
-              if (value) {
-                healthSection += `\n• ${key.replace('_', ' ')}: ${value}`;
-              }
-            });
-          }
-          
-          // General advisories
-          if (advisory.advisories && advisory.advisories.length > 0) {
-            healthSection += `\n\n⚠️ AGENT RECOMMENDATIONS:`;
-            advisory.advisories.forEach(advice => {
-              healthSection += `\n• ${advice}`;
-            });
-          }
-          
-          // Disclaimers
-          if (fallbackData.health_advisory.data.disclaimers) {
-            healthSection += `\n\n⚠️ IMPORTANT DISCLAIMERS:`;
-            fallbackData.health_advisory.data.disclaimers.forEach(disclaimer => {
-              healthSection += `\n• ${disclaimer}`;
-            });
-          }
-          
-          return healthSection;
-        }
-      } catch (fallbackError) {
-        console.error('LLM health advisory fallback also failed:', fallbackError);
-      }
     }
     
-    // Final emergency fallback
+    // Fallback to simplified static data
     return `
 🏥 Health & Medical Advisory
 
@@ -1085,9 +996,6 @@ Digital Copies Recommended:
             className="customer-input email-input"
           />
         </div>
-        <div className="customer-help">
-          💡 Try existing emails: henry.thomas596@yahoo.com, amelia.martinez810@gmail.com, noah.smith754@icloud.com
-        </div>
       </div>
       
       <div className="chat-container">
@@ -1110,6 +1018,16 @@ Digital Copies Recommended:
                           {suggestion}
                         </span>
                       ))}
+                    </div>
+                  )}
+                  {message.type === 'agent' && message.isComplete && message.rawData && (
+                    <div className="email-action">
+                      <button 
+                        className="email-customer-btn"
+                        onClick={() => handleEmailCustomer(message.rawData)}
+                      >
+                        📧 Email Customer
+                      </button>
                     </div>
                   )}
                   {message.sessionId && (

@@ -8,14 +8,7 @@ import os
 import structlog
 import io
 from contextlib import redirect_stdout
-
-logger = structlog.get_logger()
-try:
-    from playwright.async_api import async_playwright
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
-    async_playwright = None
+from playwright.async_api import async_playwright
 import json
 import asyncio
 
@@ -85,7 +78,7 @@ class HotDealsAgent(BaseAgent):
         try:
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
-            model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
             if project_id and vertexai:
                 vertexai.init(project=project_id, location=location)
@@ -103,11 +96,7 @@ class HotDealsAgent(BaseAgent):
         """Generate AI-powered deals information"""
         
         # Get hot deals
-        if PLAYWRIGHT_AVAILABLE:
-            hot_deals = await self._scrape_houseoftravel_deals()
-        else:
-            hot_deals = []
-            logger.warning("Playwright not available - cannot scrape hot deals. Using fallback empty list.")
+        hot_deals = await self._scrape_houseoftravel_deals()
 
         # Create system prompt
         prompt = f"""

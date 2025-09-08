@@ -6,7 +6,6 @@ from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
-from agents.cache.llm_cache import LLMCache
 
 class DestinationSuggestion(BaseModel):
     destination: str = Field(..., description="Destination name")
@@ -16,12 +15,6 @@ class DestinationSuggestion(BaseModel):
     budget_fit: str = Field(..., description="Budget compatibility: low/medium/high/luxury")
     highlights: List[str] = Field(..., description="Key attractions/experiences")
     best_duration: str = Field(..., description="Recommended stay duration")
-    major_attractions: Optional[List[str]] = Field(None, description="Major tourist attractions")
-    recommended_activities: Optional[List[str]] = Field(None, description="Recommended activities")
-    best_time_to_visit: Optional[str] = Field(None, description="Optimal visiting time")
-    approximate_daily_budget: Optional[str] = Field(None, description="Daily budget estimate")
-    flight_accessibility: Optional[str] = Field(None, description="Flight connectivity info")
-    visa_requirements_hint: Optional[str] = Field(None, description="Visa requirements overview")
 
 class DestinationDiscoveryResult(BaseModel):
     suggestions: List[DestinationSuggestion]
@@ -34,11 +27,6 @@ class DestinationDiscoveryAgent(BaseAgent):
         super().__init__("DestinationDiscoveryAgent")
         self.ai_provider = os.getenv("AI_PROVIDER", "gemini")
         self.ai_available = False
-        
-        # Initialize LLM response cache for destination discovery
-        cache_dir = os.getenv("LLM_CACHE_DIR", "cache/llm_responses")
-        cache_duration = int(os.getenv("LLM_CACHE_DURATION_HOURS", "0"))  # Disabled by default
-        self.cache = LLMCache(cache_dir=f"{cache_dir}/destination_discovery", cache_duration_hours=cache_duration)
         
         try:
             if self.ai_provider == "vertex":
@@ -76,25 +64,11 @@ class DestinationDiscoveryAgent(BaseAgent):
         """
         self.validate_input(input_data, [])  # No required fields - can work with minimal input
         
-        # Check cache first for similar destination discovery requests
-        cache_key_data = json.dumps(input_data, sort_keys=True)
-        cached_response = self.cache.get_cached_response(cache_key_data, {})
-        if cached_response:
-            self.log(f"✅ Cache hit - returning cached destination suggestions for similar criteria")
-            # Add cache hit information to response
-            cached_response["cache_info"] = {
-                "cache_hit": True,
-                "cached_at": cached_response.get("timestamp"),
-                "search_criteria": input_data
-            }
-            return self.format_output(cached_response)
-        
-        # Force LLM usage - if AI is not available, raise an error instead of fallback
         if not self.ai_available:
-            raise Exception("LLM is required for comprehensive destination discovery. Please configure GEMINI_API_KEY or Vertex AI credentials.")
+            self.log("🔄 AI not available - using intelligent mock destination suggestions")
+            return self._generate_fallback_suggestions(input_data)
         
         try:
-            self.log(f"🔄 Cache miss - calling LLM for destination discovery")
             prompt = self._create_discovery_prompt(input_data)
             
             # Call AI API
@@ -109,24 +83,12 @@ class DestinationDiscoveryAgent(BaseAgent):
             else:
                 result = self._parse_response(response.text, input_data)
             
-            # Store in cache for future similar requests
-            cache_stored = self.cache.store_cached_response(cache_key_data, {}, result)
-            if cache_stored:
-                self.log(f"💾 Destination discovery response cached for future similar criteria")
-            
-            # Add cache info to response
-            result["cache_info"] = {
-                "cache_hit": False,
-                "cached": cache_stored,
-                "search_criteria": input_data
-            }
-            
-            self.log("✅ AI-powered comprehensive destination planning generated")
+            self.log("✅ AI-powered destination suggestions generated")
             return self.format_output(result)
             
         except Exception as e:
-            self.log(f"⚠️ LLM destination discovery failed: {str(e)}")
-            raise Exception(f"Comprehensive destination discovery requires LLM: {str(e)}")
+            self.log(f"⚠️ AI generation failed ({e}), falling back to intelligent mock suggestions")
+            return self._generate_fallback_suggestions(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
@@ -166,7 +128,7 @@ class DestinationDiscoveryAgent(BaseAgent):
             season_context = "No specific departure date"
         
         return f"""
-You are a comprehensive travel planning specialist with expertise in destination discovery, attractions, and comprehensive travel planning. Your role is to provide rich, detailed destination recommendations that enable full travel planning workflows.
+You are a destination discovery specialist. Suggest 5-7 destinations based on the traveler's preferences.
 
 TRAVELER PROFILE:
 - Desired destination type: {destination_type or "Not specified"}
@@ -177,31 +139,24 @@ TRAVELER PROFILE:
 - Nationality: {nationality} (for visa considerations)
 - Special requirements: {special_requirements or "None"}
 
-COMPREHENSIVE DISCOVERY MISSION:
-1. Suggest 5-7 destinations with rich detail and context
-2. Include major attractions, cultural experiences, and activities
-3. Consider seasonal weather, local events, and tourist patterns
-4. Provide budget-conscious recommendations with cost insights
-5. Account for visa requirements and travel logistics
-6. Enable full travel planning workflow (flights, hotels, attractions, compliance)
+DISCOVERY CRITERIA:
+1. Match destination type preferences (beach/mountains/city/cultural/adventure)
+2. Consider seasonal weather and tourist patterns
+3. Fit budget constraints realistically
+4. Account for visa requirements for nationality
+5. Suggest appropriate duration for each destination
 
-Return ONLY valid JSON with comprehensive travel information:
+Return ONLY valid JSON:
 {{
     "suggestions": [
         {{
             "destination": "City, Country",
             "country": "Country",
-            "reason": "Why this fits their preferences with specific benefits",
+            "reason": "Why this fits their preferences",
             "season_score": 0.0-1.0,
             "budget_fit": "low/medium/high/luxury",
-            "highlights": ["major attractions", "cultural experiences", "unique activities", "local specialties"],
-            "best_duration": "X days recommended",
-            "major_attractions": ["Temple complexes", "Museums", "Natural sites", "Cultural districts"],
-            "recommended_activities": ["Adventure activities", "Cultural experiences", "Food tours", "Shopping areas"],
-            "best_time_to_visit": "Seasonal recommendations and weather patterns",
-            "approximate_daily_budget": "Budget range for accommodation, food, activities",
-            "flight_accessibility": "Major airports and flight connectivity",
-            "visa_requirements_hint": "General visa requirements for the nationality"
+            "highlights": ["main attractions", "key experiences"],
+            "best_duration": "X days recommended"
         }}
     ],
     "search_criteria": {{
@@ -210,17 +165,15 @@ Return ONLY valid JSON with comprehensive travel information:
         "season": "{season_context}",
         "travelers": {passengers}
     }},
-    "confidence_score": 0.8-1.0,
-    "seasonality_considered": true,
-    "comprehensive_planning_enabled": true
+    "confidence_score": 0.0-1.0,
+    "seasonality_considered": true
 }}
 
-COMPREHENSIVE PLANNING FOCUS:
-- Provide rich destination context that enables attraction discovery
-- Include practical travel information (airports, transportation, costs)
-- Consider visa, health, and safety requirements
-- Enable seamless transition to flight/hotel search and compliance checking
-- Emphasize unique experiences and must-see attractions for each destination
+Focus on destinations that are:
+- Seasonally appropriate for the travel dates
+- Realistically achievable within budget
+- Suitable for the group size and nationality
+- Aligned with stated preferences
 """
     
     def _parse_response(self, response_text: str, input_data: Dict[str, Any]) -> Dict[str, Any]:

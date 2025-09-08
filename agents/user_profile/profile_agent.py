@@ -4,17 +4,11 @@ from agents.base_agent import BaseAgent
 from config.database import get_db
 from models.database_models import UserProfile
 import hashlib
+import pandas as pd
 import os
 import structlog
 import io
 from contextlib import redirect_stdout
-
-try:
-    import pandas as pd
-    PANDAS_AVAILABLE = True
-except ImportError:
-    pd = None
-    PANDAS_AVAILABLE = False
 
 try:
     import vertexai
@@ -240,12 +234,8 @@ class UserProfileAgent(BaseAgent):
         finally:
             db.close()
     
-    def _load_customer_dataset(self):
+    def _load_customer_dataset(self) -> Optional[pd.DataFrame]:
         """Load customer travel dataset from CSV"""
-        if not PANDAS_AVAILABLE:
-            logger.info("📊 Pandas not available - skipping CSV dataset loading")
-            return None
-            
         try:
             csv_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resources', 'customer_travel_dataset.csv')
             if os.path.exists(csv_path):
@@ -346,7 +336,7 @@ class UserProfileAgent(BaseAgent):
         try:
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
-            model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
             if project_id and vertexai:
                 vertexai.init(project=project_id, location=location)

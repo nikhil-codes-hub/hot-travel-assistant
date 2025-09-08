@@ -104,14 +104,7 @@ class PrepareItineraryAgent(BaseAgent):
             
         except Exception as e:
             self.log(f"PrepareItineraryAgent error: {e}")
-            # Use rule-based method instead of basic fallback to preserve event functionality
-            try:
-                self.log(f"Falling back to rule-based itinerary generation")
-                result = self._create_rule_based_itinerary(input_data)
-                return self.format_output(result)
-            except Exception as fallback_error:
-                self.log(f"Rule-based fallback also failed: {fallback_error}")
-                return self._generate_fallback_itinerary(input_data)
+            return self._generate_fallback_itinerary(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
@@ -242,7 +235,6 @@ class PrepareItineraryAgent(BaseAgent):
         customer_profile = input_data.get("customer_profile", {})
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
-        event_details = input_data.get("event_details", {})
         
         # Extract key information
         destination = requirements.get("destination", "Selected destination")
@@ -250,16 +242,11 @@ class PrepareItineraryAgent(BaseAgent):
         budget = requirements.get("budget")
         passengers = requirements.get("passengers", 1)
         departure_date = requirements.get("departure_date", "2024-06-01")
-        event_name = requirements.get("event_name")
-        event_type = requirements.get("event_type")
         
         # Customer context
         loyalty_tier = customer_profile.get("loyalty_tier", "STANDARD")
         travel_history = customer_profile.get("travel_history", [])
         preferences = customer_profile.get("preferences", {})
-        
-        # Generate destination-specific or event-specific guidance
-        specific_guidance = self._get_destination_guidance(destination, event_name, event_type)
         
         return f"""
 Create a detailed travel itinerary for this trip. Be specific and practical.
@@ -270,7 +257,6 @@ TRIP REQUIREMENTS:
 - Travelers: {passengers}
 - Departure: {departure_date}
 - Budget: {budget or "Not specified"}
-{f"- Event: {event_name} ({event_type})" if event_name else ""}
 
 CUSTOMER PROFILE:
 - Loyalty tier: {loyalty_tier}
@@ -280,8 +266,6 @@ CUSTOMER PROFILE:
 AVAILABLE OFFERS:
 - Flight options: {len(flight_offers)} available
 - Hotel options: {len(hotel_offers)} available
-
-{specific_guidance}
 
 Create a comprehensive itinerary and return ONLY valid JSON:
 {{
@@ -317,11 +301,10 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "currency": "USD"
         }}
     }},
-    "rationale": "Why this itinerary works for the traveler with destination/event-specific context",
+    "rationale": "Why this itinerary works for the traveler",
     "highlights": ["Key experiences", "Must-see attractions", "Unique opportunities"],
     "travel_tips": ["Practical advice", "Local insights", "Money-saving tips"],
-    "confidence_score": 0.0-1.0,
-    "detailed_overview": "Comprehensive overview with specific attractions, cultural highlights, and unique experiences for this destination or event"
+    "confidence_score": 0.0-1.0
 }}
 
 Focus on:
@@ -330,101 +313,7 @@ Focus on:
 3. Budget considerations
 4. Customer preferences alignment
 5. Practical logistics (check-in times, travel times)
-6. Include detailed_overview with rich, destination-specific content
 """
-    
-    def _get_destination_guidance(self, destination: str, event_name: str = None, event_type: str = None) -> str:
-        """Generate destination-specific or event-specific guidance for LLM"""
-        destination_lower = destination.lower()
-        
-        # If there's an event, focus only on event details
-        if event_name:
-            return f"""
-EVENT-FOCUSED GUIDANCE:
-This trip is primarily for the "{event_name}" ({event_type}). The detailed_overview should focus on:
-- Event location, dates, and venue details
-- Event schedule and key highlights
-- Transportation to/from the event venue
-- Pre-event and post-event activities related to the event theme
-- Event-specific accommodation recommendations
-- Local customs and etiquette for the event
-- What to expect during the event
-- Weather considerations for the event dates
-- Event tickets, entry requirements, and logistics
-- Cultural significance and background of the event
-
-Minimize generic tourist attractions - focus specifically on the event experience."""
-        
-        # Destination-specific guidance for Bangkok, Bengaluru, Delhi
-        if "bangkok" in destination_lower:
-            return f"""
-BANGKOK-SPECIFIC GUIDANCE:
-The detailed_overview should include Bangkok's top attractions and experiences:
-- Temple highlights (Wat Pho, Wat Arun, Grand Palace, Wat Saket)
-- Cultural districts (Old Town, Chinatown, Khao San Road area)
-- Market experiences (Chatuchak Weekend Market, floating markets, night markets)
-- Food scene (street food areas, rooftop dining, traditional Thai cuisine)
-- River and canal tours (Chao Phraya River, canal boat trips)
-- Modern Bangkok (shopping malls, skyscrapers, rooftop bars)
-- Cultural shows and activities (Thai massage, cooking classes, traditional performances)
-- Day trip options (Ayutthaya, Damnoen Saduak, etc.)
-- Transportation tips (BTS, MRT, tuk-tuks, river taxis)
-- Weather and seasonal considerations
-- Local customs and etiquette
-- Budget-friendly and luxury options based on traveler preferences"""
-        
-        elif "bengaluru" in destination_lower or "bangalore" in destination_lower:
-            return f"""
-BENGALURU-SPECIFIC GUIDANCE:
-The detailed_overview should include Bengaluru's top attractions and experiences:
-- Historical sites (Bangalore Palace, Tipu Sultan's Summer Palace, Bull Temple)
-- Gardens and parks (Lalbagh Botanical Garden, Cubbon Park, Bannerghatta National Park)
-- Cultural venues (National Gallery of Modern Art, Visvesvaraya Museum, planetarium)
-- Local markets (KR Market, Commercial Street, Brigade Road)
-- Food scene (South Indian cuisine, brewery culture, street food)
-- Tech city highlights (Electronic City, tech parks - for business travelers)
-- Traditional areas (Chickpet, Malleswaram, Basavanagudi)
-- Day trip options (Mysore, Nandi Hills, Shravanabelagola)
-- Weather considerations (pleasant climate year-round)
-- Local language tips (Kannada, but English widely spoken)
-- Transportation (Metro, buses, auto-rickshaws, app-based cabs)
-- Shopping areas (malls, silk sarees, handicrafts)"""
-        
-        elif "delhi" in destination_lower:
-            return f"""
-DELHI-SPECIFIC GUIDANCE:
-The detailed_overview should include Delhi's top attractions and experiences:
-- Historical monuments (Red Fort, India Gate, Humayun's Tomb, Qutub Minar)
-- Mughal heritage (Jama Masjid, Chandni Chowk, Purana Qila)
-- Modern attractions (Lotus Temple, Akshardham, Raj Ghat)
-- Museums (National Museum, Gandhi Smriti, Crafts Museum)
-- Markets (Chandni Chowk, Connaught Place, Karol Bagh, Dilli Haat)
-- Food experiences (street food, Mughlai cuisine, fine dining)
-- Different Delhi areas (Old Delhi vs New Delhi, Hauz Khas, Khan Market)
-- Day trip options (Agra for Taj Mahal, Jaipur)
-- Transportation (Metro, buses, auto-rickshaws, app-based cabs)
-- Weather considerations (extreme seasons - plan accordingly)
-- Shopping (textiles, jewelry, handicrafts, spices)
-- Cultural etiquette and local customs
-- Air quality considerations and indoor alternatives"""
-        
-        # Generic guidance for other destinations
-        else:
-            return f"""
-GENERAL DESTINATION GUIDANCE:
-The detailed_overview should include comprehensive destination information:
-- Top tourist attractions and must-see landmarks
-- Cultural highlights and local experiences
-- Local cuisine and dining recommendations
-- Transportation options and getting around
-- Weather considerations for the travel dates
-- Cultural etiquette and local customs
-- Shopping areas and local specialties
-- Day trip options from the main destination
-- Hidden gems and off-the-beaten-path experiences
-- Budget considerations for activities and meals
-- Safety tips and practical advice
-- Best neighborhoods to explore"""
     
     def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
         """Build structured itinerary from AI response"""
@@ -465,7 +354,7 @@ The detailed_overview should include comprehensive destination information:
             accommodations=travel_components.get("hotels", []),
             total_cost=travel_components.get("total_cost", {}),
             travel_readiness=travel_readiness,
-            rationale=ai_data.get("detailed_overview") or ai_data.get("rationale", "Itinerary planned based on requirements"),
+            rationale=ai_data.get("rationale", "Itinerary planned based on requirements"),
             highlights=ai_data.get("highlights", []),
             tips=ai_data.get("travel_tips", [])
         )
@@ -490,7 +379,6 @@ The detailed_overview should include comprehensive destination information:
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
         destination_suggestions = input_data.get("destination_suggestions", [])
-        event_details = input_data.get("event_details", {})
         
         duration = requirements.get("duration", 7)
         destination = requirements.get("destination", "Destination")
@@ -598,79 +486,19 @@ The detailed_overview should include comprehensive destination information:
         # Build enhanced travel readiness
         travel_readiness = self._generate_travel_readiness(requirements)
         
-        # Extract event information
-        events = event_details.get("events", [])
-        main_event = events[0] if events else None
-        event_name = requirements.get("event_name")
-        
-        # Create personalized highlights and tips with event information
+        # Create personalized highlights and tips
         highlights = self._get_destination_highlights(destination)
         tips = self._get_destination_tips(destination, loyalty_tier)
         
-        # Add event-specific highlights and tips
-        if main_event:
-            event_highlights = [
-                f"🎪 {main_event.get('name', event_name)} Experience",
-                f"📅 Event Date: {main_event.get('start_date')}",
-                f"📍 Event Location: {main_event.get('venue', main_event.get('location'))}",
-            ]
-            highlights = event_highlights + highlights
-            
-            # Add event-specific tips
-            if main_event.get('what_to_bring'):
-                event_tips = [f"🎒 For the event: {', '.join(main_event['what_to_bring'][:3])}"]
-                tips = event_tips + tips
-                
-        elif event_name:
-            # Even without detailed event info, mention the event
-            highlights = [f"🎪 {event_name} in {destination}"] + highlights
-        
-        # Enhanced rationale with destination-specific or event focus
+        # Enhanced rationale
         rationale = f"This {duration}-day itinerary for {destination} is curated for {passengers} travelers with {loyalty_tier} tier benefits. "
-        
-        # Get destination-specific or event-specific guidance
-        destination_guidance = self._get_destination_guidance(
-            destination, 
-            event_name=(main_event.get('name') if main_event else event_name),
-            event_type=(main_event.get('event_type') if main_event else None)
-        )
-        
-        if main_event or event_name:
-            event_display_name = main_event.get('name') if main_event else event_name
-            rationale += f"🎪 **EVENT FOCUS**: Built around the {event_display_name} experience. "
-            if main_event and main_event.get('cultural_significance'):
-                rationale += f"This {main_event.get('event_type', 'event')} offers {main_event['cultural_significance'][:100]}... "
-                
         if destination_suggestions:
-            rationale += f"Selected from recommended destinations based on your preferences. "
+            rationale += f"Selected from recommended destinations based on your preference for snowy destinations. "
+        rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
         
-        # Add destination-specific content for Bangkok/Bengaluru/Delhi or event details
-        if destination_guidance:
-            if main_event or event_name:
-                rationale += f"The itinerary ensures you experience the event while also exploring {destination}'s cultural attractions and maximizing your {loyalty_tier} member benefits."
-            else:
-                # Extract key highlights from guidance for the rationale
-                destination_lower = destination.lower()
-                if any(city in destination_lower for city in ['bangkok', 'bengaluru', 'delhi']):
-                    rationale += f"Highlights include must-visit attractions and cultural experiences unique to {destination}, ensuring you get the authentic local experience while maximizing your {loyalty_tier} member benefits."
-                else:
-                    rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
-        else:
-            if main_event or event_name:
-                rationale += f"The itinerary ensures you experience the event while also exploring {destination}'s cultural attractions and maximizing your {loyalty_tier} member benefits."
-            else:
-                rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
-        
-        # Create event-focused title if applicable
-        if main_event or event_name:
-            event_display_name = main_event.get('name') if main_event else event_name
-            title = f"{duration}-Day {event_display_name} Experience in {destination}"
-        else:
-            title = f"{duration}-Day Premium Trip to {destination}"
-            
         # Create itinerary
         itinerary = Itinerary(
-            title=title,
+            title=f"{duration}-Day Premium Trip to {destination}",
             destination=destination,
             duration=duration,
             traveler_count=passengers,

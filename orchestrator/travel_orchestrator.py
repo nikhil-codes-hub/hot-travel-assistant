@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from agents.llm_extractor.extractor_agent import LLMExtractorAgent
 from agents.user_profile.profile_agent import UserProfileAgent
 from agents.destination_discovery.destination_agent import DestinationDiscoveryAgent
-from agents.event_search.event_agent import EventSearchAgent
 from agents.flights_search.flights_agent import FlightsSearchAgent
 from agents.hotel_search.hotel_agent import HotelSearchAgent
 from agents.offers.offers_agent import OffersAgent
@@ -21,7 +20,6 @@ from agents.compliance.health_agent import HealthAdvisoryAgent
 from agents.insurance.insurance_agent import InsuranceAgent
 from agents.seatmap.seatmap_agent import SeatMapAgent
 from models.database_models import SearchSession
-from services.amadeus_location_service import AmadeusLocationService
 
 logger = structlog.get_logger()
 
@@ -38,7 +36,6 @@ class TravelState(TypedDict):
     extracted_requirements: Dict[str, Any]
     user_profile: Dict[str, Any]
     destination_suggestions: Dict[str, Any]
-    event_details: Dict[str, Any]
     flight_offers: List[Dict[str, Any]]
     hotel_offers: List[Dict[str, Any]]
     enhanced_offers: Dict[str, Any]
@@ -60,7 +57,6 @@ class TravelState(TypedDict):
 class TravelOrchestrator:
     def __init__(self, db: Session):
         self.db = db
-        self.location_service = AmadeusLocationService()
         self.planning_graph = self._build_planning_graph()
         self.compliance_graph = self._build_compliance_graph()
         
@@ -74,9 +70,6 @@ class TravelOrchestrator:
         
         # Phase 2: Destination Discovery (conditional)
         workflow.add_node("discover_destinations", self._discover_destinations)
-        
-        # Phase 2.5: Event Search (conditional)
-        workflow.add_node("search_events", self._search_events)
         
         # Phase 3: Search & Offers (parallel)
         workflow.add_node("search_flights_hotels", self._search_flights_hotels_parallel)
@@ -96,14 +89,9 @@ class TravelOrchestrator:
         workflow.add_conditional_edges(
             "get_user_profile",
             self._needs_destination_discovery,
-            {"discover": "discover_destinations", "search": "search_events"}
+            {"discover": "discover_destinations", "search": "search_flights_hotels"}
         )
-        
-        # Always check for events after destination discovery
-        workflow.add_edge("discover_destinations", "search_events")
-        
-        # Always continue to search after event search (whether events found or not)
-        workflow.add_edge("search_events", "search_flights_hotels")
+        workflow.add_edge("discover_destinations", "search_flights_hotels")
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
         workflow.add_edge("enhance_offers", "curate_flights")
@@ -157,7 +145,6 @@ class TravelOrchestrator:
                 "extracted_requirements": {},
                 "user_profile": {},
                 "destination_suggestions": {},
-                "event_details": {},
                 "flight_offers": [],
                 "hotel_offers": [],
                 "enhanced_offers": {},
@@ -186,8 +173,6 @@ class TravelOrchestrator:
             return {
                 "requirements": result.get('extracted_requirements', {}),
                 "profile": result.get('user_profile', {}),
-                "destination_suggestions": result.get('destination_suggestions', {}),
-                "event_details": result.get('event_details', {}),
                 "flight_offers": result.get('flight_offers', []),
                 "curated_flights": result.get('curated_flights', {}),
                 "hotel_offers": result.get('hotel_offers', []),
@@ -267,15 +252,7 @@ class TravelOrchestrator:
                 "conversation_context": state.get("conversation_context")
             }
             
-            logger.info(f"Calling LLM extractor", 
-                       session_id=state["session_id"],
-                       user_request=state["user_request"])
-            
             result = await agent.execute(input_data, state["session_id"])
-            
-            logger.info(f"LLM extractor result", 
-                       session_id=state["session_id"],
-                       result_keys=list(result.keys()) if result else "None")
             state["extracted_requirements"] = result
             
             # Determine if destination discovery is needed
@@ -306,13 +283,7 @@ class TravelOrchestrator:
             
             logger.info(f"Requirements extracted", 
                        session_id=state["session_id"],
-                       destination=destination,
                        destination_discovery_needed=state["needs_destination_discovery"])
-            
-            # Debug: Log the full extracted requirements
-            logger.debug(f"Full extracted requirements", 
-                        session_id=state["session_id"],
-                        requirements=requirements)
             
         except Exception as e:
             logger.error(f"Requirements extraction failed", session_id=state["session_id"], error=str(e))
@@ -377,205 +348,16 @@ class TravelOrchestrator:
                 "special_requirements": requirements.get("special_requirements", [])
             }
             
-            logger.info(f"Destination discovery input", 
-                       session_id=state["session_id"],
-                       destination_type=requirements.get("destination_type"),
-                       original_destination=requirements.get("destination"))
-            
             result = await agent.execute(input_data, state["session_id"])
             state["destination_suggestions"] = result
             
-            # Extract suggestions from agent response format
-            suggestions_data = result.get("data", {})
-            suggestions = suggestions_data.get("suggestions", [])
-            
-            # If we have suggestions, update requirements with the first suggestion
-            if suggestions:
-                first_suggestion = suggestions[0]
-                # Update the extracted requirements with intelligent defaults from suggestion
-                result_data = state["extracted_requirements"].get("data", {})
-                if "requirements" not in result_data:
-                    result_data["requirements"] = {}
-                    
-                requirements = result_data["requirements"]
-                
-                # Apply intelligent defaults from destination discovery
-                if not requirements.get("destination"):
-                    requirements["destination"] = first_suggestion.get("destination")
-                if not requirements.get("duration"):
-                    # Parse duration from suggestion (e.g., "7 days recommended" -> 7)
-                    duration_str = first_suggestion.get("best_duration", "7 days")
-                    try:
-                        import re
-                        duration_match = re.search(r'(\d+)', duration_str)
-                        requirements["duration"] = int(duration_match.group(1)) if duration_match else 7
-                    except:
-                        requirements["duration"] = 7
-                if not requirements.get("passengers"):
-                    requirements["passengers"] = 2  # Default to 2 people
-                if not requirements.get("travel_class"):
-                    requirements["travel_class"] = "economy"
-                if not requirements.get("budget_currency"):
-                    requirements["budget_currency"] = "USD"
-                if not requirements.get("departure_date"):
-                    # Set a reasonable future departure date
-                    from datetime import datetime, timedelta
-                    future_date = datetime.now() + timedelta(days=30)  # 30 days from now
-                    requirements["departure_date"] = future_date.strftime("%Y-%m-%d")
-                
-                # Update the state with enhanced requirements
-                state["extracted_requirements"]["data"]["requirements"] = requirements
-                
-                logger.info(f"Requirements enhanced with destination discovery", 
-                           session_id=state["session_id"],
-                           destination=requirements.get("destination"),
-                           duration=requirements.get("duration"))
-            
             logger.info(f"Destinations discovered", 
                        session_id=state["session_id"],
-                       suggestion_count=len(suggestions))
+                       suggestion_count=len(result.get("suggestions", [])))
             
         except Exception as e:
             logger.error(f"Destination discovery failed", session_id=state["session_id"], error=str(e))
             state["destination_suggestions"] = {"error": str(e)}
-        
-        return state
-    
-    def _needs_event_search(self, state: TravelState) -> str:
-        """Determine if event search is needed based on extracted requirements"""
-        try:
-            result_data = state["extracted_requirements"].get("data", {})
-            requirements = result_data.get("requirements", {})
-            
-            # Check if event information is present
-            has_event_name = bool(requirements.get("event_name"))
-            has_event_type = bool(requirements.get("event_type"))
-            
-            if has_event_name or has_event_type:
-                logger.info(f"Event search needed", 
-                          session_id=state["session_id"],
-                          event_name=requirements.get("event_name"),
-                          event_type=requirements.get("event_type"))
-                return "events"
-            else:
-                return "search"
-                
-        except Exception as e:
-            logger.error(f"Event search check failed", session_id=state["session_id"], error=str(e))
-            return "search"
-    
-    def _always_continue_to_search(self, state: TravelState) -> str:
-        """Always continue to search after event search"""
-        return "search"
-    
-    async def _search_events(self, state: TravelState) -> TravelState:
-        """Phase 2.5: Search for events and festivals"""
-        try:
-            agent = EventSearchAgent()
-            
-            result_data = state["extracted_requirements"].get("data", {})
-            requirements = result_data.get("requirements", {})
-            
-            # Always search for events - either specific events mentioned by user 
-            # OR general events/festivals in the destination during travel dates
-            event_name = requirements.get("event_name")
-            event_type = requirements.get("event_type") 
-            destination = requirements.get("destination")
-            
-            # If no specific event mentioned, search for general events in destination
-            if not event_name and not event_type and destination:
-                event_name = f"events and festivals in {destination}"
-                event_type = "festival"
-                
-            input_data = {
-                "event_name": event_name,
-                "event_type": event_type,
-                "destination": destination,
-                "date_range": requirements.get("departure_date"),
-                "duration": requirements.get("duration", 7),
-                "preferences": requirements.get("special_requirements", [])
-            }
-            
-            logger.info(f"Event search input", 
-                       session_id=state["session_id"],
-                       event_name=requirements.get("event_name"),
-                       event_type=requirements.get("event_type"),
-                       destination=requirements.get("destination"))
-            
-            result = await agent.execute(input_data, state["session_id"])
-            state["event_details"] = result
-            
-            # Extract event information to enhance requirements
-            events_data = result.get("data", {})
-            events = events_data.get("events", [])
-            
-            # If we have event details, enhance the travel requirements
-            if events:
-                first_event = events[0]
-                
-                # Update requirements with event-specific information
-                if "requirements" not in result_data:
-                    result_data["requirements"] = {}
-                    
-                requirements = result_data["requirements"]
-                
-                # Update destination if event provides more specific location
-                event_location = first_event.get("location")
-                if event_location and not requirements.get("destination"):
-                    requirements["destination"] = event_location
-                
-                # Update dates based on event timing
-                event_start = first_event.get("start_date")
-                if event_start and not requirements.get("departure_date"):
-                    # Arrive a day before the event
-                    from datetime import datetime, timedelta
-                    try:
-                        event_date = datetime.strptime(event_start, "%Y-%m-%d")
-                        arrival_date = event_date - timedelta(days=1)
-                        requirements["departure_date"] = arrival_date.strftime("%Y-%m-%d")
-                    except:
-                        requirements["departure_date"] = event_start
-                
-                # Extend duration for multi-day events
-                event_duration = first_event.get("duration", "")
-                if "day" in event_duration.lower():
-                    try:
-                        import re
-                        duration_match = re.search(r'(\d+)', event_duration)
-                        if duration_match:
-                            event_days = int(duration_match.group(1))
-                            # Add buffer days before and after event
-                            total_duration = event_days + 3
-                            requirements["duration"] = max(requirements.get("duration", 7), total_duration)
-                    except:
-                        pass
-                
-                # Add event-specific requirements
-                if not requirements.get("special_requirements"):
-                    requirements["special_requirements"] = []
-                
-                event_requirements = [f"Attending {first_event.get('name', 'event')}"]
-                if first_event.get("what_to_bring"):
-                    event_requirements.extend(first_event["what_to_bring"])
-                
-                requirements["special_requirements"].extend(event_requirements)
-                
-                # Update the state with enhanced requirements
-                state["extracted_requirements"]["data"]["requirements"] = requirements
-                
-                logger.info(f"Requirements enhanced with event information", 
-                           session_id=state["session_id"],
-                           event_name=first_event.get("name"),
-                           event_location=event_location,
-                           event_dates=f"{first_event.get('start_date')} to {first_event.get('end_date', 'N/A')}")
-            
-            logger.info(f"Events searched", 
-                       session_id=state["session_id"],
-                       event_count=len(events))
-            
-        except Exception as e:
-            logger.error(f"Event search failed", session_id=state["session_id"], error=str(e))
-            state["event_details"] = {"error": str(e)}
         
         return state
     
@@ -587,13 +369,9 @@ class TravelOrchestrator:
             
             # Determine final destination
             destination = requirements.get("destination")
-            if not destination:
-                # Check destination suggestions with proper data format
-                suggestions_data = state["destination_suggestions"].get("data", {})
-                suggestions = suggestions_data.get("suggestions", [])
-                if suggestions:
-                    # Use first suggestion if no specific destination
-                    destination = suggestions[0].get("destination")
+            if not destination and state["destination_suggestions"].get("suggestions"):
+                # Use first suggestion if no specific destination
+                destination = state["destination_suggestions"]["suggestions"][0].get("destination")
             
             if not destination:
                 logger.warning(f"No destination available for search", session_id=state["session_id"])
@@ -601,12 +379,12 @@ class TravelOrchestrator:
                 state["hotel_offers"] = []
                 return state
             
-            # Prepare search parameters with intelligent defaults
-            departure_date = requirements.get("departure_date", "2025-12-01")  # Default to next month
+            # Prepare search parameters
+            departure_date = requirements.get("departure_date", "2024-07-01")
             return_date = requirements.get("return_date")
-            duration = requirements.get("duration", 7)  # LLM or system default
-            adults = requirements.get("passengers", 2)  # Default to 2 people for better experience
-            travel_class = (requirements.get("travel_class") or "ECONOMY").upper()  # Handle None case
+            duration = requirements.get("duration", 7)
+            adults = requirements.get("passengers", 1)
+            travel_class = requirements.get("travel_class", "ECONOMY")
             
             # Calculate check-out date if not provided
             if not return_date:
@@ -627,9 +405,10 @@ class TravelOrchestrator:
                 except:
                     return_date = departure_date
             
-            # Get dynamic destination codes based on events or fallback to hardcoded
+            # Parse destination for airport/city codes (simplified)
             origin = "LAX"  # Default origin (would be determined from user location)
-            dest_code, city_code = await self._get_dynamic_destination_codes(state, destination)
+            dest_code = self._get_destination_code(destination)
+            city_code = self._get_city_code(destination)
             
             # Run flights and hotels search in parallel
             flight_task = self._search_flights({
@@ -775,24 +554,14 @@ class TravelOrchestrator:
             result_data = state["extracted_requirements"].get("data", {})
             requirements = result_data.get("requirements", {})
             
-            # Check if we have minimum required information - with intelligent defaults, we should rarely hit this
-            suggestions_data = state.get("destination_suggestions", {}).get("data", {})
-            suggestions = suggestions_data.get("suggestions", [])
-            
-            if not requirements.get("destination") and not suggestions:
-                logger.warning(f"No destination available for itinerary planning", session_id=state["session_id"])
-                # Even without destination, we can provide general travel planning guidance
+            # Check if we have minimum required information
+            if not requirements.get("destination") and not state.get("destination_suggestions", {}).get("suggestions"):
+                logger.warning(f"Insufficient travel requirements for itinerary", session_id=state["session_id"])
                 state["itinerary"] = {
-                    "message": "Please specify a destination to complete your comprehensive travel plan. We have intelligent defaults for duration (7 days), passengers (2 people), and budget estimates ready for any destination you choose.",
-                    "available_defaults": {
-                        "duration": requirements.get("duration", 7),
-                        "passengers": requirements.get("passengers", 2),
-                        "travel_class": requirements.get("travel_class", "economy"),
-                        "budget_guidance": "We'll provide destination-specific budget estimates once you specify your preferred location"
-                    },
-                    "next_steps": ["Choose a destination", "We'll handle the rest with intelligent recommendations"]
+                    "error": "Insufficient travel information provided. Please specify destination, dates, and travel preferences.",
+                    "requirements_needed": ["destination", "departure_date", "duration", "travelers"]
                 }
-                state["status"] = "destination_needed"
+                state["status"] = "requirements_missing"
                 return state
             
             # Use curated flights if available, otherwise fall back to enhanced offers
@@ -811,9 +580,8 @@ class TravelOrchestrator:
                 "customer_profile": state["user_profile"].get("data", {}),
                 "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
-                "destination_suggestions": suggestions,
-                "curated_flights": curated_flight_data,  # Include curation data
-                "event_details": state.get("event_details", {}).get("data", {})  # Include event information
+                "destination_suggestions": state["destination_suggestions"].get("suggestions", []),
+                "curated_flights": curated_flight_data  # Include curation data
             }
             
             result = await agent.execute(input_data, state["session_id"])
@@ -985,14 +753,13 @@ class TravelOrchestrator:
             return "JFK"  # Default fallback
             
         destination_codes = {
-            "Thailand": "BKK",
-            "Bangkok": "BKK", 
             "Zermatt": "ZUR",  # Zurich airport for Zermatt
             "Switzerland": "ZUR",
             "Tokyo": "NRT",
             "Paris": "CDG",
             "London": "LHR",
             "New York": "JFK",
+            "Bangkok": "BKK",
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
@@ -1014,14 +781,13 @@ class TravelOrchestrator:
     def _get_city_code(self, destination: str) -> str:
         """Convert destination name to city code (simplified mapping)"""
         city_codes = {
-            "Thailand": "BKK",
-            "Bangkok": "BKK",
             "Zermatt": "ZUR",  # Use Zurich city code for Zermatt hotels
             "Switzerland": "ZUR",
             "Tokyo": "TYO",
             "Paris": "PAR",
             "London": "LON",
             "New York": "NYC",
+            "Bangkok": "BKK",
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
@@ -1082,60 +848,6 @@ class TravelOrchestrator:
         
         # Default fallback
         return "US"
-    
-    async def _get_dynamic_destination_codes(self, state: TravelState, destination: str) -> tuple[str, str]:
-        """
-        Get destination and city codes dynamically, prioritizing event-specific locations
-        
-        Returns:
-            tuple: (airport_code, city_code)
-        """
-        # Check if we have event details with specific city information
-        event_details = state.get("event_details", {})
-        if event_details and event_details.get("data"):
-            events = event_details["data"].get("events", [])
-            if events:
-                # Use the first event's location
-                event = events[0]
-                event_city = event.get("city")
-                event_country = event.get("country")
-                
-                if event_city:
-                    logger.info(f"🎯 Using event-specific location: {event_city}, {event_country}")
-                    
-                    # Get dynamic codes using Amadeus API
-                    try:
-                        location_data = await self.location_service.get_city_and_airport_codes(
-                            event_city, event_country
-                        )
-                        # Use event-specific defaults based on country context
-                        country_defaults = {
-                            "thailand": {"airport": "BKK", "city": "BKK"},
-                            "germany": {"airport": "MUC", "city": "MUC"},  # Munich for Oktoberfest
-                            "brazil": {"airport": "GIG", "city": "RIO"},   # Rio for Carnival
-                            "india": {"airport": "BOM", "city": "BOM"},    # Mumbai
-                            "japan": {"airport": "NRT", "city": "TYO"},    # Tokyo
-                        }
-                        
-                        country_key = event_country.lower() if event_country else ""
-                        defaults = country_defaults.get(country_key, {"airport": "JFK", "city": "PAR"})
-                        
-                        airport_code = location_data.get("airport_code", defaults["airport"])
-                        city_code = location_data.get("city_code", defaults["city"])
-                        
-                        logger.info(f"✅ Dynamic location codes: Airport={airport_code}, City={city_code}")
-                        return airport_code, city_code
-                        
-                    except Exception as e:
-                        logger.warning(f"⚠️ Failed to get dynamic codes for {event_city}: {e}")
-                        # Fall through to hardcoded fallback
-        
-        # Fallback to existing hardcoded mapping methods
-        logger.info(f"📍 Using fallback location mapping for: {destination}")
-        dest_code = self._get_destination_code(destination)
-        city_code = self._get_city_code(destination)
-        
-        return dest_code, city_code
     
     async def _create_session_record(self, input_data: Dict[str, Any], session_id: str):
         """Create or update session record in MySQL"""
