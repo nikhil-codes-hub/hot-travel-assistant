@@ -336,7 +336,7 @@ class UserProfileAgent(BaseAgent):
         try:
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
             if project_id and vertexai:
                 vertexai.init(project=project_id, location=location)
