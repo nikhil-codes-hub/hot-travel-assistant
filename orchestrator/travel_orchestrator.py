@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from agents.llm_extractor.extractor_agent import LLMExtractorAgent
 from agents.user_profile.profile_agent import UserProfileAgent
 from agents.destination_discovery.destination_agent import DestinationDiscoveryAgent
+from agents.event_search.event_agent import EventSearchAgent
 from agents.flights_search.flights_agent import FlightsSearchAgent
 from agents.hotel_search.hotel_agent import HotelSearchAgent
 from agents.offers.offers_agent import OffersAgent
@@ -36,6 +37,7 @@ class TravelState(TypedDict):
     extracted_requirements: Dict[str, Any]
     user_profile: Dict[str, Any]
     destination_suggestions: Dict[str, Any]
+    event_details: Dict[str, Any]
     flight_offers: List[Dict[str, Any]]
     hotel_offers: List[Dict[str, Any]]
     enhanced_offers: Dict[str, Any]
@@ -52,6 +54,7 @@ class TravelState(TypedDict):
     status: str
     confirmation_pending: bool
     needs_destination_discovery: bool
+    needs_event_search: bool
     messages: List[BaseMessage]
 
 class TravelOrchestrator:
@@ -71,6 +74,9 @@ class TravelOrchestrator:
         # Phase 2: Destination Discovery (conditional)
         workflow.add_node("discover_destinations", self._discover_destinations)
         
+        # Phase 2.5: Event Search (conditional)
+        workflow.add_node("search_events", self._search_events)
+        
         # Phase 3: Search & Offers (parallel)
         workflow.add_node("search_flights_hotels", self._search_flights_hotels_parallel)
         workflow.add_node("enhance_offers", self._enhance_offers)
@@ -89,9 +95,16 @@ class TravelOrchestrator:
         workflow.add_conditional_edges(
             "get_user_profile",
             self._needs_destination_discovery,
-            {"discover": "discover_destinations", "search": "search_flights_hotels"}
+            {"discover": "discover_destinations", "continue": "search_events"}
         )
-        workflow.add_edge("discover_destinations", "search_flights_hotels")
+        workflow.add_edge("discover_destinations", "search_events")
+        
+        # Conditional event search
+        workflow.add_conditional_edges(
+            "search_events",
+            self._needs_event_search,
+            {"search": "search_flights_hotels", "skip": "search_flights_hotels"}
+        )
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
         workflow.add_edge("enhance_offers", "curate_flights")
@@ -145,6 +158,7 @@ class TravelOrchestrator:
                 "extracted_requirements": {},
                 "user_profile": {},
                 "destination_suggestions": {},
+                "event_details": {},
                 "flight_offers": [],
                 "hotel_offers": [],
                 "enhanced_offers": {},
@@ -161,6 +175,7 @@ class TravelOrchestrator:
                 "status": "processing",
                 "confirmation_pending": True,
                 "needs_destination_discovery": False,
+                "needs_event_search": False,
                 "messages": [HumanMessage(content=input_data["user_request"])]
             }
             
@@ -358,6 +373,67 @@ class TravelOrchestrator:
         except Exception as e:
             logger.error(f"Destination discovery failed", session_id=state["session_id"], error=str(e))
             state["destination_suggestions"] = {"error": str(e)}
+        
+        return state
+    
+    def _needs_event_search(self, state: TravelState) -> str:
+        """Determine if event search is needed"""
+        result_data = state["extracted_requirements"].get("data", {})
+        requirements = result_data.get("requirements", {})
+        
+        has_event = (
+            requirements.get("event_name") or 
+            requirements.get("event_type") or
+            state["needs_event_search"]
+        )
+        
+        return "search" if has_event else "skip"
+    
+    async def _search_events(self, state: TravelState) -> TravelState:
+        """Phase 2.5: Search for events and festivals"""
+        # First, check if event search is needed
+        if self._needs_event_search(state) == "skip":
+            logger.info("No events detected, skipping event search", session_id=state["session_id"])
+            return state
+            
+        try:
+            agent = EventSearchAgent()
+            
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            # Extract event information
+            event_name = requirements.get("event_name")
+            event_type = requirements.get("event_type")
+            destination = requirements.get("destination")
+            
+            logger.info(f"🎉 Event search triggered", 
+                       session_id=state["session_id"],
+                       event_name=event_name,
+                       event_type=event_type,
+                       destination=destination)
+            
+            input_data = {
+                "event_name": event_name,
+                "event_type": event_type,
+                "destination": destination,
+                "departure_date": requirements.get("departure_date"),
+                "duration": requirements.get("duration"),
+                "passengers": requirements.get("passengers", 1),
+                "budget": requirements.get("budget"),
+                "special_requirements": requirements.get("special_requirements", [])
+            }
+            
+            result = await agent.execute(input_data, state["session_id"])
+            state["event_details"] = result
+            
+            logger.info(f"Events found", 
+                       session_id=state["session_id"],
+                       event_count=len(result.get("data", {}).get("events", [])))
+            
+        except Exception as e:
+            logger.error(f"Event search failed", session_id=state["session_id"], error=str(e))
+            state["event_details"] = {"error": str(e)}
         
         return state
     

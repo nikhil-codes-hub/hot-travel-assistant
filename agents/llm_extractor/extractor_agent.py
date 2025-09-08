@@ -424,9 +424,11 @@ INTELLIGENT DEFAULTS EXAMPLES:
             event_type = "festival"
             if "munich" in user_lower or "germany" in user_lower:
                 destination = "Munich, Germany"
-        elif "diwali" in user_lower and ("festival" in user_lower or "celebration" in user_lower):
+        elif "diwali" in user_lower:
             event_name = "Diwali Festival"
             event_type = "cultural"
+            if not destination and ("india" in user_lower or "bengaluru" in user_lower or "bangalore" in user_lower):
+                destination = "Bengaluru, India"
         elif "holi" in user_lower and ("festival" in user_lower or "celebration" in user_lower):
             event_name = "Holi Festival"
             event_type = "cultural"
