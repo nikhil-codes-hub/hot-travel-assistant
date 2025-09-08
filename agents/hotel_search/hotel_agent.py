@@ -80,11 +80,14 @@ class HotelSearchAgent(BaseAgent):
                 self.log("🔄 Using realistic mock hotel data (provides full experience)")
                 return self._generate_fallback_hotels(input_data)
             
-            # Then get offers for the hotels
+            # Get offers for the hotels (this will return consolidated results)
             hotels_with_offers = await self._get_hotel_offers(hotel_list, input_data)
             
-            # Process and format results
-            result = self._process_hotel_results(hotels_with_offers, input_data)
+            # Combine hotel list data with offers data, ensuring all hotels are shown
+            combined_hotels = await self._combine_hotels_with_offers(hotel_list, hotels_with_offers)
+            
+            # Process and format results (now includes hotels without offers)
+            result = self._process_hotel_results(combined_hotels, input_data)
             
             # Add API source indicator
             result["meta"]["data_source"] = "amadeus_api"
@@ -269,6 +272,45 @@ class HotelSearchAgent(BaseAgent):
             self.log(f"📊 Total consolidated offers: {len(all_offers)} from {len(hotel_ids)} hotels searched")
             return all_offers
     
+    async def _combine_hotels_with_offers(self, hotel_list: List[Dict[str, Any]], hotels_with_offers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Combine hotel list with offers, showing all hotels and sorting those with offers first"""
+        
+        # Create a mapping of hotel ID to offers data
+        offers_by_hotel_id = {}
+        for hotel_offer_data in hotels_with_offers:
+            hotel_info = hotel_offer_data.get("hotel", {})
+            hotel_id = hotel_info.get("hotelId")
+            if hotel_id:
+                offers_by_hotel_id[hotel_id] = hotel_offer_data
+        
+        combined_hotels = []
+        hotels_with_offers_list = []
+        hotels_without_offers_list = []
+        
+        # Process all hotels from the original hotel list
+        for hotel in hotel_list:
+            hotel_id = hotel.get("hotelId")
+            
+            if hotel_id in offers_by_hotel_id:
+                # Hotel has offers - use the data with offers
+                hotels_with_offers_list.append(offers_by_hotel_id[hotel_id])
+                self.log(f"✅ Hotel {hotel.get('name', hotel_id)} has offers available")
+            else:
+                # Hotel has no offers - create structure without offers
+                hotel_without_offers = {
+                    "hotel": hotel,
+                    "offers": []  # Empty offers array
+                }
+                hotels_without_offers_list.append(hotel_without_offers)
+                self.log(f"⚠️  Hotel {hotel.get('name', hotel_id)} has no offers, but will be displayed")
+        
+        # Sort: Hotels with offers first, then hotels without offers
+        combined_hotels = hotels_with_offers_list + hotels_without_offers_list
+        
+        self.log(f"🏨 Combined results: {len(hotels_with_offers_list)} hotels with offers, {len(hotels_without_offers_list)} hotels without offers")
+        
+        return combined_hotels
+    
     def _process_hotel_results(self, hotels_data: List[Dict[str, Any]], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process Amadeus hotel response into our format"""
         try:
@@ -288,8 +330,13 @@ class HotelSearchAgent(BaseAgent):
                         )
                         amenities.append(amenity)
                     
-                    # Process offers
+                    # Process offers (may be empty for hotels without availability)
                     processed_offers = []
+                    if offers_data:
+                        self.log(f"🏨 Processing {len(offers_data)} offers for {hotel_info.get('name', 'Unknown Hotel')}")
+                    else:
+                        self.log(f"📋 Hotel {hotel_info.get('name', 'Unknown Hotel')} listed without offers (no availability for dates)")
+                    
                     for offer_data in offers_data:
                         offer = HotelOffer(
                             id=offer_data["id"],
