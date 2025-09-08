@@ -187,6 +187,7 @@ class LLMExtractorAgent(BaseAgent):
         thirty_days_later = today + timedelta(days=30)
         today_str = today.strftime("%Y-%m-%d")
         thirty_days_str = thirty_days_later.strftime("%Y-%m-%d")
+        current_year = today.year
         
         context_info = ""
         if conversation_context:
@@ -206,6 +207,12 @@ CORE MISSION:
 - Extract EVENT-based travel requirements (festivals, concerts, cultural events, sports)
 - Enable full travel planning workflow including attractions, flights, hotels, visa requirements, health advisories
 - Handle both specific destinations (Thailand, Paris), vague requests (somewhere warm, tropical place), and EVENT-BASED requests (Water Lantern Festival in Thailand, Oktoberfest in Munich)
+
+DESTINATION EXTRACTION RULES:
+- For "Bangkok" queries, ALWAYS extract destination as "Bangkok, Thailand" (not just "Bangkok")
+- For "Thailand" queries, ALWAYS extract as "Bangkok, Thailand" since Bangkok is the main international gateway
+- For city names, include country when internationally known (e.g., "Paris, France", "Tokyo, Japan", "London, UK")
+- Use standardized city names that match international airport/hotel booking systems
 
 CRITICAL RULES:
 1. Extract all explicitly mentioned travel information including EVENTS and FESTIVALS
@@ -230,11 +237,11 @@ User Request: "{user_request}"
 Extract the following information and return ONLY valid JSON with intelligent defaults:
 {{
     "requirements": {{
-        "destination": "Always extract if any location is mentioned - specific ('Thailand', 'Paris') or vague ('somewhere tropical', 'beach destination', 'Europe'). Extract from event context if mentioned (Water Lantern Festival in Thailand -> Thailand). Only null if absolutely no location mentioned",
+        "destination": "Always extract if any location is mentioned - specific ('Bangkok, Thailand', 'Paris, France') or vague ('somewhere tropical', 'beach destination', 'Europe'). Extract from event context if mentioned (Water Lantern Festival in Thailand -> Bangkok, Thailand). IMPORTANT: For Bangkok queries, always use 'Bangkok, Thailand'. Only null if absolutely no location mentioned",
         "destination_type": "Infer from context: beach/mountains/city/adventure/cultural/romantic/tropical/ski/festival/event/etc",
         "event_name": "Extract specific event/festival name if mentioned (Water Lantern Festival, Oktoberfest, Diwali celebration, etc.)",
         "event_type": "Classify event type if mentioned: festival/concert/sports/cultural/religious/seasonal/etc",
-        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or use {thirty_days_str} if no date specified. For events, consider event timing",
+        "departure_date": "YYYY-MM-DD if specific date mentioned. Examples: '15th Sep' -> '2025-09-15', 'September 15' -> '2025-09-15', 'Sep 15 2025' -> '2025-09-15'. If no year specified, assume current year ({current_year}). Use approximate dates for relative terms ('next month' -> '2025-12-01'), or use {thirty_days_str} if no date specified. For events, consider event timing",
         "return_date": "YYYY-MM-DD if return date specified, calculate based on duration if available",
         "duration": "Extract if mentioned, OR suggest intelligent default: 7 days for international, 4-5 days for domestic/city breaks, 10-14 days for Asia/distant destinations, extend for festivals (5-8 days for festival experience)",
         "budget": "Extract if currency mentioned, OR suggest reasonable range based on destination (e.g., 1500-3000 for Thailand, 2000-4000 for Europe per person for 7 days). Add festival premium if event-based",
@@ -317,8 +324,8 @@ INTELLIGENT DEFAULTS EXAMPLES:
             
             # Try to extract basic destination from original request
             user_lower = original_request.lower()
-            if "thailand" in user_lower:
-                requirements_dict["destination"] = "Thailand"
+            if "thailand" in user_lower or "bangkok" in user_lower:
+                requirements_dict["destination"] = "Bangkok, Thailand"
                 requirements_dict["budget"] = 2000  # Reasonable Thailand budget for 2 people
                 requirements_dict["destination_type"] = "tropical"
             elif "bangalore" in user_lower or "bengaluru" in user_lower:
@@ -459,8 +466,8 @@ INTELLIGENT DEFAULTS EXAMPLES:
         elif "mountain" in user_lower and "destination" in user_lower:
             destination = "mountain destination"
         # Then check for specific destinations
-        elif "thailand" in user_lower:
-            destination = "Thailand"
+        elif "thailand" in user_lower or "bangkok" in user_lower:
+            destination = "Bangkok, Thailand"
         elif "bangalore" in user_lower or "bengaluru" in user_lower:
             destination = "Bangalore, India"
         elif "mumbai" in user_lower or "bombay" in user_lower:
@@ -555,29 +562,104 @@ INTELLIGENT DEFAULTS EXAMPLES:
                 break
         
         # Extract dates (enhanced patterns) - only override if new one found
+        from datetime import datetime
+        current_year = datetime.now().year
+        
         date_patterns = [
             r'(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD
             r'(\d{1,2}/\d{1,2}/\d{4})',  # MM/DD/YYYY
+            # Patterns without year - default to current year
+            r'(?:jan|january)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Jan 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan|january)(?!\s*,?\s*\d{4})',  # "15th January" (no year)
+            r'(?:feb|february)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Feb 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:feb|february)(?!\s*,?\s*\d{4})',  # "15th February" (no year)
+            r'(?:mar|march)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Mar 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:mar|march)(?!\s*,?\s*\d{4})',  # "15th March" (no year)
+            r'(?:apr|april)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Apr 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:apr|april)(?!\s*,?\s*\d{4})',  # "15th April" (no year)
+            r'(?:may)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "May 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:may)(?!\s*,?\s*\d{4})',  # "15th May" (no year)
+            r'(?:jun|june)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Jun 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jun|june)(?!\s*,?\s*\d{4})',  # "15th June" (no year)
+            r'(?:jul|july)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Jul 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jul|july)(?!\s*,?\s*\d{4})',  # "15th July" (no year)
+            r'(?:aug|august)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Aug 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:aug|august)(?!\s*,?\s*\d{4})',  # "15th August" (no year)
+            r'(?:sep|september)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Sep 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:sep|september)(?!\s*,?\s*\d{4})',  # "15th September" (no year)
+            r'(?:oct|october)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Oct 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:oct|october)(?!\s*,?\s*\d{4})',  # "15th October" (no year)
+            r'(?:nov|november)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Nov 25th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:nov|november)(?!\s*,?\s*\d{4})',  # "25th November" (no year)
+            r'(?:dec|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?!\s*,?\s*\d{4})',  # "Dec 15th" (no year)
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:dec|december)(?!\s*,?\s*\d{4})',  # "15th December" (no year)
+            # Patterns with year
+            r'(?:jan|january)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Jan 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan|january)\s*,?\s*(\d{4})',  # "15th January 2025"
+            r'(?:feb|february)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Feb 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:feb|february)\s*,?\s*(\d{4})',  # "15th February 2025"
+            r'(?:mar|march)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Mar 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:mar|march)\s*,?\s*(\d{4})',  # "15th March 2025"
+            r'(?:apr|april)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Apr 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:apr|april)\s*,?\s*(\d{4})',  # "15th April 2025"
+            r'(?:may)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "May 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:may)\s*,?\s*(\d{4})',  # "15th May 2025"
+            r'(?:jun|june)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Jun 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jun|june)\s*,?\s*(\d{4})',  # "15th June 2025"
+            r'(?:jul|july)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Jul 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jul|july)\s*,?\s*(\d{4})',  # "15th July 2025"
+            r'(?:aug|august)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Aug 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:aug|august)\s*,?\s*(\d{4})',  # "15th August 2025"
+            r'(?:sep|september)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Sep 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:sep|september)\s*,?\s*(\d{4})',  # "15th September 2025"
+            r'(?:oct|october)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Oct 15th 2025"
+            r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:oct|october)\s*,?\s*(\d{4})',  # "15th October 2025"
             r'(?:nov|november)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Nov 25th 2025"
             r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:nov|november)\s*,?\s*(\d{4})',  # "25th November 2025"
             r'(?:dec|december)\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*(\d{4})',  # "Dec 15th 2025"
             r'(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?:dec|december)\s*,?\s*(\d{4})',  # "15th December 2025"
         ]
+        
         for pattern in date_patterns:
             date_match = re.search(pattern, user_lower)
             if date_match:
                 if len(date_match.groups()) == 2:  # Month day year format
                     day = date_match.group(1)
                     year = date_match.group(2)
-                    # Determine month based on pattern matched
-                    if 'nov' in pattern:
-                        departure_date = f"{year}-11-{day.zfill(2)}"
-                    elif 'dec' in pattern:
-                        departure_date = f"{year}-12-{day.zfill(2)}"
-                    else:
-                        departure_date = f"{year}-11-{day.zfill(2)}"  # Default to November
+                elif len(date_match.groups()) == 1:  # Month day format (no year)
+                    day = date_match.group(1)
+                    year = str(current_year)
                 else:
                     departure_date = date_match.group(1)
+                    break
+                
+                # Determine month based on pattern matched
+                if 'jan' in pattern:
+                    departure_date = f"{year}-01-{day.zfill(2)}"
+                elif 'feb' in pattern:
+                    departure_date = f"{year}-02-{day.zfill(2)}"
+                elif 'mar' in pattern:
+                    departure_date = f"{year}-03-{day.zfill(2)}"
+                elif 'apr' in pattern:
+                    departure_date = f"{year}-04-{day.zfill(2)}"
+                elif 'may' in pattern:
+                    departure_date = f"{year}-05-{day.zfill(2)}"
+                elif 'jun' in pattern:
+                    departure_date = f"{year}-06-{day.zfill(2)}"
+                elif 'jul' in pattern:
+                    departure_date = f"{year}-07-{day.zfill(2)}"
+                elif 'aug' in pattern:
+                    departure_date = f"{year}-08-{day.zfill(2)}"
+                elif 'sep' in pattern:
+                    departure_date = f"{year}-09-{day.zfill(2)}"
+                elif 'oct' in pattern:
+                    departure_date = f"{year}-10-{day.zfill(2)}"
+                elif 'nov' in pattern:
+                    departure_date = f"{year}-11-{day.zfill(2)}"
+                elif 'dec' in pattern:
+                    departure_date = f"{year}-12-{day.zfill(2)}"
+                else:
+                    departure_date = f"{year}-09-{day.zfill(2)}"  # Default to September
                 break
         
         # Apply intelligent defaults for comprehensive travel planning
@@ -620,7 +702,6 @@ INTELLIGENT DEFAULTS EXAMPLES:
                 if mentioned_year == current_year:
                     # Same year - suggest reasonable future date within the year
                     current_month = current_date.month
-                    current_day = current_date.day
                     
                     if current_month <= 3:
                         # Q1 - suggest mid-year travel (6 months ahead)
