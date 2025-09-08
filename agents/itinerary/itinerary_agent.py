@@ -26,6 +26,7 @@ class TravelReadinessItem(BaseModel):
 class Itinerary(BaseModel):
     title: str = Field("Travel Itinerary", description="Itinerary title")
     destination: str = Field("Unknown", description="Primary destination")
+    destination_info: Optional[Dict[str, Any]] = Field(None, description="Destination details and information")
     duration: int = Field(7, description="Trip duration in days")
     traveler_count: int = Field(1, description="Number of travelers")
     departure_date: str = Field("TBD", description="Departure date")
@@ -277,6 +278,14 @@ Create a comprehensive itinerary and return ONLY valid JSON:
     "itinerary_overview": {{
         "title": "Descriptive trip title",
         "destination": "{destination}",
+        "destination_info": {{
+            "description": "Brief compelling description of the destination (2-3 sentences)",
+            "best_time_to_visit": "Season/month information for the travel dates",
+            "local_culture": "Key cultural highlights or customs to know",
+            "currency": "Local currency and approximate exchange rate",
+            "language": "Primary language(s) spoken",
+            "timezone": "Timezone information relative to traveler's origin"
+        }},
         "duration": {duration},
         "travelers": {passengers},
         "departure_date": "{departure_date}",
@@ -350,6 +359,7 @@ Focus on:
         itinerary = Itinerary(
             title=overview.get("title", f"Trip to {requirements.get('destination', 'Destination')}"),
             destination=overview.get("destination", requirements.get("destination", "")),
+            destination_info=overview.get("destination_info", self._get_default_destination_info(requirements.get("destination", ""))),
             duration=overview.get("duration", requirements.get("duration", 7)),
             traveler_count=overview.get("travelers", requirements.get("passengers", 1)),
             departure_date=overview.get("departure_date") or requirements.get("departure_date") or "TBD",
@@ -505,6 +515,7 @@ Focus on:
         itinerary = Itinerary(
             title=f"{duration}-Day Premium Trip to {destination}",
             destination=destination,
+            destination_info=self._get_default_destination_info(destination),
             duration=duration,
             traveler_count=passengers,
             departure_date=departure_date,
@@ -647,6 +658,59 @@ Focus on:
             base_tips.append(f"Your {loyalty_tier} status includes priority services and exclusive benefits")
         
         return base_tips
+    
+    def _get_default_destination_info(self, destination: str) -> Dict[str, Any]:
+        """Provide basic destination information as fallback"""
+        if not destination:
+            return {
+                "description": "Exciting travel destination with unique experiences awaiting discovery.",
+                "best_time_to_visit": "Check seasonal weather patterns for optimal travel timing",
+                "local_culture": "Research local customs and traditions before your visit",
+                "currency": "Check current exchange rates for local currency",
+                "language": "Learn basic phrases in the local language",
+                "timezone": "Verify timezone difference from your departure location"
+            }
+        
+        # Basic destination info based on common destinations
+        destination_lower = destination.lower()
+        
+        if 'japan' in destination_lower or 'tokyo' in destination_lower:
+            return {
+                "description": "Japan offers a fascinating blend of ancient traditions and cutting-edge modernity, from serene temples to bustling metropolises.",
+                "best_time_to_visit": "Spring (March-May) for cherry blossoms, Fall (September-November) for mild weather",
+                "local_culture": "Bow as greeting, remove shoes indoors, quiet on public transport, tipping not customary",
+                "currency": "Japanese Yen (JPY), approximately ¥150 = $1 USD",
+                "language": "Japanese (some English in tourist areas)",
+                "timezone": "JST (UTC+9), typically 13-16 hours ahead of US time zones"
+            }
+        elif 'thailand' in destination_lower or 'bangkok' in destination_lower:
+            return {
+                "description": "Thailand captivates with golden temples, pristine beaches, vibrant street food culture, and warm hospitality.",
+                "best_time_to_visit": "Cool season (November-February) for best weather, avoid rainy season (May-October)",
+                "local_culture": "Wai greeting (prayer-like gesture), dress modestly at temples, remove shoes when entering homes",
+                "currency": "Thai Baht (THB), approximately ฿35 = $1 USD",
+                "language": "Thai (English widely spoken in tourist areas)",
+                "timezone": "ICT (UTC+7), typically 12-15 hours ahead of US time zones"
+            }
+        elif 'france' in destination_lower or 'paris' in destination_lower:
+            return {
+                "description": "France enchants with world-class art, exquisite cuisine, stunning architecture, and rich cultural heritage.",
+                "best_time_to_visit": "Spring (April-June) and Fall (September-October) for pleasant weather and fewer crowds",
+                "local_culture": "Greet with 'Bonjour/Bonsoir', dress elegantly, dining is leisurely, tipping 10% is appreciated",
+                "currency": "Euro (EUR), approximately €0.85 = $1 USD",
+                "language": "French (English spoken in tourist areas, learning basic French phrases appreciated)",
+                "timezone": "CET (UTC+1), typically 6-9 hours ahead of US time zones"
+            }
+        else:
+            # Generic fallback for unknown destinations
+            return {
+                "description": f"{destination} offers unique cultural experiences, local cuisine, and memorable attractions for travelers.",
+                "best_time_to_visit": "Research seasonal weather patterns and local events for optimal timing",
+                "local_culture": "Learn about local customs, dress codes, and social etiquette before arrival",
+                "currency": "Check current exchange rates and payment methods commonly accepted",
+                "language": "Research primary language and useful phrases for travelers",
+                "timezone": "Verify timezone difference and plan for jet lag adjustment"
+            }
     
     def _generate_travel_readiness(self, requirements: Dict[str, Any]) -> List[TravelReadinessItem]:
         """Generate destination-specific travel readiness checklist"""
@@ -805,6 +869,7 @@ Focus on:
         fallback_itinerary = Itinerary(
             title="Travel Plan",
             destination=requirements.get("destination", "Destination"),
+            destination_info=self._get_default_destination_info(requirements.get("destination", "")),
             duration=requirements.get("duration", 7),
             traveler_count=requirements.get("passengers", 1),
             departure_date=requirements.get("departure_date", "2024-06-01"),
