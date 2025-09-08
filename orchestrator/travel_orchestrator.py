@@ -95,7 +95,7 @@ class TravelOrchestrator:
         workflow.add_conditional_edges(
             "get_user_profile",
             self._needs_destination_discovery,
-            {"discover": "discover_destinations", "continue": "search_events"}
+            {"discover": "discover_destinations", "search": "search_events"}
         )
         workflow.add_edge("discover_destinations", "search_events")
         
