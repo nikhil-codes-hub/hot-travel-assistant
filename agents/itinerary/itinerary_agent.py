@@ -241,6 +241,7 @@ class PrepareItineraryAgent(BaseAgent):
         customer_profile = input_data.get("customer_profile", {})
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
+        event_details = input_data.get("event_details", {})
         
         # Extract key information
         destination = requirements.get("destination", "Selected destination")
@@ -254,6 +255,13 @@ class PrepareItineraryAgent(BaseAgent):
         travel_history = customer_profile.get("travel_history", [])
         preferences = customer_profile.get("preferences", {})
         
+        # Event context if available
+        event_context = ""
+        if event_details:
+            event_name = event_details.get("name", "")
+            event_description = event_details.get("description", "")
+            event_context = f"\n\nSPECIAL EVENT: {event_name}\n{event_description}\nInclude this event in the itinerary highlights and plan activities around it."
+        
         return f"""
 Create a detailed travel itinerary for this trip. Be specific and practical.
 
@@ -262,7 +270,7 @@ TRIP REQUIREMENTS:
 - Duration: {duration} days
 - Travelers: {passengers}
 - Departure: {departure_date}
-- Budget: {budget or "Not specified"}
+- Budget: {budget or "Not specified"}{event_context}
 
 CUSTOMER PROFILE:
 - Loyalty tier: {loyalty_tier}
@@ -284,7 +292,9 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "local_culture": "Key cultural highlights or customs to know",
             "currency": "Local currency and approximate exchange rate",
             "language": "Primary language(s) spoken",
-            "timezone": "Timezone information relative to traveler's origin"
+            "timezone": "Timezone information relative to traveler's origin",
+            "popular_attractions": ["Top 5-7 must-see attractions and landmarks in {destination}"],
+            "event_highlights": "Special event information and related activities if applicable"
         }},
         "duration": {duration},
         "travelers": {passengers},
@@ -316,7 +326,7 @@ Create a comprehensive itinerary and return ONLY valid JSON:
         }}
     }},
     "rationale": "Why this itinerary works for the traveler",
-    "highlights": ["Key experiences", "Must-see attractions", "Unique opportunities"],
+    "highlights": ["Key experiences including event highlights if applicable", "Must-see attractions and popular landmarks", "Unique opportunities and local experiences"],
     "travel_tips": ["Practical advice", "Local insights", "Money-saving tips"],
     "confidence_score": 0.0-1.0
 }}
@@ -327,6 +337,9 @@ Focus on:
 3. Budget considerations
 4. Customer preferences alignment
 5. Practical logistics (check-in times, travel times)
+6. Include popular city attractions and landmarks
+7. Incorporate event highlights and related activities if applicable
+8. Provide local cultural experiences and must-see sights
 """
     
     def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
@@ -394,6 +407,7 @@ Focus on:
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
         destination_suggestions = input_data.get("destination_suggestions", [])
+        event_details = input_data.get("event_details", {})
         
         duration = requirements.get("duration", 7)
         destination = requirements.get("destination", "Destination")
@@ -502,11 +516,14 @@ Focus on:
         travel_readiness = self._generate_travel_readiness(requirements)
         
         # Create personalized highlights and tips
-        highlights = self._get_destination_highlights(destination)
+        highlights = self._get_destination_highlights(destination, event_details)
         tips = self._get_destination_tips(destination, loyalty_tier)
         
         # Enhanced rationale
         rationale = f"This {duration}-day itinerary for {destination} is curated for {passengers} travelers with {loyalty_tier} tier benefits. "
+        if event_details:
+            event_name = event_details.get("name", "special event")
+            rationale += f"The itinerary includes {event_name} and related activities. "
         if destination_suggestions:
             rationale += f"Selected from recommended destinations based on your preference for snowy destinations. "
         rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
@@ -593,36 +610,94 @@ Focus on:
         else:
             return [f"{tier_prefix}Local cuisine", f"{tier_prefix}Traditional dishes", f"{tier_prefix}Regional specialties"]
     
-    def _get_destination_highlights(self, destination: str) -> List[str]:
-        """Get destination-specific highlights"""
+    def _get_destination_highlights(self, destination: str, event_details: Dict[str, Any] = None) -> List[str]:
+        """Get destination-specific highlights including events and popular attractions"""
         destination_lower = destination.lower()
+        highlights = []
         
-        if any(keyword in destination_lower for keyword in ["zermatt", "switzerland"]):
-            return [
+        # Add event highlights first if available
+        if event_details:
+            event_name = event_details.get("name", "")
+            event_description = event_details.get("description", "")
+            if event_name:
+                highlights.append(f"{event_name} - special festival celebration")
+                if "diwali" in event_name.lower():
+                    highlights.extend([
+                        "Traditional Diwali festivities and light displays",
+                        "Local temple celebrations and prayers",
+                        "Festive markets and traditional sweets"
+                    ])
+        
+        # Add destination-specific attractions
+        if any(keyword in destination_lower for keyword in ["bangkok", "thailand"]):
+            highlights.extend([
+                "Grand Palace and Wat Phra Kaew",
+                "Wat Arun (Temple of Dawn)",
+                "Chatuchak Weekend Market",
+                "Chao Phraya River boat tours",
+                "Thai street food experiences",
+                "Floating markets",
+                "Traditional Thai massage"
+            ])
+        elif any(keyword in destination_lower for keyword in ["bengaluru", "bangalore", "india"]):
+            highlights.extend([
+                "Lalbagh Botanical Garden",
+                "Bangalore Palace",
+                "Vidhana Soudha architecture",
+                "Cubbon Park and museums",
+                "Traditional South Indian cuisine",
+                "Local markets and shopping",
+                "Brewery culture and nightlife"
+            ])
+        elif any(keyword in destination_lower for keyword in ["paris", "france"]):
+            highlights.extend([
+                "Eiffel Tower and Trocadéro views",
+                "Louvre Museum and Mona Lisa",
+                "Notre-Dame Cathedral",
+                "Champs-Élysées and Arc de Triomphe",
+                "Seine River cruise",
+                "Montmartre and Sacré-Cœur",
+                "French cuisine and café culture"
+            ])
+        elif any(keyword in destination_lower for keyword in ["tokyo", "japan"]):
+            highlights.extend([
+                "Senso-ji Temple in Asakusa",
+                "Tokyo Skytree and city views",
+                "Shibuya Crossing",
+                "Meiji Shrine and Harajuku",
+                "Tsukiji Outer Market",
+                "Traditional and modern architecture",
+                "Japanese cuisine experiences"
+            ])
+        elif any(keyword in destination_lower for keyword in ["zermatt", "switzerland"]):
+            highlights.extend([
                 "Iconic Matterhorn mountain views",
                 "Gornergrat Railway scenic journey",
                 "World-class Alpine skiing",
                 "Charming car-free village",
                 "Swiss culinary experiences",
                 "Luxury mountain hospitality"
-            ]
+            ])
         elif any(keyword in destination_lower for keyword in ["banff", "canada"]):
-            return [
+            highlights.extend([
                 "Stunning Rocky Mountain scenery",
                 "World-class skiing at multiple resorts",
                 "Pristine lakes and glaciers",
                 "Abundant wildlife viewing",
                 "Natural hot springs relaxation",
                 "Canadian hospitality and cuisine"
-            ]
+            ])
         else:
-            return [
+            # Generic highlights for unknown destinations
+            highlights.extend([
                 f"Explore the beauty of {destination}",
                 "Immerse in local culture",
                 "Experience regional cuisine",
                 "Visit iconic landmarks",
                 "Enjoy local hospitality"
-            ]
+            ])
+        
+        return highlights
     
     def _get_destination_tips(self, destination: str, loyalty_tier: str) -> List[str]:
         """Get destination-specific travel tips"""
@@ -681,7 +756,20 @@ Focus on:
                 "local_culture": "Bow as greeting, remove shoes indoors, quiet on public transport, tipping not customary",
                 "currency": "Japanese Yen (JPY), approximately ¥150 = $1 USD",
                 "language": "Japanese (some English in tourist areas)",
-                "timezone": "JST (UTC+9), typically 13-16 hours ahead of US time zones"
+                "timezone": "JST (UTC+9), typically 13-16 hours ahead of US time zones",
+                "popular_attractions": ["Senso-ji Temple", "Tokyo Skytree", "Shibuya Crossing", "Meiji Shrine", "Tsukiji Market", "Imperial Palace", "Harajuku District"],
+                "event_highlights": "Experience traditional festivals, cherry blossom season, and modern celebrations"
+            }
+        elif 'india' in destination_lower or 'bengaluru' in destination_lower or 'bangalore' in destination_lower:
+            return {
+                "description": "India's Silicon Valley, Bengaluru combines modern tech culture with rich history, beautiful gardens, and vibrant traditions.",
+                "best_time_to_visit": "October to March for pleasant weather, avoid monsoon season (June-September)",
+                "local_culture": "Namaste greeting, dress modestly at religious sites, diverse languages and customs",
+                "currency": "Indian Rupee (INR), approximately ₹83 = $1 USD",
+                "language": "English and Kannada widely spoken, Hindi understood",
+                "timezone": "IST (UTC+5:30), typically 10.5-13.5 hours ahead of US time zones",
+                "popular_attractions": ["Lalbagh Botanical Garden", "Bangalore Palace", "Vidhana Soudha", "Cubbon Park", "ISCKON Temple", "Commercial Street", "UB City Mall"],
+                "event_highlights": "Experience Diwali celebrations, local festivals, and traditional Indian culture"
             }
         elif 'thailand' in destination_lower or 'bangkok' in destination_lower:
             return {
@@ -690,7 +778,9 @@ Focus on:
                 "local_culture": "Wai greeting (prayer-like gesture), dress modestly at temples, remove shoes when entering homes",
                 "currency": "Thai Baht (THB), approximately ฿35 = $1 USD",
                 "language": "Thai (English widely spoken in tourist areas)",
-                "timezone": "ICT (UTC+7), typically 12-15 hours ahead of US time zones"
+                "timezone": "ICT (UTC+7), typically 12-15 hours ahead of US time zones",
+                "popular_attractions": ["Grand Palace", "Wat Pho Temple", "Wat Arun", "Chatuchak Market", "Chao Phraya River", "Floating Markets", "Khao San Road"],
+                "event_highlights": "Experience local festivals, temple ceremonies, and traditional celebrations"
             }
         elif 'france' in destination_lower or 'paris' in destination_lower:
             return {
@@ -699,7 +789,9 @@ Focus on:
                 "local_culture": "Greet with 'Bonjour/Bonsoir', dress elegantly, dining is leisurely, tipping 10% is appreciated",
                 "currency": "Euro (EUR), approximately €0.85 = $1 USD",
                 "language": "French (English spoken in tourist areas, learning basic French phrases appreciated)",
-                "timezone": "CET (UTC+1), typically 6-9 hours ahead of US time zones"
+                "timezone": "CET (UTC+1), typically 6-9 hours ahead of US time zones",
+                "popular_attractions": ["Eiffel Tower", "Louvre Museum", "Notre-Dame Cathedral", "Arc de Triomphe", "Champs-Élysées", "Montmartre", "Seine River Cruise"],
+                "event_highlights": "Experience French festivals, art exhibitions, and cultural celebrations"
             }
         else:
             # Generic fallback for unknown destinations
@@ -709,7 +801,9 @@ Focus on:
                 "local_culture": "Learn about local customs, dress codes, and social etiquette before arrival",
                 "currency": "Check current exchange rates and payment methods commonly accepted",
                 "language": "Research primary language and useful phrases for travelers",
-                "timezone": "Verify timezone difference and plan for jet lag adjustment"
+                "timezone": "Verify timezone difference and plan for jet lag adjustment",
+                "popular_attractions": ["Major landmarks", "Cultural sites", "Local markets", "Museums", "Religious sites", "Natural attractions"],
+                "event_highlights": "Discover local festivals, cultural events, and seasonal celebrations"
             }
     
     def _generate_travel_readiness(self, requirements: Dict[str, Any]) -> List[TravelReadinessItem]:
