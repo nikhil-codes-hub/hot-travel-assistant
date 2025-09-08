@@ -41,22 +41,40 @@ class LLMExtractorAgent(BaseAgent):
         self.cache = LLMCache(cache_dir=cache_dir, cache_duration_hours=cache_duration)
         
         try:
+            self.log(f"🔧 Initializing AI provider: {self.ai_provider}")
+            
             if self.ai_provider == "vertex":
                 # Initialize Vertex AI
                 project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
                 location = os.getenv("VERTEX_AI_LOCATION")
-                if project_id and location:
+                
+                if not project_id:
+                    self.log("❌ GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
+                elif not location:
+                    self.log("❌ VERTEX_AI_LOCATION not set - Vertex AI unavailable")
+                else:
+                    self.log(f"🔄 Connecting to Vertex AI: project={project_id}, location={location}")
                     aiplatform.init(project=project_id, location=location)
                     self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
                     self.ai_available = True
+                    self.log("✅ Vertex AI successfully initialized")
             else:
                 # Initialize Gemini
                 api_key = os.getenv("GEMINI_API_KEY")
-                if api_key:
+                
+                if not api_key:
+                    self.log("❌ GEMINI_API_KEY not set - Gemini AI unavailable")
+                    self.log("💡 Please add GEMINI_API_KEY to your .env file for AI-powered travel extraction")
+                else:
+                    self.log("🔄 Connecting to Gemini AI...")
                     genai.configure(api_key=api_key)
                     self.model = genai.GenerativeModel('gemini-2.0-flash')
                     self.ai_available = True
-        except Exception:
+                    self.log("✅ Gemini AI successfully initialized")
+                    
+        except Exception as e:
+            self.log(f"❌ AI initialization failed: {str(e)}")
+            self.log("⚠️  Falling back to pattern-based extraction (limited destination coverage)")
             self.ai_available = False
             self.model = None
     

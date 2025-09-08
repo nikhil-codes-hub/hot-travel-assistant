@@ -59,22 +59,40 @@ class PrepareItineraryAgent(BaseAgent):
         self.ai_available = False
         
         try:
+            self.log(f"🔧 [Itinerary Agent] Initializing AI provider: {self.ai_provider}")
+            
             if self.ai_provider == "vertex":
                 # Initialize Vertex AI
                 project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
                 location = os.getenv("VERTEX_AI_LOCATION")
-                if project_id and location:
+                
+                if not project_id:
+                    self.log("❌ [Itinerary Agent] GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
+                elif not location:
+                    self.log("❌ [Itinerary Agent] VERTEX_AI_LOCATION not set - Vertex AI unavailable")
+                else:
+                    self.log(f"🔄 [Itinerary Agent] Connecting to Vertex AI: project={project_id}, location={location}")
                     aiplatform.init(project=project_id, location=location)
                     self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
                     self.ai_available = True
+                    self.log("✅ [Itinerary Agent] Vertex AI successfully initialized")
             else:
                 # Initialize Gemini
                 api_key = os.getenv("GEMINI_API_KEY")
-                if api_key:
+                
+                if not api_key:
+                    self.log("❌ [Itinerary Agent] GEMINI_API_KEY not set - Gemini AI unavailable")
+                    self.log("💡 [Itinerary Agent] Falling back to template-based itinerary generation")
+                else:
+                    self.log("🔄 [Itinerary Agent] Connecting to Gemini AI...")
                     genai.configure(api_key=api_key)
                     self.model = genai.GenerativeModel('gemini-2.0-flash')
                     self.ai_available = True
-        except Exception:
+                    self.log("✅ [Itinerary Agent] Gemini AI successfully initialized")
+                    
+        except Exception as e:
+            self.log(f"❌ [Itinerary Agent] AI initialization failed: {str(e)}")
+            self.log("⚠️  [Itinerary Agent] Falling back to template-based itinerary generation")
             self.ai_available = False
             self.model = None
     
@@ -96,14 +114,17 @@ class PrepareItineraryAgent(BaseAgent):
         
         try:
             if self.ai_available:
+                self.log("🤖 [Itinerary Agent] Using AI-powered itinerary generation")
                 result = await self._create_ai_itinerary(input_data)
             else:
+                self.log("📋 [Itinerary Agent] AI unavailable - using template-based itinerary generation")
                 result = self._create_rule_based_itinerary(input_data)
             
             return self.format_output(result)
             
         except Exception as e:
-            self.log(f"PrepareItineraryAgent error: {e}")
+            self.log(f"❌ [Itinerary Agent] Error during itinerary generation: {e}")
+            self.log("🔄 [Itinerary Agent] Falling back to emergency itinerary generation")
             return self._generate_fallback_itinerary(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
