@@ -141,29 +141,93 @@ class HotelSearchAgent(BaseAgent):
             expires_in = token_response.get("expires_in", 1799)
             self.token_expires_at = current_time + timedelta(seconds=expires_in - 60)
     
-    def _get_city_coordinates(self, flight_city_code: str) -> tuple:
-        """Get coordinates for major cities to use with Hotels by Geocode API"""
-        coordinates = {
-            "ZUR": (47.3769, 8.5417),     # Zurich
+    async def _get_city_coordinates(self, flight_city_code: str) -> tuple:
+        """Get coordinates for cities using LLM intelligence instead of hardcoded mappings"""
+        try:
+            # Try to get coordinates from LLM first
+            coordinates = await self._get_coordinates_from_llm(flight_city_code)
+            if coordinates:
+                return coordinates
+        except Exception as e:
+            self.log(f"⚠️ LLM coordinate lookup failed: {e}")
+        
+        # Fallback to basic hardcoded coordinates for major cities only
+        fallback_coordinates = {
             "PAR": (48.8566, 2.3522),     # Paris
             "LON": (51.5074, -0.1278),    # London  
             "NYC": (40.7128, -74.0060),   # New York
-            "TYO": (35.6762, 139.6503),   # Tokyo
-            "LAX": (34.0522, -118.2437),  # Los Angeles
-            "SFO": (37.7749, -122.4194),  # San Francisco
             "BKK": (13.7563, 100.5018),   # Bangkok
             "BLR": (12.9716, 77.5946),    # Bangalore/Bengaluru
-            "SIN": (1.3521, 103.8198),    # Singapore
-            "DXB": (25.2048, 55.2708),    # Dubai
-            "SYD": (-33.8688, 151.2093)   # Sydney
         }
-        return coordinates.get(flight_city_code, (48.8566, 2.3522))  # Default to Paris
+        
+        return fallback_coordinates.get(flight_city_code, (48.8566, 2.3522))  # Default to Paris
+    
+    async def _get_coordinates_from_llm(self, city_code: str) -> tuple:
+        """Use LLM to get coordinates for any city dynamically"""
+        try:
+            from google.cloud import aiplatform
+            from vertexai.generative_models import GenerativeModel
+            
+            # Initialize Vertex AI if not already done
+            project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+            location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+            
+            if not project_id:
+                return None
+                
+            try:
+                aiplatform.init(project=project_id, location=location)
+            except:
+                pass  # May already be initialized
+            
+            model = GenerativeModel('gemini-2.0-flash')
+            
+            prompt = f"""
+You are a geographic information assistant. Given a city code or city name, provide the exact latitude and longitude coordinates.
+
+City code: {city_code}
+
+Common mappings:
+- BKK = Bangkok, Thailand
+- BLR = Bangalore/Bengaluru, India  
+- PAR = Paris, France
+- LON = London, UK
+- NYC = New York City, USA
+- TYO = Tokyo, Japan
+- DXB = Dubai, UAE
+- SIN = Singapore
+- SYD = Sydney, Australia
+- ZUR = Zurich, Switzerland
+
+IMPORTANT: Return ONLY the coordinates in this exact format: "latitude,longitude"
+Example: "12.9716,77.5946"
+
+Do not include any other text, explanations, or formatting. Just the coordinates.
+"""
+            
+            response = await model.generate_content_async(prompt)
+            
+            # Parse response to extract coordinates
+            coords_text = response.text.strip()
+            if ',' in coords_text:
+                lat_str, lng_str = coords_text.split(',')
+                lat = float(lat_str.strip())
+                lng = float(lng_str.strip())
+                
+                self.log(f"🗺️ LLM coordinates for {city_code}: ({lat}, {lng})")
+                return (lat, lng)
+                
+        except Exception as e:
+            self.log(f"❌ LLM coordinate extraction failed for {city_code}: {e}")
+            return None
+        
+        return None
     
     async def _search_hotels_by_city(self, input_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search for hotels in a city using Amadeus Hotel List API with coordinates"""
         # Get coordinates for the city instead of using city codes
         original_city_code = input_data["cityCode"]
-        latitude, longitude = self._get_city_coordinates(original_city_code)
+        latitude, longitude = await self._get_city_coordinates(original_city_code)
         
         self.log(f"🏨 Using coordinates for {original_city_code}: ({latitude}, {longitude})")
         
