@@ -767,6 +767,8 @@ class TravelOrchestrator:
             "Mumbai": "BOM",
             "Bangalore": "BLR",
             "Bangalore, India": "BLR",  # Support the standardized format
+            "Bengaluru": "BLR",  # Official name of Bangalore
+            "Bengaluru, India": "BLR",
             "Sydney": "SYD",
             "Los Angeles": "LAX"
         }
@@ -799,6 +801,8 @@ class TravelOrchestrator:
             "Mumbai": "BOM",
             "Bangalore": "BLR",
             "Bangalore, India": "BLR",  # Support the standardized format
+            "Bengaluru": "BLR",  # Official name of Bangalore
+            "Bengaluru, India": "BLR",
             "Sydney": "SYD",
             "Los Angeles": "LAX"
         }
@@ -841,6 +845,8 @@ class TravelOrchestrator:
             "Bangkok, Thailand": "TH",
             "Bangalore": "IN",
             "Bangalore, India": "IN",
+            "Bengaluru": "IN",  # Official name of Bangalore
+            "Bengaluru, India": "IN",
             "Singapore": "SG",
             "UAE": "AE",
             "Dubai": "AE",
