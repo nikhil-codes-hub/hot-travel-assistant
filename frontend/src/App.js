@@ -576,58 +576,22 @@ ${airlineName} - ${price.currency || 'USD'} ${price.total || 'TBD'}`;
     const profile = data?.data?.profile?.data || {};
     const loyaltyTier = profile.loyalty_tier || 'STANDARD';
     
-    if (hotelOffers.length === 0) {
-      // Generate mock hotel data for presentation
-      const mockHotels = [
-        {
-          name: "Fairmont Banff Springs",
-          rating: 5,
-          address: { lines: ["405 Spray Avenue"], cityName: "Banff" },
-          offers: [{ price: { currency: "USD", total: "299" } }],
-          room: { typeEstimated: { category: "DELUXE_SUITE" } },
-          amenities: [
-            { description: "Mountain Views" },
-            { description: "Spa & Wellness Center" },
-            { description: "Fine Dining" }
-          ]
-        },
-        {
-          name: "Chateau Lake Louise",
-          rating: 5,
-          address: { lines: ["111 Lake Louise Drive"], cityName: "Lake Louise" },
-          offers: [{ price: { currency: "USD", total: "279" } }],
-          room: { typeEstimated: { category: "PREMIUM_SUITE" } },
-          amenities: [
-            { description: "Lakefront Location" },
-            { description: "Premium Spa" },
-            { description: "Alpine Activities" }
-          ]
-        },
-        {
-          name: "Rimrock Resort Hotel",
-          rating: 4,
-          address: { lines: ["300 Mountain Avenue"], cityName: "Banff" },
-          offers: [{ price: { currency: "USD", total: "229" } }],
-          room: { typeEstimated: { category: "EXECUTIVE_ROOM" } },
-          amenities: [
-            { description: "Mountain Resort" },
-            { description: "Conference Facilities" },
-            { description: "Fitness Center" }
-          ]
-        }
-      ];
-      
-      hotelOffers = mockHotels;
-    }
+    // No mock hotels - show actual availability status
     
     let hotelSection = `
 🏨 Recommended Accommodations
 `;
     
-    // Show top hotels - up to 5 for executive presentation
-    const displayHotels = hotelOffers.slice(0, 5);
-    
-    displayHotels.forEach((hotel, index) => {
+    if (hotelOffers.length === 0) {
+      hotelSection += `
+❌ No hotels available for the selected dates and destination.
+💡 Please try different dates or contact our travel specialists for assistance.
+`;
+    } else {
+      // Show top hotels - up to 5 for executive presentation
+      const displayHotels = hotelOffers.slice(0, 5);
+      
+      displayHotels.forEach((hotel, index) => {
       const hotelName = hotel.name || `Hotel Option ${index + 1}`;
       const rating = hotel.rating ? `${hotel.rating}⭐` : '';
       const offers = hotel.offers || [];
@@ -673,6 +637,7 @@ ${hotelName} ${rating}`;
       hotelSection += `
 `;
     });
+    }
     
     return hotelSection;
   };
