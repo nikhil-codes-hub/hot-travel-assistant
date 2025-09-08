@@ -180,6 +180,14 @@ class LLMExtractorAgent(BaseAgent):
         return sanitized_context
     
     def _create_extraction_prompt(self, user_request: str, conversation_context: Dict[str, Any] = None) -> str:
+        from datetime import datetime, timedelta
+        
+        # Get today's date and 7 days from now for reference
+        today = datetime.now()
+        seven_days_later = today + timedelta(days=7)
+        today_str = today.strftime("%Y-%m-%d")
+        seven_days_str = seven_days_later.strftime("%Y-%m-%d")
+        
         context_info = ""
         if conversation_context:
             context_info = f"""
@@ -213,6 +221,10 @@ CRITICAL RULES:
 7. Never mark destination as missing if ANY location hint is provided (including events in locations)
 8. If conversation context exists, merge new information with existing context{context_info}
 
+CURRENT DATE INFORMATION:
+- Today's date: {today_str}
+- Default departure date (7 days from today): {seven_days_str}
+
 User Request: "{user_request}"
 
 Extract the following information and return ONLY valid JSON with intelligent defaults:
@@ -222,7 +234,7 @@ Extract the following information and return ONLY valid JSON with intelligent de
         "destination_type": "Infer from context: beach/mountains/city/adventure/cultural/romantic/tropical/ski/festival/event/etc",
         "event_name": "Extract specific event/festival name if mentioned (Water Lantern Festival, Oktoberfest, Diwali celebration, etc.)",
         "event_type": "Classify event type if mentioned: festival/concert/sports/cultural/religious/seasonal/etc",
-        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or suggest reasonable near-future date. For events, consider event timing",
+        "departure_date": "YYYY-MM-DD if specific date, approximate if relative ('next month' -> '2025-12-01'), or use {seven_days_str} if no date specified. For events, consider event timing",
         "return_date": "YYYY-MM-DD if return date specified, calculate based on duration if available",
         "duration": "Extract if mentioned, OR suggest intelligent default: 7 days for international, 4-5 days for domestic/city breaks, 10-14 days for Asia/distant destinations, extend for festivals (5-8 days for festival experience)",
         "budget": "Extract if currency mentioned, OR suggest reasonable range based on destination (e.g., 1500-3000 for Thailand, 2000-4000 for Europe per person for 7 days). Add festival premium if event-based",
@@ -640,11 +652,11 @@ INTELLIGENT DEFAULTS EXAMPLES:
                         target_date = datetime(mentioned_year, spring_months_in, target_day)
                         departure_date = target_date.strftime("%Y-%m-%d")
                 else:
-                    # Past year mentioned - default to 30 days from now
-                    departure_date = (current_date + timedelta(days=30)).strftime("%Y-%m-%d")
+                    # Past year mentioned - default to 7 days from now
+                    departure_date = (current_date + timedelta(days=7)).strftime("%Y-%m-%d")
             else:
-                # No specific year mentioned - default to 30 days from now
-                departure_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+                # No specific year mentioned - default to 7 days from now
+                departure_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
 
         fallback_requirements = TravelRequirements(
             destination=destination,
