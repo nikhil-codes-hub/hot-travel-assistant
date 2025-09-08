@@ -314,39 +314,33 @@ def log_ai_configuration():
     
     logger = logging.getLogger("uvicorn.error")
     
-    logger.info("🔧 SYSTEM STARTUP - AI Configuration Check:")
+    logger.info("🔧 SYSTEM STARTUP - Vertex AI Configuration Check:")
     
-    ai_provider = os.getenv("AI_PROVIDER", "gemini")
-    logger.info(f"📊 AI Provider: {ai_provider}")
+    # Only using Vertex AI
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
     
-    if ai_provider == "vertex":
-        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-        location = os.getenv("VERTEX_AI_LOCATION")
-        
-        if project_id:
-            logger.info(f"✅ Vertex AI Project: {project_id}")
-        else:
-            logger.error("❌ GOOGLE_CLOUD_PROJECT not set")
-            
-        if location:
-            logger.info(f"✅ Vertex AI Location: {location}")
-        else:
-            logger.error("❌ VERTEX_AI_LOCATION not set")
-            
-        # Check for service account
-        creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        if creds_path:
-            logger.info(f"✅ Service Account: {creds_path}")
-        else:
-            logger.warning("⚠️  GOOGLE_APPLICATION_CREDENTIALS not set (using default auth)")
-            
+    logger.info("📊 AI Provider: Vertex AI (Google Cloud)")
+    
+    if project_id:
+        logger.info(f"✅ Vertex AI Project: {project_id}")
     else:
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key:
-            logger.info("✅ Gemini API Key: Configured")
-        else:
-            logger.error("❌ GEMINI_API_KEY not set - AI features will be LIMITED")
-            logger.error("💡 Add GEMINI_API_KEY to .env file for full AI capabilities")
+        logger.error("❌ GOOGLE_CLOUD_PROJECT not set")
+        logger.error("💡 Please set GOOGLE_CLOUD_PROJECT in your .env file")
+        
+    if location:
+        logger.info(f"✅ Vertex AI Location: {location}")
+    else:
+        logger.warning("⚠️  VERTEX_AI_LOCATION not set, using default: us-central1")
+        
+    # Check for service account
+    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_path:
+        logger.info(f"✅ Service Account: {creds_path}")
+    else:
+        logger.warning("⚠️  GOOGLE_APPLICATION_CREDENTIALS not set")
+        logger.warning("🔧 Using Application Default Credentials (ADC)")
+        logger.info("💡 Ensure you're authenticated with: gcloud auth application-default login")
     
     # Check Amadeus API
     amadeus_id = os.getenv("AMADEUS_CLIENT_ID")

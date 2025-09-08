@@ -1,7 +1,6 @@
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-import google.generativeai as genai
 from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
@@ -55,43 +54,28 @@ class PrepareItineraryResult(BaseModel):
 class PrepareItineraryAgent(BaseAgent):
     def __init__(self):
         super().__init__("PrepareItineraryAgent")
-        self.ai_provider = os.getenv("AI_PROVIDER", "gemini")
+        self.ai_provider = "vertex"  # Only using Vertex AI
         self.ai_available = False
         
         try:
-            self.log(f"🔧 [Itinerary Agent] Initializing AI provider: {self.ai_provider}")
+            self.log("🔧 [Itinerary Agent] Initializing Vertex AI")
             
-            if self.ai_provider == "vertex":
-                # Initialize Vertex AI
-                project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-                location = os.getenv("VERTEX_AI_LOCATION")
-                
-                if not project_id:
-                    self.log("❌ [Itinerary Agent] GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
-                elif not location:
-                    self.log("❌ [Itinerary Agent] VERTEX_AI_LOCATION not set - Vertex AI unavailable")
-                else:
-                    self.log(f"🔄 [Itinerary Agent] Connecting to Vertex AI: project={project_id}, location={location}")
-                    aiplatform.init(project=project_id, location=location)
-                    self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
-                    self.ai_available = True
-                    self.log("✅ [Itinerary Agent] Vertex AI successfully initialized")
+            # Initialize Vertex AI
+            project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+            location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+            
+            if not project_id:
+                self.log("❌ [Itinerary Agent] GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
+                self.log("💡 [Itinerary Agent] Please set GOOGLE_CLOUD_PROJECT in your .env file")
             else:
-                # Initialize Gemini
-                api_key = os.getenv("GEMINI_API_KEY")
-                
-                if not api_key:
-                    self.log("❌ [Itinerary Agent] GEMINI_API_KEY not set - Gemini AI unavailable")
-                    self.log("💡 [Itinerary Agent] Falling back to template-based itinerary generation")
-                else:
-                    self.log("🔄 [Itinerary Agent] Connecting to Gemini AI...")
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash')
-                    self.ai_available = True
-                    self.log("✅ [Itinerary Agent] Gemini AI successfully initialized")
+                self.log(f"🔄 [Itinerary Agent] Connecting to Vertex AI: project={project_id}, location={location}")
+                aiplatform.init(project=project_id, location=location)
+                self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
+                self.ai_available = True
+                self.log("✅ [Itinerary Agent] Vertex AI successfully initialized")
                     
         except Exception as e:
-            self.log(f"❌ [Itinerary Agent] AI initialization failed: {str(e)}")
+            self.log(f"❌ [Itinerary Agent] Vertex AI initialization failed: {str(e)}")
             self.log("⚠️  [Itinerary Agent] Falling back to template-based itinerary generation")
             self.ai_available = False
             self.model = None

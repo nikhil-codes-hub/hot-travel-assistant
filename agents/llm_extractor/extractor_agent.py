@@ -1,6 +1,5 @@
 import os
 from typing import Dict, Any, List, Optional
-import google.generativeai as genai
 from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
@@ -32,7 +31,7 @@ class ExtractionResult(BaseModel):
 class LLMExtractorAgent(BaseAgent):
     def __init__(self):
         super().__init__("LLMExtractorAgent")
-        self.ai_provider = os.getenv("AI_PROVIDER", "gemini")
+        self.ai_provider = "vertex"  # Only using Vertex AI
         self.ai_available = False
         
         # Initialize LLM response cache
@@ -41,39 +40,24 @@ class LLMExtractorAgent(BaseAgent):
         self.cache = LLMCache(cache_dir=cache_dir, cache_duration_hours=cache_duration)
         
         try:
-            self.log(f"🔧 Initializing AI provider: {self.ai_provider}")
+            self.log("🔧 Initializing Vertex AI")
             
-            if self.ai_provider == "vertex":
-                # Initialize Vertex AI
-                project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-                location = os.getenv("VERTEX_AI_LOCATION")
-                
-                if not project_id:
-                    self.log("❌ GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
-                elif not location:
-                    self.log("❌ VERTEX_AI_LOCATION not set - Vertex AI unavailable")
-                else:
-                    self.log(f"🔄 Connecting to Vertex AI: project={project_id}, location={location}")
-                    aiplatform.init(project=project_id, location=location)
-                    self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
-                    self.ai_available = True
-                    self.log("✅ Vertex AI successfully initialized")
+            # Initialize Vertex AI
+            project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+            location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+            
+            if not project_id:
+                self.log("❌ GOOGLE_CLOUD_PROJECT not set - Vertex AI unavailable")
+                self.log("💡 Please set GOOGLE_CLOUD_PROJECT in your .env file")
             else:
-                # Initialize Gemini
-                api_key = os.getenv("GEMINI_API_KEY")
-                
-                if not api_key:
-                    self.log("❌ GEMINI_API_KEY not set - Gemini AI unavailable")
-                    self.log("💡 Please add GEMINI_API_KEY to your .env file for AI-powered travel extraction")
-                else:
-                    self.log("🔄 Connecting to Gemini AI...")
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash')
-                    self.ai_available = True
-                    self.log("✅ Gemini AI successfully initialized")
+                self.log(f"🔄 Connecting to Vertex AI: project={project_id}, location={location}")
+                aiplatform.init(project=project_id, location=location)
+                self.model = None  # Will use aiplatform.gapic.PredictionServiceClient
+                self.ai_available = True
+                self.log("✅ Vertex AI successfully initialized")
                     
         except Exception as e:
-            self.log(f"❌ AI initialization failed: {str(e)}")
+            self.log(f"❌ Vertex AI initialization failed: {str(e)}")
             self.log("⚠️  Falling back to pattern-based extraction (limited destination coverage)")
             self.ai_available = False
             self.model = None
