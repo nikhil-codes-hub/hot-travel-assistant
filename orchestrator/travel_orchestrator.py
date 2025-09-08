@@ -788,6 +788,7 @@ class TravelOrchestrator:
             "London": "LON",
             "New York": "NYC",
             "Bangkok": "BKK",
+            "Thailand": "BKK",  # Many people say "Thailand" meaning Bangkok
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
@@ -795,18 +796,24 @@ class TravelOrchestrator:
             "Los Angeles": "LAX"
         }
         
+        self.log(f"🗺️ [City Resolution] Input destination: '{destination}'")
+        
         if not destination or destination is None:
+            self.log("⚠️ [City Resolution] Empty destination, using PAR fallback")
             return "PAR"  # Default fallback
         
         try:
             for city, code in city_codes.items():
                 if city.lower() in destination.lower():
+                    self.log(f"✅ [City Resolution] Matched '{destination}' → {code}")
                     return code
         except (AttributeError, TypeError):
             # Handle case where destination is None or not a string
+            self.log(f"❌ [City Resolution] Error processing destination: {destination}")
             pass
         
         # Default fallback
+        self.log(f"⚠️ [City Resolution] No match found for '{destination}', using PAR fallback")
         return "PAR"
     
     def _get_country_code(self, location: str) -> str:
