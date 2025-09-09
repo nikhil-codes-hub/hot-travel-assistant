@@ -188,6 +188,7 @@ class TravelOrchestrator:
             return {
                 "requirements": result.get('extracted_requirements', {}),
                 "profile": result.get('user_profile', {}),
+                "event_details": result.get('event_details', {}),  # Include events for frontend
                 "flight_offers": result.get('flight_offers', []),
                 "curated_flights": result.get('curated_flights', {}),
                 "hotel_offers": result.get('hotel_offers', []),
@@ -657,7 +658,8 @@ class TravelOrchestrator:
                 "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
                 "destination_suggestions": state["destination_suggestions"].get("suggestions", []),
-                "curated_flights": curated_flight_data  # Include curation data
+                "curated_flights": curated_flight_data,  # Include curation data
+                "events": state["event_details"].get("data", {}).get("events", []) if state.get("event_details") else []  # Pass event data for images and scheduling
             }
             
             result = await agent.execute(input_data, state["session_id"])
