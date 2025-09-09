@@ -252,7 +252,7 @@ class PrepareItineraryAgent(BaseAgent):
             ai_data = self._clean_ai_data(ai_data)
             
             # Build structured itinerary
-            result = self._build_structured_itinerary(ai_data, input_data)
+            result = await self._build_structured_itinerary(ai_data, input_data)
             return result.model_dump()
             
         except Exception as e:
@@ -444,7 +444,7 @@ MANDATORY REQUIREMENTS:
 CRITICAL: If you do not provide {duration} detailed days in the daily_plan array, the response will be rejected.
 """
     
-    def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
+    async def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
         """Build structured itinerary from AI response"""
         
         overview = ai_data.get("itinerary_overview", {})
