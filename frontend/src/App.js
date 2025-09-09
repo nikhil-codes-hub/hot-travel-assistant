@@ -1062,7 +1062,39 @@ Digital Copies Recommended:
                 <div className="loading">{message.content}</div>
               ) : (
                 <>
-                  <div className="content" style={{whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{__html: message.content.replace(/🔗 (https?:\/\/[^\s]+)/g, '<img src="$1" style="max-width: 300px; max-height: 200px; border-radius: 8px; margin: 10px 0;" alt="Travel image" />')}}></div>
+                  <div className="content" style={{whiteSpace: 'pre-wrap'}}>
+                    {message.content.split('\n').map((line, lineIndex) => {
+                      // Check if line contains image URL
+                      const imageUrlMatch = line.match(/🔗 (https?:\/\/[^\s]+)/);
+                      if (imageUrlMatch) {
+                        const imageUrl = imageUrlMatch[1];
+                        return (
+                          <div key={lineIndex} style={{margin: '10px 0'}}>
+                            <img 
+                              src={imageUrl} 
+                              style={{
+                                maxWidth: '300px', 
+                                maxHeight: '200px', 
+                                borderRadius: '8px', 
+                                display: 'block',
+                                objectFit: 'cover'
+                              }} 
+                              alt="Travel image" 
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                            <div style={{display: 'none', color: '#666', fontSize: '0.9em'}}>
+                              🖼️ Image: {imageUrl}
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        return <div key={lineIndex}>{line}</div>;
+                      }
+                    })}
+                  </div>
                   {message.type === 'agent' && message.suggestions && message.suggestions.length > 0 && (
                     <div className="suggestions">
                       {message.suggestions.map((suggestion, suggIndex) => (
