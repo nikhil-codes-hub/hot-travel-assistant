@@ -113,6 +113,23 @@ class PrepareItineraryAgent(BaseAgent):
                 self.log("📋 [Itinerary Agent] AI unavailable - using template-based itinerary generation")
                 result = await self._create_rule_based_itinerary(input_data)
             
+            # Extract itinerary data and flatten structure for better UI accessibility
+            itinerary_data = result.get("itinerary", {})
+            if isinstance(itinerary_data, dict):
+                # Create a flattened response that includes both the detailed itinerary data
+                # and preserves the metadata for debugging/logging
+                flattened_result = {
+                    # Main itinerary data directly accessible
+                    **itinerary_data,
+                    # Include metadata for debugging
+                    "metadata": {
+                        "confidence_score": result.get("confidence_score", 0.7),
+                        "personalization_applied": result.get("personalization_applied", False),
+                        "next_steps": result.get("next_steps", [])
+                    }
+                }
+                return self.format_output(flattened_result)
+            
             return self.format_output(result)
             
         except Exception as e:
