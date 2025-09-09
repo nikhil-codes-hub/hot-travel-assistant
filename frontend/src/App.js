@@ -665,11 +665,12 @@ ${hotelName} ${rating}`;
     // Add hero images if available
     if (heroImages && heroImages.length > 0) {
       dailyPlan += `🖼️ **Featured Images:**
+
 `;
       heroImages.slice(0, 2).forEach(image => {
         if (image.url) {
-          dailyPlan += `![${image.alt_text || image.title || 'Travel image'}](${image.url} "${image.title || 'Travel destination'}")
-*${image.title || 'Travel destination'}* - ${image.source || 'Image source'}
+          dailyPlan += `📸 ${image.title || 'Travel destination'} - ${image.source || 'Image source'}
+   🔗 ${image.url}
 
 `;
         }
@@ -717,11 +718,12 @@ ${hotelName} ${rating}`;
     if (galleryImages && galleryImages.length > 0) {
       dailyPlan += `
 🎭 **Cultural Gallery:**
+
 `;
       galleryImages.slice(0, 3).forEach(image => {
         if (image.url) {
-          dailyPlan += `![${image.alt_text || image.title || 'Cultural experience'}](${image.url} "${image.title || 'Cultural experience'}")
-*${image.title || 'Cultural experience'}* - ${image.context || 'Cultural activity'}
+          dailyPlan += `🎨 ${image.title || 'Cultural experience'} - ${image.context || 'Cultural activity'}
+   🔗 ${image.url}
 
 `;
         }
@@ -1060,7 +1062,7 @@ Digital Copies Recommended:
                 <div className="loading">{message.content}</div>
               ) : (
                 <>
-                  <div className="content">{message.content}</div>
+                  <div className="content" style={{whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{__html: message.content.replace(/🔗 (https?:\/\/[^\s]+)/g, '<img src="$1" style="max-width: 300px; max-height: 200px; border-radius: 8px; margin: 10px 0;" alt="Travel image" />')}}></div>
                   {message.type === 'agent' && message.suggestions && message.suggestions.length > 0 && (
                     <div className="suggestions">
                       {message.suggestions.map((suggestion, suggIndex) => (
