@@ -1068,8 +1068,12 @@ Digital Copies Recommended:
                       const imageUrlMatch = line.match(/🔗 (https?:\/\/[^\s]+)/);
                       if (imageUrlMatch) {
                         const imageUrl = imageUrlMatch[1];
+                        console.log('Found image URL:', imageUrl); // Debug logging
                         return (
                           <div key={lineIndex} style={{margin: '10px 0'}}>
+                            <div style={{color: '#007bff', fontSize: '0.8em', marginBottom: '5px'}}>
+                              🖼️ Loading image: {imageUrl}
+                            </div>
                             <img 
                               src={imageUrl} 
                               style={{
@@ -1077,16 +1081,19 @@ Digital Copies Recommended:
                                 maxHeight: '200px', 
                                 borderRadius: '8px', 
                                 display: 'block',
-                                objectFit: 'cover'
+                                objectFit: 'cover',
+                                border: '1px solid #ddd'
                               }} 
                               alt="Travel image" 
+                              onLoad={() => console.log('Image loaded successfully:', imageUrl)}
                               onError={(e) => {
+                                console.log('Image failed to load:', imageUrl);
                                 e.target.style.display = 'none';
                                 e.target.nextSibling.style.display = 'block';
                               }}
                             />
-                            <div style={{display: 'none', color: '#666', fontSize: '0.9em'}}>
-                              🖼️ Image: {imageUrl}
+                            <div style={{display: 'none', color: '#dc3545', fontSize: '0.9em'}}>
+                              ❌ Failed to load: {imageUrl}
                             </div>
                           </div>
                         );
