@@ -159,12 +159,14 @@ EVENT SEARCH CRITERIA:
 - Preferences: {preferences or "None specified"}
 
 COMPREHENSIVE EVENT RESEARCH MISSION:
-1. Find detailed information about the requested event(s)
-2. Provide practical travel planning information
-3. Include cultural context and significance
-4. Suggest optimal timing and duration for the experience
-5. Include logistics, accessibility, and practical considerations
-6. Enable seamless travel planning integration
+1. Research the specific event with accurate dates, times, and authentic cultural details
+2. For festivals like Diwali, Oktoberfest, Dussehra - provide the traditional/typical celebration schedule
+3. Include authentic ceremonial timings (morning prayers, evening celebrations, peak activities)
+4. Research local customs and traditional activities specific to the event in that destination
+5. Provide practical travel planning information including optimal arrival and participation times  
+6. Include cultural context, significance, and what travelers should expect to see/do
+7. Create detailed day-by-day schedules that reflect authentic celebration patterns
+8. Include logistics, accessibility, and practical considerations for international travelers
 
 Return ONLY valid JSON with comprehensive event information:
 {{
@@ -185,8 +187,8 @@ Return ONLY valid JSON with comprehensive event information:
                 {{
                     "date": "YYYY-MM-DD",
                     "time": "HH:MM",
-                    "activity": "Main activities for this time",
-                    "highlights": ["key moments", "must-see elements"]
+                    "activity": "Specific ceremonial or cultural activities (e.g., morning prayers, light ceremony, fireworks, cultural performances)",
+                    "highlights": ["authentic cultural elements", "must-see moments", "participation opportunities"]
                 }}
             ],
             "ticket_info": {{
@@ -230,12 +232,16 @@ Return ONLY valid JSON with comprehensive event information:
 }}
 
 CRITICAL REQUIREMENTS:
-- Provide accurate, current information about real events
-- Include practical planning information for travelers
-- Consider seasonal timing and local conditions  
-- Enable seamless integration with flight/hotel search
-- Include cultural sensitivity and etiquette guidance
-- For popular events like festivals, include crowd management and booking advice
+- Provide accurate, current information about real events with authentic cultural details
+- For traditional festivals (Diwali, Dussehra, Oktoberfest, etc.), research typical celebration patterns and timing
+- Include specific ceremonial schedules: morning prayers, afternoon activities, evening celebrations
+- Research traditional activities for each day of multi-day festivals (Day 1: preparations, Day 2: main celebrations, etc.)
+- Include practical planning information for travelers including optimal arrival times
+- Consider seasonal timing, local conditions, and religious/cultural significance
+- Enable seamless integration with flight/hotel search by providing clear event dates
+- Include cultural sensitivity and etiquette guidance specific to the event type
+- For popular events like festivals, include crowd management and advance booking advice
+- Generate realistic, research-based schedules that reflect authentic local celebration patterns
 
 COMPREHENSIVE EVENT SEARCH REQUIREMENTS:
 - Generate complete event details with accurate cultural context

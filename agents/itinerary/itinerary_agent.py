@@ -282,10 +282,43 @@ class PrepareItineraryAgent(BaseAgent):
         
         # Event context if available
         event_context = ""
-        if event_details:
-            event_name = event_details.get("name", "")
-            event_description = event_details.get("description", "")
-            event_context = f"\n\nSPECIAL EVENT: {event_name}\n{event_description}\nInclude this event in the itinerary highlights and plan activities around it."
+        event_schedule_details = ""
+        if event_details and isinstance(event_details, list) and len(event_details) > 0:
+            primary_event = event_details[0]  # Use the first/primary event
+            event_name = primary_event.get("name", "")
+            event_description = primary_event.get("description", "")
+            event_location = primary_event.get("location", destination)
+            event_venue = primary_event.get("venue", "")
+            start_date = primary_event.get("start_date", "")
+            end_date = primary_event.get("end_date", "")
+            event_schedule = primary_event.get("schedule", [])
+            
+            event_context = f"""
+SPECIAL EVENT FOCUS: {event_name}
+Event Location: {event_location}
+Event Venue: {event_venue}
+Event Dates: {start_date} to {end_date}
+Event Description: {event_description}
+
+CRITICAL EVENT REQUIREMENTS:
+1. The entire itinerary MUST be planned around this specific event
+2. Include event-specific activities, timings, and cultural significance
+3. Plan arrival to experience the event highlights
+4. Include pre-event and post-event cultural activities related to the event
+5. Suggest optimal viewing locations and participation opportunities"""
+
+            if event_schedule:
+                event_schedule_details = f"""
+DETAILED EVENT SCHEDULE TO INTEGRATE:
+"""
+                for schedule_item in event_schedule:
+                    date = schedule_item.get("date", "")
+                    time = schedule_item.get("time", "")
+                    activity = schedule_item.get("activity", "")
+                    highlights = schedule_item.get("highlights", [])
+                    event_schedule_details += f"""
+- {date} at {time}: {activity}
+  Key highlights: {', '.join(highlights) if highlights else 'Main event activities'}"""
         
         return f"""
 Create a comprehensive, detailed travel itinerary with day-by-day activities, cultural experiences, and authentic local recommendations.
@@ -295,22 +328,24 @@ TRIP REQUIREMENTS:
 - Duration: {duration} days
 - Travelers: {passengers}
 - Departure: {departure_date}
-- Budget: {budget or "Not specified"}{event_context}
+- Budget: {budget or "Not specified"}{event_context}{event_schedule_details}
 
 CUSTOMER PROFILE:
 - Loyalty tier: {loyalty_tier}
 
 DETAILED ITINERARY REQUIREMENTS:
 1. Create specific daily schedules with timing (e.g. "Day 1 - Morning: 09:00 Activity")
-2. Include authentic cultural experiences and local customs
-3. Integrate event schedules naturally into daily activities
-4. Provide specific venue names, addresses, and practical details
-5. Include meal recommendations with local cuisine
-6. Add transportation details between activities
-7. Incorporate rest periods and flexibility
-8. Include cultural etiquette and dress code guidance
-9. Provide backup indoor activities for weather contingencies
-10. Add unique local experiences beyond typical tourist attractions
+2. Include authentic cultural experiences and local customs related to the event
+3. CRITICAL: If event details are provided, integrate the exact event schedules and timings into daily activities
+4. Plan the entire trip around the main event - arrival, event participation, and cultural exploration
+5. Include event-specific activities: preparation, participation, and post-event cultural experiences
+6. Provide specific venue names, addresses, and practical details for event locations
+7. Include meal recommendations featuring local cuisine related to the event/festival
+8. Add transportation details between event venues and activities
+9. Incorporate rest periods and flexibility around event schedules
+10. Include cultural etiquette and dress code guidance specific to the event
+11. Provide backup indoor activities for weather contingencies
+12. Add unique local experiences beyond typical tourist attractions that complement the main event
 - Previous trips: {len(travel_history)} recorded trips
 - Preferences: {preferences}
 
@@ -398,12 +433,13 @@ Create a comprehensive itinerary with specific daily activities and return ONLY 
 MANDATORY REQUIREMENTS:
 1. You MUST create a "daily_plan" array with exactly {duration} day entries
 2. Each day must have specific time-based activities (e.g. "09:00 - Activity")
-3. Include realistic venue names and specific locations 
-4. Provide practical logistics (check-in times, travel times)
-5. Include popular city attractions and landmarks for the destination
-6. Incorporate event highlights if applicable
-7. Provide authentic local cultural experiences
-8. Balance sightseeing with rest periods
+3. CRITICAL: If event schedules are provided, you MUST integrate the exact event timings and activities into the daily plan
+4. Include realistic venue names and specific locations, especially event venues
+5. Provide practical logistics (check-in times, travel times, event arrival times)
+6. Include popular city attractions and landmarks that relate to the event theme
+7. MANDATORY: If this is an event-focused trip, the majority of activities must relate to the event
+8. Provide authentic local cultural experiences that connect to the event's significance
+9. Balance event activities with rest periods and complementary cultural experiences
 
 CRITICAL: If you do not provide {duration} detailed days in the daily_plan array, the response will be rejected.
 """
