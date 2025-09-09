@@ -169,6 +169,8 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 🗓️ Itinerary Overview:
 ${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
 
+${formatDailyItinerary(data)}
+
 ${formatFlightDetails(data)}
 
 ${formatHotelDetails(data)}`;
@@ -640,6 +642,62 @@ ${hotelName} ${rating}`;
     }
     
     return hotelSection;
+  };
+
+  const formatDailyItinerary = (data) => {
+    const itinerary = data?.data?.itinerary?.data || {};
+    const days = itinerary.days || [];
+    const destination = itinerary.destination || '';
+    
+    if (!days || days.length === 0) {
+      return `
+📅 **Daily Itinerary**
+⚠️ Detailed daily schedule being finalized - please check back in a moment.`;
+    }
+
+    let dailyPlan = `
+📅 **Daily Itinerary - ${destination}**
+
+`;
+
+    days.forEach((day, index) => {
+      const dayNumber = day.day || (index + 1);
+      const dayDate = day.date || '';
+      const location = day.location || destination;
+      const activities = day.activities || [];
+      const meals = day.meals || [];
+      
+      dailyPlan += `**Day ${dayNumber}${dayDate ? ` (${dayDate})` : ''} - ${location}**
+`;
+      
+      if (activities.length > 0) {
+        dailyPlan += `🗓️ **Schedule:**
+`;
+        activities.forEach(activity => {
+          dailyPlan += `• ${activity}
+`;
+        });
+      }
+      
+      if (meals.length > 0) {
+        dailyPlan += `🍽️ **Meals:**
+`;
+        meals.forEach(meal => {
+          dailyPlan += `• ${meal}
+`;
+        });
+      }
+      
+      if (day.budget_estimate) {
+        dailyPlan += `💰 **Estimated Daily Cost:** $${day.budget_estimate}
+`;
+      }
+      
+      dailyPlan += `
+`;
+    });
+
+    return dailyPlan;
   };
 
   const formatVisaRequirements = async (data) => {
