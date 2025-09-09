@@ -428,6 +428,58 @@ class TravelOrchestrator:
             result = await agent.execute(input_data, state["session_id"])
             state["event_details"] = result
             
+            # Update travel requirements based on event dates
+            events = result.get("data", {}).get("events", [])
+            if events:
+                primary_event = events[0]
+                event_start_date = primary_event.get("start_date")
+                
+                if event_start_date:
+                    # Calculate optimal arrival date (1-2 days before event)
+                    from datetime import datetime, timedelta
+                    try:
+                        event_date = datetime.strptime(event_start_date, "%Y-%m-%d")
+                        # Arrive 1-2 days before for preparation and settling
+                        optimal_departure = event_date - timedelta(days=2)
+                        optimal_departure_str = optimal_departure.strftime("%Y-%m-%d")
+                        
+                        # Check if the current departure date is a placeholder or fallback
+                        current_departure = requirements.get("departure_date", "")
+                        should_update = (
+                            not current_departure or 
+                            current_departure == "EVENT_BASED" or
+                            "2025-09-09" in current_departure  # Override the fallback date
+                        )
+                        
+                        # Update the requirements with the optimal departure date
+                        if should_update and "data" in state["extracted_requirements"]:
+                            if "requirements" in state["extracted_requirements"]["data"]:
+                                requirements_data = state["extracted_requirements"]["data"]["requirements"]
+                                requirements_data["departure_date"] = optimal_departure_str
+                                
+                                # Also update return date based on duration
+                                duration = requirements_data.get("duration", 5)  # Default 5 days for events
+                                optimal_return = optimal_departure + timedelta(days=duration)
+                                requirements_data["return_date"] = optimal_return.strftime("%Y-%m-%d")
+                                
+                                logger.info(f"Updated travel dates based on event timing", 
+                                           session_id=state["session_id"],
+                                           event_date=event_start_date,
+                                           old_departure_date=current_departure,
+                                           new_departure_date=optimal_departure_str,
+                                           new_return_date=requirements_data["return_date"],
+                                           duration=duration)
+                        else:
+                            logger.info(f"Event-based date update skipped - user has specific date", 
+                                       session_id=state["session_id"],
+                                       current_departure=current_departure,
+                                       event_date=event_start_date)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse event date for travel planning", 
+                                     session_id=state["session_id"], 
+                                     event_date=event_start_date,
+                                     error=str(e))
+            
             logger.info(f"Events found", 
                        session_id=state["session_id"],
                        event_count=len(result.get("data", {}).get("events", [])))
