@@ -5,6 +5,7 @@ from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
+from agents.image_search.image_search_agent import ImageSearchAgent
 
 class ItineraryDay(BaseModel):
     day: int = Field(..., description="Day number")
@@ -38,6 +39,10 @@ class Itinerary(BaseModel):
     accommodations: List[Dict[str, Any]] = Field([], description="Hotel details")
     total_cost: Dict[str, Any] = Field({"currency": "USD", "total": 0}, description="Total trip cost breakdown")
     
+    # Visual content
+    hero_images: List[Dict[str, Any]] = Field([], description="Main showcase images for itinerary overview")
+    gallery_images: List[Dict[str, Any]] = Field([], description="Additional destination and event images")
+    
     # Travel readiness
     travel_readiness: List[TravelReadinessItem] = Field([], description="Travel preparation checklist")
     
@@ -57,6 +62,9 @@ class PrepareItineraryAgent(BaseAgent):
         super().__init__("PrepareItineraryAgent")
         self.ai_provider = "vertex"  # Only using Vertex AI
         self.ai_available = False
+        
+        # Initialize Image Search Agent
+        self.image_agent = ImageSearchAgent()
         
         try:
             self.log("🔧 [Itinerary Agent] Initializing Vertex AI")
@@ -103,7 +111,7 @@ class PrepareItineraryAgent(BaseAgent):
                 result = await self._create_ai_itinerary(input_data)
             else:
                 self.log("📋 [Itinerary Agent] AI unavailable - using template-based itinerary generation")
-                result = self._create_rule_based_itinerary(input_data)
+                result = await self._create_rule_based_itinerary(input_data)
             
             return self.format_output(result)
             
@@ -232,7 +240,7 @@ class PrepareItineraryAgent(BaseAgent):
             
         except Exception as e:
             self.log(f"AI parsing error: {e}")
-            return self._create_rule_based_itinerary(input_data)
+            return await self._create_rule_based_itinerary(input_data)
     
     def _create_itinerary_prompt(self, input_data: Dict[str, Any]) -> str:
         """Create AI prompt for itinerary generation"""
@@ -399,7 +407,7 @@ Focus on:
         
         return result
     
-    def _create_rule_based_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_rule_based_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create enhanced itinerary using rule-based logic with personalization"""
         
         requirements = input_data.get("requirements", {})
@@ -528,6 +536,11 @@ Focus on:
             rationale += f"Selected from recommended destinations based on your preference for snowy destinations. "
         rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
         
+        # Generate images for the itinerary
+        hero_images, gallery_images = await self._generate_itinerary_images(
+            destination, event_details, requirements
+        )
+        
         # Create itinerary
         itinerary = Itinerary(
             title=f"{duration}-Day Premium Trip to {destination}",
@@ -540,6 +553,8 @@ Focus on:
             days=days,
             flights=flight_offers[:2] if flight_offers else [],
             accommodations=hotel_offers[:3] if hotel_offers else [],
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             total_cost={
                 "flights": flight_cost,
                 "hotels": hotel_cost,
@@ -980,3 +995,66 @@ Focus on:
         )
         
         return self.format_output(fallback_result.model_dump())
+
+    async def _generate_itinerary_images(self, destination: str, event_details: Dict[str, Any], requirements: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Generate hero and gallery images for the itinerary using ImageSearchAgent"""
+        try:
+            hero_images = []
+            gallery_images = []
+            
+            # Extract event information
+            event_name = ""
+            if event_details and isinstance(event_details, list) and event_details:
+                event_name = event_details[0].get("name", "")
+            elif event_details and isinstance(event_details, dict):
+                event_name = event_details.get("name", "")
+            elif requirements:
+                event_name = requirements.get("event_name", "")
+            
+            # Generate hero images (main showcase)
+            hero_search_data = {
+                "event_name": event_name,
+                "destination": destination,
+                "activity_type": "destination_highlight",
+                "context": "itinerary_overview",
+                "image_count": 2
+            }
+            
+            hero_result = await self.image_agent.execute(hero_search_data, "itinerary_hero")
+            if hero_result.get("data", {}).get("images"):
+                hero_images = hero_result["data"]["images"]
+            
+            # Generate gallery images (additional content)
+            gallery_search_data = {
+                "event_name": event_name,
+                "destination": destination,
+                "activity_type": "cultural_experience",
+                "context": "destination_gallery", 
+                "image_count": 4
+            }
+            
+            gallery_result = await self.image_agent.execute(gallery_search_data, "itinerary_gallery")
+            if gallery_result.get("data", {}).get("images"):
+                gallery_images = gallery_result["data"]["images"]
+            
+            # If we have event-specific images, also get event highlights
+            if event_name:
+                event_search_data = {
+                    "event_name": event_name,
+                    "destination": destination,
+                    "activity_type": "event_celebration",
+                    "context": "event_highlight",
+                    "image_count": 3
+                }
+                
+                event_result = await self.image_agent.execute(event_search_data, "itinerary_event")
+                if event_result.get("data", {}).get("images"):
+                    # Add event images to gallery
+                    gallery_images.extend(event_result["data"]["images"])
+            
+            self.log(f"✅ Generated {len(hero_images)} hero images and {len(gallery_images)} gallery images")
+            return hero_images, gallery_images
+            
+        except Exception as e:
+            self.log(f"⚠️ Image generation failed: {str(e)} - using empty image arrays")
+            return [], []
