@@ -118,7 +118,7 @@ class PrepareItineraryAgent(BaseAgent):
         except Exception as e:
             self.log(f"❌ [Itinerary Agent] Error during itinerary generation: {e}")
             self.log("🔄 [Itinerary Agent] Falling back to emergency itinerary generation")
-            return self._generate_fallback_itinerary(input_data)
+            return await self._generate_fallback_itinerary(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
@@ -964,15 +964,26 @@ Focus on:
         
         return steps
     
-    def _generate_fallback_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate minimal fallback itinerary"""
+    async def _generate_fallback_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate minimal fallback itinerary with images"""
         
         requirements = input_data.get("requirements", {})
+        events = input_data.get("events", [])
+        destination = requirements.get("destination", "Destination")
+        
+        # Generate images for the fallback itinerary
+        try:
+            hero_images, gallery_images = await self._generate_itinerary_images(
+                destination, events, requirements
+            )
+        except Exception as e:
+            self.log(f"⚠️ Image generation failed in fallback: {str(e)}")
+            hero_images, gallery_images = [], []
         
         fallback_itinerary = Itinerary(
             title="Travel Plan",
-            destination=requirements.get("destination", "Destination"),
-            destination_info=self._get_default_destination_info(requirements.get("destination", "")),
+            destination=destination,
+            destination_info=self._get_default_destination_info(destination),
             duration=requirements.get("duration", 7),
             traveler_count=requirements.get("passengers", 1),
             departure_date=requirements.get("departure_date", "2024-06-01"),
@@ -980,6 +991,8 @@ Focus on:
             days=[],
             flights=[],
             accommodations=[],
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             total_cost={"total": 0, "currency": "USD"},
             travel_readiness=[],
             rationale="Basic travel plan - detailed itinerary generation not available",
@@ -1021,8 +1034,11 @@ Focus on:
             }
             
             hero_result = await self.image_agent.execute(hero_search_data, "itinerary_hero")
+            # Images can be in data.images or directly in images
             if hero_result.get("data", {}).get("images"):
                 hero_images = hero_result["data"]["images"]
+            elif hero_result.get("images"):
+                hero_images = hero_result["images"]
             
             # Generate gallery images (additional content)
             gallery_search_data = {
@@ -1034,8 +1050,11 @@ Focus on:
             }
             
             gallery_result = await self.image_agent.execute(gallery_search_data, "itinerary_gallery")
+            # Images can be in data.images or directly in images
             if gallery_result.get("data", {}).get("images"):
                 gallery_images = gallery_result["data"]["images"]
+            elif gallery_result.get("images"):
+                gallery_images = gallery_result["images"]
             
             # If we have event-specific images, also get event highlights
             if event_name:
@@ -1048,9 +1067,11 @@ Focus on:
                 }
                 
                 event_result = await self.image_agent.execute(event_search_data, "itinerary_event")
+                # Images can be in data.images or directly in images
                 if event_result.get("data", {}).get("images"):
-                    # Add event images to gallery
                     gallery_images.extend(event_result["data"]["images"])
+                elif event_result.get("images"):
+                    gallery_images.extend(event_result["images"])
             
             self.log(f"✅ Generated {len(hero_images)} hero images and {len(gallery_images)} gallery images")
             return hero_images, gallery_images
