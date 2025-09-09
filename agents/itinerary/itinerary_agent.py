@@ -301,7 +301,9 @@ AVAILABLE OFFERS:
 - Flight options: {len(flight_offers)} available
 - Hotel options: {len(hotel_offers)} available
 
-Create a comprehensive itinerary and return ONLY valid JSON:
+CRITICAL REQUIREMENT: You MUST create a detailed daily schedule for each day of the trip.
+
+Create a comprehensive itinerary with specific daily activities and return ONLY valid JSON:
 {{
     "itinerary_overview": {{
         "title": "Descriptive trip title",
@@ -327,11 +329,36 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "day": 1,
             "date": "YYYY-MM-DD",
             "location": "City/Area",
-            "activities": ["Arrival", "Hotel check-in", "Explore area"],
-            "meals": ["Lunch at local restaurant", "Dinner recommendation"],
-            "accommodation": "Hotel info if relevant",
+            "activities": [
+                "09:00 - Arrival at airport",
+                "11:00 - Hotel check-in and rest",
+                "14:00 - Lunch at local restaurant",
+                "15:30 - Visit major attraction #1",
+                "18:00 - Cultural experience or local market",
+                "20:00 - Traditional dinner"
+            ],
+            "meals": ["Local breakfast", "Traditional lunch at restaurant name", "Cultural dinner experience"],
+            "accommodation": "Hotel name and benefits",
             "budget_estimate": 200
+        }},
+        {{
+            "day": 2,
+            "date": "YYYY-MM-DD",
+            "location": "City/Area", 
+            "activities": [
+                "08:00 - Breakfast at hotel",
+                "09:30 - Morning cultural activity",
+                "11:00 - Visit attraction #2",
+                "13:00 - Lunch break",
+                "14:30 - Afternoon sightseeing",
+                "17:00 - Local experience",
+                "19:30 - Dinner"
+            ],
+            "meals": ["Hotel breakfast", "Local specialty lunch", "Regional cuisine dinner"],
+            "accommodation": "Hotel name",
+            "budget_estimate": 250
         }}
+        // Continue for ALL {duration} days - DO NOT SKIP ANY DAYS
     ],
     "travel_components": {{
         "flights": ["Flight summary from offers"],
@@ -351,15 +378,17 @@ Create a comprehensive itinerary and return ONLY valid JSON:
     "confidence_score": 0.0-1.0
 }}
 
-Focus on:
-1. Realistic day-by-day planning
-2. Logical flow and pacing
-3. Budget considerations
-4. Customer preferences alignment
-5. Practical logistics (check-in times, travel times)
-6. Include popular city attractions and landmarks
-7. Incorporate event highlights and related activities if applicable
-8. Provide local cultural experiences and must-see sights
+MANDATORY REQUIREMENTS:
+1. You MUST create a "daily_plan" array with exactly {duration} day entries
+2. Each day must have specific time-based activities (e.g. "09:00 - Activity")
+3. Include realistic venue names and specific locations 
+4. Provide practical logistics (check-in times, travel times)
+5. Include popular city attractions and landmarks for the destination
+6. Incorporate event highlights if applicable
+7. Provide authentic local cultural experiences
+8. Balance sightseeing with rest periods
+
+CRITICAL: If you do not provide {duration} detailed days in the daily_plan array, the response will be rejected.
 """
     
     def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
@@ -369,8 +398,33 @@ Focus on:
         daily_plans = ai_data.get("daily_plan", [])
         travel_components = ai_data.get("travel_components", {})
         
-        # Build daily itinerary
+        # Build daily itinerary with validation
         days = []
+        duration = input_data.get("requirements", {}).get("duration", 7)
+        
+        # Log what we received for debugging
+        self.log(f"Daily plans received: {len(daily_plans)} (expected: {duration})")
+        
+        # If we don't have enough daily plans, generate minimal ones
+        if len(daily_plans) < duration:
+            self.log(f"⚠️ Insufficient daily plans - expected {duration}, got {len(daily_plans)}")
+            # Add basic daily plans for missing days
+            for i in range(len(daily_plans), duration):
+                daily_plans.append({
+                    "day": i + 1,
+                    "date": "2024-06-01",  # Placeholder date
+                    "location": input_data.get("requirements", {}).get("destination", "Destination"),
+                    "activities": [
+                        "Morning exploration",
+                        "Visit local attractions", 
+                        "Cultural experience",
+                        "Local cuisine sampling",
+                        "Evening leisure"
+                    ],
+                    "meals": ["Local breakfast", "Traditional lunch", "Regional dinner"],
+                    "budget_estimate": 200
+                })
+        
         for plan in daily_plans:
             day = ItineraryDay(
                 day=plan.get("day", 1),
@@ -383,6 +437,8 @@ Focus on:
                 budget_estimate=plan.get("budget_estimate")
             )
             days.append(day)
+        
+        self.log(f"✅ Built {len(days)} daily itinerary items")
         
         # Build travel readiness checklist
         requirements = input_data.get("requirements", {})
