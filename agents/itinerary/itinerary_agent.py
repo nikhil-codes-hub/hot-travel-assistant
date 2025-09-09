@@ -621,12 +621,6 @@ Focus on:
             event_description = event_details.get("description", "")
             if event_name:
                 highlights.append(f"{event_name} - special festival celebration")
-                if "diwali" in event_name.lower():
-                    highlights.extend([
-                        "Traditional Diwali festivities and light displays",
-                        "Local temple celebrations and prayers",
-                        "Festive markets and traditional sweets"
-                    ])
         
         # Add destination-specific attractions
         if any(keyword in destination_lower for keyword in ["bangkok", "thailand"]):
@@ -769,7 +763,7 @@ Focus on:
                 "language": "English and Kannada widely spoken, Hindi understood",
                 "timezone": "IST (UTC+5:30), typically 10.5-13.5 hours ahead of US time zones",
                 "popular_attractions": ["Lalbagh Botanical Garden", "Bangalore Palace", "Vidhana Soudha", "Cubbon Park", "ISCKON Temple", "Commercial Street", "UB City Mall"],
-                "event_highlights": "Experience Diwali celebrations, local festivals, and traditional Indian culture"
+                "event_highlights": "Experience local festivals, traditional celebrations, and cultural events"
             }
         elif 'thailand' in destination_lower or 'bangkok' in destination_lower:
             return {

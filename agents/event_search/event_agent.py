@@ -241,7 +241,7 @@ SPECIFIC EVENT KNOWLEDGE:
 - Water Lantern Festival: Beautiful evening event with floating lanterns, typically held in various locations including Thailand, very photogenic and peaceful
 - Oktoberfest: Munich's famous beer festival, September-October, requires advance planning
 - Cherry Blossom festivals: Spring events in Japan, Korea, Washington DC
-- Diwali celebrations: Hindu festival of lights, celebrated globally
+- Cultural festivals: Religious and cultural celebrations, celebrated globally
 - Cultural festivals often have deep spiritual/historical significance
 """
     
@@ -327,6 +327,7 @@ SPECIFIC EVENT KNOWLEDGE:
                 "what_to_bring": ["Camera", "Light jacket", "Closed-toe shoes", "Small bag", "Respect for ceremony"],
                 "cultural_significance": "Represents letting go of negative thoughts and making wishes for the future. Often connected to Buddhist and Hindu traditions of light festivals."
             })
+        
         
         # Oktoberfest
         elif "oktoberfest" in event_name:
