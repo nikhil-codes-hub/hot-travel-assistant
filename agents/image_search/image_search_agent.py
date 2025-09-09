@@ -338,6 +338,43 @@ AVOID:
                 }
             ]
         
+        # Check if this is likely a Diwali/festival query based on destination and context
+        elif "bangalore" in destination and any(term in input_data.get("context", "").lower() for term in ["festival", "diwali", "celebration"]):
+            # Use Diwali images for Bangalore festival queries
+            fallback_images = [
+                {
+                    "url": "https://images.unsplash.com/photo-1541119663088-c1b3ddc6d8e8",
+                    "title": "Traditional Diwali oil lamps (diyas) arrangement",
+                    "source": "Unsplash",
+                    "alt_text": "Beautiful arrangement of glowing oil lamps during Diwali festival",
+                    "context": "event_highlight",
+                    "relevance_score": 0.95
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1574489815067-c49a6888c4f0", 
+                    "title": "Colorful Rangoli pattern with flower petals",
+                    "source": "Unsplash",
+                    "alt_text": "Intricate traditional Rangoli floor art made with colorful flower petals",
+                    "context": "cultural_activity",
+                    "relevance_score": 0.90
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1572469527149-4cceb6b6d5b5",
+                    "title": "Family celebrating Diwali with sparklers",
+                    "source": "Unsplash", 
+                    "alt_text": "Happy family lighting sparklers together during Diwali celebration",
+                    "context": "event_highlight",
+                    "relevance_score": 0.88
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1541471943832-6b8ac9d58985",
+                    "title": "Temple illuminated with thousands of lights",
+                    "source": "Unsplash",
+                    "alt_text": "Hindu temple beautifully decorated with hundreds of oil lamps for Diwali",
+                    "context": "destination_highlight", 
+                    "relevance_score": 0.92
+                }
+            ]
         # Generic destination images
         else:
             fallback_images = [
