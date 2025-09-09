@@ -271,7 +271,7 @@ class PrepareItineraryAgent(BaseAgent):
             event_context = f"\n\nSPECIAL EVENT: {event_name}\n{event_description}\nInclude this event in the itinerary highlights and plan activities around it."
         
         return f"""
-Create a detailed travel itinerary for this trip. Be specific and practical.
+Create a comprehensive, detailed travel itinerary with day-by-day activities, cultural experiences, and authentic local recommendations.
 
 TRIP REQUIREMENTS:
 - Destination: {destination}
@@ -282,6 +282,18 @@ TRIP REQUIREMENTS:
 
 CUSTOMER PROFILE:
 - Loyalty tier: {loyalty_tier}
+
+DETAILED ITINERARY REQUIREMENTS:
+1. Create specific daily schedules with timing (e.g. "Day 1 - Morning: 09:00 Activity")
+2. Include authentic cultural experiences and local customs
+3. Integrate event schedules naturally into daily activities
+4. Provide specific venue names, addresses, and practical details
+5. Include meal recommendations with local cuisine
+6. Add transportation details between activities
+7. Incorporate rest periods and flexibility
+8. Include cultural etiquette and dress code guidance
+9. Provide backup indoor activities for weather contingencies
+10. Add unique local experiences beyond typical tourist attractions
 - Previous trips: {len(travel_history)} recorded trips
 - Preferences: {preferences}
 
@@ -980,32 +992,24 @@ Focus on:
             self.log(f"⚠️ Image generation failed in fallback: {str(e)}")
             hero_images, gallery_images = [], []
         
-        # Generate detailed days based on event schedule if available
-        days = self._create_detailed_days_from_events(
-            events, destination, requirements
-        )
-        
-        # Create enhanced highlights from events
-        highlights = self._extract_event_highlights(events, destination)
-        
         fallback_itinerary = Itinerary(
-            title=f"Diwali Festival Trip to {destination}" if any("diwali" in str(event).lower() for event in events) else f"Trip to {destination}",
+            title="Travel Plan",
             destination=destination,
             destination_info=self._get_default_destination_info(destination),
-            duration=requirements.get("duration", 5),
-            traveler_count=requirements.get("passengers", 2),
-            departure_date=requirements.get("departure_date", "2025-10-20"),
-            return_date=requirements.get("return_date") or "2025-10-24",
-            days=days,
+            duration=requirements.get("duration", 7),
+            traveler_count=requirements.get("passengers", 1),
+            departure_date=requirements.get("departure_date", "2024-06-01"),
+            return_date=requirements.get("return_date") or "2024-06-08",
+            days=[],
             flights=[],
             accommodations=[],
             hero_images=hero_images,
             gallery_images=gallery_images,
-            total_cost={"total": 1500, "currency": "USD"},
+            total_cost={"total": 0, "currency": "USD"},
             travel_readiness=[],
-            rationale="Comprehensive travel plan with cultural events and authentic experiences",
-            highlights=highlights,
-            tips=["Dress modestly at temples", "Carry cash for local markets", "Respect religious customs", "Book accommodations early during festival season"]
+            rationale="Basic travel plan - detailed itinerary generation not available",
+            highlights=["Travel to destination", "Experience local attractions"],
+            tips=["Check travel requirements", "Pack appropriately"]
         )
         
         fallback_result = PrepareItineraryResult(
@@ -1088,128 +1092,3 @@ Focus on:
             self.log(f"⚠️ Image generation failed: {str(e)} - using empty image arrays")
             return [], []
 
-    def _create_detailed_days_from_events(self, events: List[Dict[str, Any]], destination: str, requirements: Dict[str, Any]) -> List[ItineraryDay]:
-        """Create detailed daily itinerary from event schedule data"""
-        days = []
-        
-        if not events:
-            return days
-            
-        # Get the first event (primary event like Diwali)
-        event = events[0] if isinstance(events, list) else events
-        if not isinstance(event, dict):
-            return days
-            
-        event_schedule = event.get("schedule", [])
-        departure_date = requirements.get("departure_date", "2025-10-20")
-        
-        # Create days from event schedule
-        for i, day_schedule in enumerate(event_schedule[:5], 1):  # Limit to 5 days
-            try:
-                from datetime import datetime, timedelta
-                base_date = datetime.fromisoformat(departure_date)
-                current_date = (base_date + timedelta(days=i-1)).isoformat()[:10]
-            except:
-                current_date = departure_date
-                
-            # Extract activities from the day's schedule
-            activities = []
-            
-            # Add arrival/departure activities for first/last day
-            if i == 1:
-                activities.extend([
-                    "Arrival at Kempegowda International Airport",
-                    "Check-in to hotel in central Bangalore",
-                    "Afternoon rest and exploration of local area"
-                ])
-            
-            # Add the main event activity
-            activity_description = day_schedule.get("activity", "")
-            if activity_description:
-                activities.append(f"🎭 {activity_description}")
-            
-            # Add specific highlights from the event
-            highlights = day_schedule.get("highlights", [])
-            for highlight in highlights[:3]:  # Limit to 3 highlights per day
-                activities.append(f"✨ {highlight}")
-            
-            # Add general Bangalore activities
-            if "bangalore" in destination.lower():
-                if i == 1:
-                    activities.append("Evening walk through Commercial Street")
-                elif i == 2:
-                    activities.extend([
-                        "Morning visit to Lalbagh Botanical Garden",
-                        "Explore Bangalore Palace and grounds"
-                    ])
-                elif i == 3:
-                    activities.extend([
-                        "Visit ISKCON Temple for special ceremonies",
-                        "Traditional South Indian lunch"
-                    ])
-                elif i == 4:
-                    activities.extend([
-                        "Cubbon Park morning walk",
-                        "Local market exploration"
-                    ])
-                elif i == 5:
-                    activities.extend([
-                        "Final temple visits and blessings",
-                        "Souvenir shopping",
-                        "Departure to airport"
-                    ])
-            
-            # Create the day
-            day = ItineraryDay(
-                day=i,
-                date=current_date,
-                location=destination,
-                activities=activities,
-                accommodation={"type": "hotel", "name": "Selected Hotel", "benefits": "Festival season booking"} if i < len(event_schedule) else None,
-                transportation={"type": "arrival", "details": "Airport transfer"} if i == 1 else None,
-                meals=["Breakfast", "Traditional festival lunch", "Local dinner"],
-                budget_estimate=300.0  # Daily budget estimate
-            )
-            
-            days.append(day)
-            
-        return days
-    
-    def _extract_event_highlights(self, events: List[Dict[str, Any]], destination: str) -> List[str]:
-        """Extract highlights from event data"""
-        highlights = []
-        
-        if not events:
-            return ["Travel to destination", "Experience local culture"]
-            
-        event = events[0] if isinstance(events, list) else events
-        if not isinstance(event, dict):
-            return ["Travel to destination", "Experience local culture"]
-        
-        # Add event-specific highlights
-        event_name = event.get("name", "")
-        if event_name:
-            highlights.append(f"Experience {event_name} celebrations")
-            
-        # Add cultural significance
-        cultural_significance = event.get("cultural_significance", "")
-        if cultural_significance:
-            highlights.append("Immerse in rich cultural traditions")
-            
-        # Add schedule highlights
-        schedule = event.get("schedule", [])
-        for day_schedule in schedule[:3]:  # First 3 days
-            activity = day_schedule.get("activity", "")
-            if activity:
-                highlights.append(f"Participate in {activity}")
-        
-        # Add destination-specific highlights
-        if "bangalore" in destination.lower():
-            highlights.extend([
-                "Explore historic Bangalore Palace",
-                "Visit beautiful Lalbagh Botanical Garden",
-                "Experience vibrant local markets",
-                "Discover traditional South Indian cuisine"
-            ])
-        
-        return highlights[:8]  # Limit to 8 highlights

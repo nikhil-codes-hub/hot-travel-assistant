@@ -237,12 +237,15 @@ CRITICAL REQUIREMENTS:
 - Include cultural sensitivity and etiquette guidance
 - For popular events like festivals, include crowd management and booking advice
 
-SPECIFIC EVENT KNOWLEDGE:
-- Water Lantern Festival: Beautiful evening event with floating lanterns, typically held in various locations including Thailand, very photogenic and peaceful
-- Oktoberfest: Munich's famous beer festival, September-October, requires advance planning
-- Cherry Blossom festivals: Spring events in Japan, Korea, Washington DC
-- Cultural festivals: Religious and cultural celebrations, celebrated globally
-- Cultural festivals often have deep spiritual/historical significance
+COMPREHENSIVE EVENT SEARCH REQUIREMENTS:
+- Generate complete event details with accurate cultural context
+- Include detailed day-by-day schedules for multi-day festivals
+- Provide authentic cultural significance and background
+- Include practical information (tickets, accessibility, what to bring)
+- Create realistic dates, venues, and activity descriptions
+- Focus on local customs, traditions, and authentic experiences
+- Include specific highlights and must-see elements for each day
+- Generate appropriate venue information and location details
 """
     
     def _parse_response(self, response_text: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -283,86 +286,8 @@ SPECIFIC EVENT KNOWLEDGE:
         
         fallback_events = []
         
-        # Diwali Festival
-        if "diwali" in event_name or "diwali" in destination:
-            # Determine the specific location for Diwali
-            diwali_city = "Bangalore"
-            diwali_country = "India" 
-            if "bangalore" in destination.lower() or "bengaluru" in destination.lower():
-                diwali_city = "Bangalore"
-                diwali_location = "Bangalore, India"
-            elif "delhi" in destination.lower():
-                diwali_city = "New Delhi"
-                diwali_location = "New Delhi, India"
-            elif "mumbai" in destination.lower():
-                diwali_city = "Mumbai"
-                diwali_location = "Mumbai, India"
-            else:
-                diwali_location = destination if destination else "Bangalore, India"
-                
-            fallback_events.append({
-                "event_id": "diwali_festival_bangalore",
-                "name": "Diwali Festival",
-                "event_type": "cultural",
-                "description": "The Festival of Lights - Hindu new year celebration featuring spectacular light displays, traditional rituals, shopping, and cultural performances. Experience authentic Indian traditions, temple visits, markets bursting with festive goods, and the warm hospitality of Indian families.",
-                "location": diwali_location,
-                "city": diwali_city,
-                "country": "India",
-                "venue": "Temples, markets, residential areas, cultural centers",
-                "start_date": "2025-10-20",  # Typical Diwali timing
-                "end_date": "2025-10-24",    # 5-day celebration
-                "duration": "5 days (main celebration spans 5 days)",
-                "schedule": [
-                    {
-                        "date": "2025-10-20",
-                        "time": "09:00",
-                        "activity": "Dhanteras - shopping for gold and silver",
-                        "highlights": ["Traditional jewelry shopping", "Market visits", "Temple prayers"]
-                    },
-                    {
-                        "date": "2025-10-21", 
-                        "time": "18:00",
-                        "activity": "Naraka Chaturdashi - preparation day",
-                        "highlights": ["Home decoration with diyas", "Rangoli making", "Traditional cooking"]
-                    },
-                    {
-                        "date": "2025-10-22",
-                        "time": "19:00", 
-                        "activity": "Main Diwali Day - Lakshmi Puja",
-                        "highlights": ["Spectacular city-wide lighting", "Temple ceremonies", "Family gatherings", "Fireworks displays"]
-                    },
-                    {
-                        "date": "2025-10-23",
-                        "time": "10:00",
-                        "activity": "Govardhan Puja - community celebrations", 
-                        "highlights": ["Community feasts", "Cultural programs", "Traditional games"]
-                    },
-                    {
-                        "date": "2025-10-24",
-                        "time": "16:00",
-                        "activity": "Bhai Dooj - brother-sister celebrations",
-                        "highlights": ["Family bonding", "Traditional ceremonies", "Gift exchanges"]
-                    }
-                ],
-                "ticket_info": {
-                    "required": False,
-                    "advance_booking": "Temple events are free, book cultural shows in advance",
-                    "price_range": "Free for temple visits, ₹500-2000 for cultural shows",
-                    "where_to_buy": "Local cultural centers, hotel concierge"
-                },
-                "accessibility": {
-                    "wheelchair_accessible": False,
-                    "crowd_level": "very high",
-                    "family_friendly": True,
-                    "age_restrictions": "None"
-                },
-                "weather_considerations": "Post-monsoon pleasant weather, evenings can be cool. Perfect weather for celebrations.",
-                "what_to_bring": ["Comfortable walking shoes", "Traditional Indian clothes (optional)", "Camera", "Cash for shopping", "Respect for religious customs"],
-                "cultural_significance": "Diwali symbolizes the victory of light over darkness, good over evil, and knowledge over ignorance. It's the most important Hindu festival, marking Lord Rama's return to Ayodhya and honoring Goddess Lakshmi for prosperity."
-            })
-
         # Water Lantern Festival
-        elif "water lantern" in event_name or ("water" in event_name and "lantern" in event_name):
+        if "water lantern" in event_name or ("water" in event_name and "lantern" in event_name):
             fallback_events.append({
                 "event_id": "water_lantern_festival_thailand",
                 "name": "Water Lantern Festival",

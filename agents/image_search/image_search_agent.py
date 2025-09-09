@@ -172,29 +172,15 @@ Return ONLY valid JSON with image recommendations:
     "confidence_score": 0.9
 }}
 
-SPECIFIC IMAGE RECOMMENDATIONS:
-
-For DIWALI events:
-- Colorful rangoli patterns and oil lamps (diyas)
-- Temple celebrations with thousands of lights
-- Families celebrating with sparklers and fireworks
-- Traditional sweets and decorations
-- City skylines illuminated for Diwali
-
-For BANGALORE destination:
-- Lalbagh Botanical Garden's iconic Glass House
-- Bangalore Palace architecture
-- Bustling Commercial Street markets
-- Modern Cubbon Park landscapes
-- Traditional South Indian temple architecture
-- Tech city skyline views
-
-For WATER LANTERN FESTIVAL:
-- Floating lanterns on water at dusk
-- Crowds releasing lanterns together
-- Close-up of illuminated lanterns
-- Reflection of lights on water
-- Cultural ceremony moments
+DYNAMIC IMAGE CURATION GUIDELINES:
+- Analyze the specific event and destination to generate appropriate image recommendations
+- Focus on authentic, culturally accurate visual representations
+- Include both wide-angle destination shots and intimate cultural details
+- Consider the time of year, local customs, and regional characteristics
+- Generate diverse perspectives: aerial views, street-level shots, architectural details, people celebrating
+- Ensure images represent the authentic experience travelers will encounter
+- Include both iconic landmarks and hidden local gems
+- Consider the emotional impact and inspirational value of each image
 
 QUALITY CRITERIA:
 - High resolution and professional quality
