@@ -497,6 +497,17 @@ CRITICAL: If you do not provide {duration} detailed days in the daily_plan array
         requirements = input_data.get("requirements", {})
         travel_readiness = self._generate_travel_readiness(requirements)
         
+        # Generate images for the AI itinerary
+        destination = requirements.get("destination", "Destination")
+        event_details = input_data.get("event_details", [])
+        try:
+            hero_images, gallery_images = await self._generate_itinerary_images(
+                destination, event_details, requirements
+            )
+        except Exception as e:
+            self.log(f"⚠️ Image generation failed in AI flow: {str(e)}")
+            hero_images, gallery_images = [], []
+        
         # Create main itinerary
         itinerary = Itinerary(
             title=overview.get("title", f"Trip to {requirements.get('destination', 'Destination')}"),
@@ -510,6 +521,8 @@ CRITICAL: If you do not provide {duration} detailed days in the daily_plan array
             flights=travel_components.get("flights", []),
             accommodations=travel_components.get("hotels", []),
             total_cost=travel_components.get("total_cost", {}),
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             travel_readiness=travel_readiness,
             rationale=ai_data.get("rationale", "Itinerary planned based on requirements"),
             highlights=ai_data.get("highlights", []),

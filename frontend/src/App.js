@@ -648,6 +648,8 @@ ${hotelName} ${rating}`;
     const itinerary = data?.data?.itinerary?.data || {};
     const days = itinerary.days || [];
     const destination = itinerary.destination || '';
+    const heroImages = itinerary.hero_images || [];
+    const galleryImages = itinerary.gallery_images || [];
     
     if (!days || days.length === 0) {
       return `
@@ -659,6 +661,20 @@ ${hotelName} ${rating}`;
 📅 **Daily Itinerary - ${destination}**
 
 `;
+
+    // Add hero images if available
+    if (heroImages && heroImages.length > 0) {
+      dailyPlan += `🖼️ **Featured Images:**
+`;
+      heroImages.slice(0, 2).forEach(image => {
+        if (image.url) {
+          dailyPlan += `![${image.alt_text || image.title || 'Travel image'}](${image.url} "${image.title || 'Travel destination'}")
+*${image.title || 'Travel destination'}* - ${image.source || 'Image source'}
+
+`;
+        }
+      });
+    }
 
     days.forEach((day, index) => {
       const dayNumber = day.day || (index + 1);
@@ -696,6 +712,21 @@ ${hotelName} ${rating}`;
       dailyPlan += `
 `;
     });
+
+    // Add gallery images if available
+    if (galleryImages && galleryImages.length > 0) {
+      dailyPlan += `
+🎭 **Cultural Gallery:**
+`;
+      galleryImages.slice(0, 3).forEach(image => {
+        if (image.url) {
+          dailyPlan += `![${image.alt_text || image.title || 'Cultural experience'}](${image.url} "${image.title || 'Cultural experience'}")
+*${image.title || 'Cultural experience'}* - ${image.context || 'Cultural activity'}
+
+`;
+        }
+      });
+    }
 
     return dailyPlan;
   };
