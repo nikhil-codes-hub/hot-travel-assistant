@@ -238,17 +238,8 @@ AVOID:
         activity_type = input_data.get("activity_type", "")
         image_count = input_data.get("image_count", 3)
         
-        # Instead of hardcoded URLs, provide placeholder descriptions that encourage LLM usage
+        # When LLM is unavailable, return empty image list to avoid broken URLs
         fallback_images = []
-        for i in range(min(image_count, 3)):
-            fallback_images.append({
-                "url": "",
-                "title": f"Image suggestion {i+1} - {event_name or destination or 'Travel destination'}",
-                "source": "LLM Generated (currently unavailable)",
-                "alt_text": f"Contextual image for {event_name or destination or activity_type}",
-                "context": "llm_unavailable",
-                "relevance_score": 0.5
-            })
         
         fallback_result = {
             "images": fallback_images,
@@ -265,5 +256,5 @@ AVOID:
             "mode": "llm_unavailable"
         }
         
-        self.log(f"⚠️ LLM unavailable - returning {len(fallback_images)} placeholder image suggestions")
+        self.log(f"⚠️ LLM unavailable - image generation disabled to avoid broken URLs")
         return fallback_result
