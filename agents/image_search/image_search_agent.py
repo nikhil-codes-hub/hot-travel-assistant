@@ -6,6 +6,10 @@ from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 from agents.base_agent import BaseAgent
 from agents.cache.llm_cache import LLMCache
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class ImageSearchResult(BaseModel):
     url: str = Field(..., description="Image URL")
