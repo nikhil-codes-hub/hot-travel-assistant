@@ -1078,6 +1078,11 @@ Digital Copies Recommended:
                 <>
                   <div className="content" style={{whiteSpace: 'pre-wrap'}}>
                     {message.content.split('\n').map((line, lineIndex) => {
+                      // Add extra spacing for major sections and day headers
+                      const isSectionHeader = line.match(/^(✈️|🏨|📋|🏥|📄)/);
+                      const isDayHeader = line.match(/^\*\*Day \d+/);
+                      const sectionStyle = isSectionHeader ? {marginTop: '30px', marginBottom: '10px'} : 
+                                         isDayHeader ? {marginTop: '25px', marginBottom: '8px'} : {};
                       // Check if line contains image URL
                       const imageUrlMatch = line.match(/🔗 (https?:\/\/[^\s]+)/);
                       if (imageUrlMatch) {
@@ -1112,7 +1117,7 @@ Digital Copies Recommended:
                           </div>
                         );
                       } else {
-                        return <div key={lineIndex}>{line}</div>;
+                        return <div key={lineIndex} style={sectionStyle}>{line}</div>;
                       }
                     })}
                   </div>
