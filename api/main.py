@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import uuid
 from datetime import datetime
+import os
 
 from config.database import get_db, engine
 from models.database_models import Base
@@ -26,6 +29,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files (React build) if available
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "build")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static")
+    
+    @app.get("/")
+    async def serve_frontend():
+        """Serve React frontend"""
+        index_file = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return {"message": "HOT Intelligent Travel Assistant API", "version": "1.0.0", "frontend": "not_built"}
+    
+    @app.get("/{catch_all:path}")
+    async def catch_all_routes(catch_all: str):
+        """Catch all routes for React Router (SPA)"""
+        # Don't intercept API routes
+        if catch_all.startswith(("api/", "travel/", "user/", "health", "database/")):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+        # Serve React app for all other routes
+        index_file = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Frontend not available")
 
 # Pydantic models for API
 class TravelRequest(BaseModel):

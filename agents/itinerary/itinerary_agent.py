@@ -1148,8 +1148,6 @@ CRITICAL: If you do not provide {duration} detailed days in the daily_plan array
         return self.format_output(fallback_result.model_dump())
 
     async def _generate_itinerary_images(self, destination: str, event_details: Dict[str, Any], requirements: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Generate hero and gallery images for the itinerary - DISABLED for security compliance"""
-        # Image generation completely disabled to prevent any broken or placeholder URLs
-        self.log("🔒 Image generation disabled for security compliance")
+        """Image generation disabled for security compliance"""
         return [], []
 

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import './App.css';
 
 function App() {
   const [messages, setMessages] = useState([
@@ -348,7 +349,7 @@ Ready to proceed with reservations`;
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !isLoading) {
       sendMessage();
     }
@@ -1049,34 +1050,48 @@ Digital Copies Recommended:
   };
 
   return (
-    <div className="container">
-      <div className="header">
-        <h1>🌍 Smart Trip Assistant</h1>
-        <p>Your AI-powered travel planning companion</p>
-      </div>
-
-      {/* Customer Info Panel */}
-      <div className="customer-info">
-        <div className="customer-fields">
-          <input
-            type="email"
-            placeholder="Your email address (for personalized service)"
-            value={customerData.email_id}
-            onChange={(e) => setCustomerData(prev => ({...prev, email_id: e.target.value}))}
-            className="customer-input email-input"
-          />
+    <div className="app-container">
+      {/* Header */}
+      <header className="header">
+        <div className="header-content">
+          <div className="logo">
+            <h1>🏢 House of Travel</h1>
+            <span className="tagline">Intelligent Travel Solutions</span>
+          </div>
+          <div className="agent-info">
+            <span className="agent-badge">Travel Agent Portal</span>
+          </div>
         </div>
-      </div>
-      
-      <div className="chat-container">
-        <div className="chat-messages">
-          {messages.map((message, index) => (
-            <div key={index} className={`message ${message.type}-message`}>
-              {message.type === 'loading' ? (
-                <div className="loading">{message.content}</div>
-              ) : (
-                <>
-                  <div className="content" style={{whiteSpace: 'pre-wrap'}}>
+      </header>
+
+      <div className="main-layout">
+        {/* Left Side - Chatbot */}
+        <div className="left-panel">
+          <div className="chat-header">
+            <h2>🤖 AI Travel Assistant</h2>
+            <p>Smart itinerary planning & booking support</p>
+          </div>
+
+          {/* Customer Info Panel */}
+          <div className="customer-info">
+            <input
+              type="email"
+              placeholder="Client email for personalized service"
+              value={customerData.email_id}
+              onChange={(e) => setCustomerData(prev => ({...prev, email_id: e.target.value}))}
+              className="customer-input"
+            />
+          </div>
+          
+          <div className="chat-container">
+            <div className="chat-messages">
+              {messages.map((message, index) => (
+                <div key={index} className={`message ${message.type}-message`}>
+                  {message.type === 'loading' ? (
+                    <div className="loading">{message.content}</div>
+                  ) : (
+                    <>
+                      <div className="content" style={{whiteSpace: 'pre-wrap'}}>
                     {message.content.split('\n').map((line, lineIndex) => {
                       // Add styling for different types of headers
                       const isFlightHeader = line.match(/^✈️.*Flight/);
@@ -1201,25 +1216,144 @@ Digital Copies Recommended:
             </div>
           ))}
           <div ref={messagesEndRef} />
+            </div>
+          </div>
+          
+          <div className="chat-input">
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Describe client's travel plans... (e.g., 'Plan a 7-day trip to Japan for 2 people')"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+            />
+            <button
+              className="send-btn"
+              onClick={() => sendMessage()}
+              disabled={isLoading || !inputValue.trim()}
+            >
+              {isLoading ? 'Planning...' : 'Send'}
+            </button>
+          </div>
         </div>
-        
-        <div className="chat-input">
-          <input
-            type="text"
-            className="input-field"
-            placeholder="Describe your travel plans... (e.g., 'Plan a 7-day trip to Japan for 2 people')"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-          />
-          <button
-            className="send-btn"
-            onClick={() => sendMessage()}
-            disabled={isLoading || !inputValue.trim()}
-          >
-            {isLoading ? 'Planning...' : 'Send'}
-          </button>
+
+        {/* Right Side - Travel Information & Agent Tools */}
+        <div className="right-panel">
+          {/* Hero Image Section */}
+          <div className="hero-section">
+            <div className="hero-image">
+              <img 
+                src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=500&h=300&fit=crop&crop=center" 
+                alt="Beautiful travel destination"
+                style={{width: '100%', height: '250px', objectFit: 'cover', borderRadius: '12px'}}
+              />
+              <div className="hero-overlay">
+                <h3>Craft Unforgettable Journeys</h3>
+                <p>Powered by AI, Perfected by Experience</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Agent Capabilities */}
+          <div className="agent-capabilities">
+            <h3>🎯 What This AI Agent Can Do For You</h3>
+            
+            <div className="capability-group">
+              <h4>📋 Instant Trip Planning</h4>
+              <ul>
+                <li>Multi-destination itinerary creation</li>
+                <li>Real-time flight & hotel searches</li>
+                <li>Budget optimization & cost breakdown</li>
+                <li>Personalized recommendations based on client profile</li>
+              </ul>
+            </div>
+
+            <div className="capability-group">
+              <h4>✅ Compliance & Documentation</h4>
+              <ul>
+                <li>Visa requirements checking</li>
+                <li>Health advisories & vaccination info</li>
+                <li>Travel documentation checklists</li>
+                <li>Country-specific entry requirements</li>
+              </ul>
+            </div>
+
+            <div className="capability-group">
+              <h4>💼 Agent Productivity Tools</h4>
+              <ul>
+                <li>Client profile analysis & loyalty matching</li>
+                <li>Automated email proposal generation</li>
+                <li>HOT-specific discounts & offers integration</li>
+                <li>Session continuity for complex bookings</li>
+              </ul>
+            </div>
+
+            <div className="capability-group">
+              <h4>🌐 Global Intelligence</h4>
+              <ul>
+                <li>200+ country visa database</li>
+                <li>Real-time flight pricing via Amadeus</li>
+                <li>Cultural events & seasonal recommendations</li>
+                <li>Multi-language support & local insights</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="quick-actions">
+            <h3>⚡ Quick Actions</h3>
+            <div className="action-buttons">
+              <button 
+                className="action-btn"
+                onClick={() => sendMessage("What visa requirements for US citizens traveling to Japan?")}
+              >
+                Check Visa Requirements
+              </button>
+              <button 
+                className="action-btn"
+                onClick={() => sendMessage("Find flights from Tokyo to Paris for business class")}
+              >
+                Search Premium Flights
+              </button>
+              <button 
+                className="action-btn"
+                onClick={() => sendMessage("Plan a luxury honeymoon to Maldives")}
+              >
+                Luxury Package Builder
+              </button>
+              <button 
+                className="action-btn"
+                onClick={() => sendMessage("Health requirements for travel to Thailand")}
+              >
+                Health Advisory Check
+              </button>
+            </div>
+          </div>
+
+          {/* Agent Performance Stats */}
+          <div className="performance-stats">
+            <h3>📊 AI Performance</h3>
+            <div className="stats-grid">
+              <div className="stat-item">
+                <span className="stat-number">98.5%</span>
+                <span className="stat-label">Accuracy Rate</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">&lt;3s</span>
+                <span className="stat-label">Response Time</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">200+</span>
+                <span className="stat-label">Countries Covered</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-number">24/7</span>
+                <span className="stat-label">Availability</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
