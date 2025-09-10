@@ -171,7 +171,11 @@ ${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
 
 ${formatDailyItinerary(data)}
 
+
+
 ${formatFlightDetails(data)}
+
+
 
 ${formatHotelDetails(data)}`;
 
@@ -184,11 +188,19 @@ ${formatHotelDetails(data)}`;
                   
                   const completeContent = baseContent + `
 
+
+
 ${visaSection}
+
+
 
 ${healthSection}
 
+
+
 ${docSection}
+
+
 
 📞 Next Steps for Booking:
 • Review flight options with client for final selection
@@ -711,6 +723,8 @@ ${hotelName} ${rating}`;
       }
       
       dailyPlan += `
+
+
 `;
     });
 
