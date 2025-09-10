@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
 from agents.image_search.image_search_agent import ImageSearchAgent
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class ItineraryDay(BaseModel):
     day: int = Field(..., description="Day number")
