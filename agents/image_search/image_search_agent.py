@@ -74,9 +74,6 @@ class ImageSearchAgent(BaseAgent):
             return self.format_output(cached_response)
         
         # Use LLM to generate contextual image recommendations
-        # TEMPORARY: Force fallback mode for debugging
-        self.log("🔧 DEBUG: Forcing fallback image suggestions")
-        return self._generate_fallback_images(input_data)
         
         if not self.ai_available:
             self.log("⚠️ LLM not available - using fallback image suggestions")
@@ -231,203 +228,38 @@ AVOID:
             return self._generate_fallback_images(input_data)
 
     def _generate_fallback_images(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate fallback image suggestions without AI"""
-        event_name = input_data.get("event_name", "").lower()
-        destination = input_data.get("destination", "").lower()
-        activity_type = input_data.get("activity_type", "").lower()
-        image_count = input_data.get("image_count", 4)
+        """Generate fallback image suggestions when LLM is not available"""
+        event_name = input_data.get("event_name", "")
+        destination = input_data.get("destination", "")
+        activity_type = input_data.get("activity_type", "")
+        image_count = input_data.get("image_count", 3)
         
+        # Instead of hardcoded URLs, provide placeholder descriptions that encourage LLM usage
         fallback_images = []
-        
-        # Diwali Festival Images
-        if "diwali" in event_name:
-            fallback_images = [
-                {
-                    "url": "https://images.unsplash.com/photo-1541119663088-c1b3ddc6d8e8",
-                    "title": "Traditional Diwali oil lamps (diyas) arrangement",
-                    "source": "Unsplash",
-                    "alt_text": "Beautiful arrangement of glowing oil lamps during Diwali festival",
-                    "context": "event_highlight",
-                    "relevance_score": 0.95
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1574489815067-c49a6888c4f0", 
-                    "title": "Colorful Rangoli pattern with flower petals",
-                    "source": "Unsplash",
-                    "alt_text": "Intricate traditional Rangoli floor art made with colorful flower petals",
-                    "context": "cultural_activity",
-                    "relevance_score": 0.90
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1572469527149-4cceb6b6d5b5",
-                    "title": "Family celebrating Diwali with sparklers",
-                    "source": "Unsplash", 
-                    "alt_text": "Happy family lighting sparklers together during Diwali celebration",
-                    "context": "event_highlight",
-                    "relevance_score": 0.88
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1541471943832-6b8ac9d58985",
-                    "title": "Temple illuminated with thousands of lights",
-                    "source": "Unsplash",
-                    "alt_text": "Hindu temple beautifully decorated with hundreds of oil lamps for Diwali",
-                    "context": "destination_highlight", 
-                    "relevance_score": 0.92
-                }
-            ]
-        
-        # Bangalore Destination Images - Use Diwali images for testing
-        elif "bangalore" in destination.lower() or "bengaluru" in destination.lower():
-            fallback_images = [
-                {
-                    "url": "https://images.unsplash.com/photo-1541119663088-c1b3ddc6d8e8",
-                    "title": "Traditional Diwali oil lamps (diyas) arrangement",
-                    "source": "Unsplash",
-                    "alt_text": "Beautiful arrangement of glowing oil lamps during Diwali festival",
-                    "context": "event_highlight",
-                    "relevance_score": 0.95
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1574489815067-c49a6888c4f0", 
-                    "title": "Colorful Rangoli pattern with flower petals",
-                    "source": "Unsplash",
-                    "alt_text": "Intricate traditional Rangoli floor art made with colorful flower petals",
-                    "context": "cultural_activity",
-                    "relevance_score": 0.90
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1572469527149-4cceb6b6d5b5",
-                    "title": "Family celebrating Diwali with sparklers",
-                    "source": "Unsplash", 
-                    "alt_text": "Happy family lighting sparklers together during Diwali celebration",
-                    "context": "event_highlight",
-                    "relevance_score": 0.88
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1541471943832-6b8ac9d58985",
-                    "title": "Temple illuminated with thousands of lights",
-                    "source": "Unsplash",
-                    "alt_text": "Hindu temple beautifully decorated with hundreds of oil lamps for Diwali",
-                    "context": "destination_highlight", 
-                    "relevance_score": 0.92
-                }
-            ]
-        
-        # Water Lantern Festival Images
-        elif "water lantern" in event_name or "lantern festival" in event_name:
-            fallback_images = [
-                {
-                    "url": "https://images.unsplash.com/photo-1540979388789-6cee28a1cdc9",
-                    "title": "Floating lanterns on water at sunset",
-                    "source": "Unsplash", 
-                    "alt_text": "Beautiful floating lanterns illuminating water surface during evening ceremony",
-                    "context": "event_highlight",
-                    "relevance_score": 0.95
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1548048026-5a1a941d93d3",
-                    "title": "Close-up of illuminated paper lantern",
-                    "source": "Unsplash",
-                    "alt_text": "Single glowing paper lantern floating on dark water",
-                    "context": "artistic_detail",
-                    "relevance_score": 0.90
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1551622164-6ca4ac833819",
-                    "title": "Crowd participating in lantern release ceremony",
-                    "source": "Unsplash",
-                    "alt_text": "People gathered together releasing lanterns during festival ceremony",
-                    "context": "community_experience",
-                    "relevance_score": 0.88
-                }
-            ]
-        
-        # Check if this is likely a Diwali/festival query based on destination and any available context
-        elif ("bangalore" in destination.lower() or "bengaluru" in destination.lower()) and (
-            any(term in input_data.get("context", "").lower() for term in ["festival", "diwali", "celebration"]) or
-            any(term in input_data.get("activity_type", "").lower() for term in ["festival", "cultural", "event"]) or
-            any(term in str(input_data).lower() for term in ["diwali", "festival"])
-        ):
-            # Use Diwali images for Bangalore festival queries
-            fallback_images = [
-                {
-                    "url": "https://images.unsplash.com/photo-1541119663088-c1b3ddc6d8e8",
-                    "title": "Traditional Diwali oil lamps (diyas) arrangement",
-                    "source": "Unsplash",
-                    "alt_text": "Beautiful arrangement of glowing oil lamps during Diwali festival",
-                    "context": "event_highlight",
-                    "relevance_score": 0.95
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1574489815067-c49a6888c4f0", 
-                    "title": "Colorful Rangoli pattern with flower petals",
-                    "source": "Unsplash",
-                    "alt_text": "Intricate traditional Rangoli floor art made with colorful flower petals",
-                    "context": "cultural_activity",
-                    "relevance_score": 0.90
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1572469527149-4cceb6b6d5b5",
-                    "title": "Family celebrating Diwali with sparklers",
-                    "source": "Unsplash", 
-                    "alt_text": "Happy family lighting sparklers together during Diwali celebration",
-                    "context": "event_highlight",
-                    "relevance_score": 0.88
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1541471943832-6b8ac9d58985",
-                    "title": "Temple illuminated with thousands of lights",
-                    "source": "Unsplash",
-                    "alt_text": "Hindu temple beautifully decorated with hundreds of oil lamps for Diwali",
-                    "context": "destination_highlight", 
-                    "relevance_score": 0.92
-                }
-            ]
-        # Generic destination images
-        else:
-            fallback_images = [
-                {
-                    "url": "https://images.unsplash.com/photo-1469474968028-56623f02e42e",
-                    "title": "Beautiful travel destination landscape",
-                    "source": "Unsplash",
-                    "alt_text": "Scenic travel destination with natural beauty",
-                    "context": "itinerary_overview",
-                    "relevance_score": 0.75
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1488646953014-85cb44e25828",
-                    "title": "Cultural architecture and landmarks",
-                    "source": "Unsplash", 
-                    "alt_text": "Historic cultural architecture and local landmarks",
-                    "context": "cultural_activity",
-                    "relevance_score": 0.75
-                },
-                {
-                    "url": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4",
-                    "title": "Local market and street life",
-                    "source": "Unsplash",
-                    "alt_text": "Vibrant local market scene with authentic cultural experience",
-                    "context": "day_activity", 
-                    "relevance_score": 0.70
-                }
-            ]
-        
-        # Trim to requested count
-        fallback_images = fallback_images[:image_count]
+        for i in range(min(image_count, 3)):
+            fallback_images.append({
+                "url": "",
+                "title": f"Image suggestion {i+1} - {event_name or destination or 'Travel destination'}",
+                "source": "LLM Generated (currently unavailable)",
+                "alt_text": f"Contextual image for {event_name or destination or activity_type}",
+                "context": "llm_unavailable",
+                "relevance_score": 0.5
+            })
         
         fallback_result = {
             "images": fallback_images,
             "search_query": f"{event_name} {destination} {activity_type}".strip(),
             "search_context": {
                 "event_name": input_data.get("event_name"),
-                "destination": input_data.get("destination"),
+                "destination": input_data.get("destination"), 
                 "activity_type": input_data.get("activity_type"),
-                "recommended_sources": ["Unsplash", "Pexels", "Getty Images"]
+                "recommended_sources": ["LLM Generated Content"],
+                "note": "LLM image generation currently unavailable"
             },
             "total_results": len(fallback_images),
-            "confidence_score": 0.75,
-            "mode": "fallback_images"
+            "confidence_score": 0.1,
+            "mode": "llm_unavailable"
         }
         
-        self.log(f"✅ Generated {len(fallback_images)} fallback image suggestions")
+        self.log(f"⚠️ LLM unavailable - returning {len(fallback_images)} placeholder image suggestions")
         return fallback_result
