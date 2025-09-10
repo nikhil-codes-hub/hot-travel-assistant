@@ -1117,7 +1117,18 @@ Digital Copies Recommended:
                           </div>
                         );
                       } else {
-                        return <div key={lineIndex} style={sectionStyle}>{line}</div>;
+                        // Process markdown-style formatting
+                        let processedLine = line
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
+                          .replace(/\*(.*?)\*/g, '<em>$1</em>')             // Italic
+                          .replace(/`(.*?)`/g, '<code>$1</code>');          // Inline code
+                        return (
+                          <div 
+                            key={lineIndex} 
+                            style={sectionStyle}
+                            dangerouslySetInnerHTML={{__html: processedLine}}
+                          />
+                        );
                       }
                     })}
                   </div>
