@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import json
 import google.generativeai as genai
 from google.cloud import aiplatform
@@ -61,14 +61,26 @@ class ImageSearchAgent(BaseAgent):
         """
         Generate contextual image suggestions for events, destinations, and activities
         
-        Since LLM is disabled for security reasons, this agent returns empty image arrays
-        to prevent any broken or placeholder image URLs from appearing.
+        Input:
+        - event_name: specific event (e.g. "Diwali Festival")
+        - destination: location (e.g. "Bangalore, India")
+        - activity_type: type of activity (cultural, sightseeing, food, etc.)
+        - context: where images will be used (itinerary_overview, day_activity, etc.)
+        - image_count: number of images needed (default 3-5)
         """
         self.validate_input(input_data, [])
         
-        # Always return empty images when LLM access is restricted for security
-        self.log("🔒 Image generation disabled - LLM access restricted for security")
-        return self._generate_empty_images(input_data)
+        # Check cache first
+        cache_key_data = json.dumps(input_data, sort_keys=True)
+        cached_response = self.cache.get_cached_response(cache_key_data, {})
+        if cached_response:
+            self.log(f"✅ Cache hit - returning cached image suggestions")
+            return self.format_output(cached_response)
+        
+        # Use LLM to generate contextual image recommendations
+        if not self.ai_available:
+            self.log("⚠️ LLM not available - returning empty images for security")
+            return self._generate_empty_images(input_data)
         
         try:
             self.log(f"🔄 Cache miss - generating contextual image suggestions")
@@ -101,7 +113,7 @@ class ImageSearchAgent(BaseAgent):
             
         except Exception as e:
             self.log(f"⚠️ LLM image search failed: {str(e)}")
-            return self._generate_fallback_images(input_data)
+            return self._generate_empty_images(input_data)
 
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
@@ -215,8 +227,8 @@ AVOID:
             return parsed_result
             
         except Exception as e:
-            self.log(f"⚠️ AI response parsing failed ({e}), using fallback images")
-            return self._generate_fallback_images(input_data)
+            self.log(f"⚠️ AI response parsing failed ({e}), using empty images")
+            return self._generate_empty_images(input_data)
 
     def _generate_fallback_images(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate fallback image suggestions when LLM is not available"""
