@@ -74,6 +74,10 @@ class ImageSearchAgent(BaseAgent):
             return self.format_output(cached_response)
         
         # Use LLM to generate contextual image recommendations
+        # TEMPORARY: Force fallback mode for debugging
+        self.log("🔧 DEBUG: Forcing fallback image suggestions")
+        return self._generate_fallback_images(input_data)
+        
         if not self.ai_available:
             self.log("⚠️ LLM not available - using fallback image suggestions")
             return self._generate_fallback_images(input_data)
