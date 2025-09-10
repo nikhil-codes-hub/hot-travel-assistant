@@ -238,8 +238,7 @@ Do not include any other text, explanations, or formatting. Just the coordinates
             }
             
             params = {
-                "latitude": latitude,
-                "longitude": longitude,
+                "cityCode": original_city_code,
                 "radius": input_data.get("radius", 20),
                 "radiusUnit": input_data.get("radiusUnit", "KM"),
                 "hotelSource": input_data.get("hotelSource", "ALL")
@@ -252,7 +251,7 @@ Do not include any other text, explanations, or formatting. Just the coordinates
                 params["ratings"] = input_data["ratings"]
             
             response = await client.get(
-                f"{self.amadeus_base_url}/v1/reference-data/locations/hotels/by-geocode",
+                f"{self.amadeus_base_url}/v1/reference-data/locations/hotels/by-city",
                 params=params,
                 headers=headers,
                 timeout=30.0
