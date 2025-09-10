@@ -61,27 +61,14 @@ class ImageSearchAgent(BaseAgent):
         """
         Generate contextual image suggestions for events, destinations, and activities
         
-        Input:
-        - event_name: specific event (e.g. "Diwali Festival")
-        - destination: location (e.g. "Bangalore, India")
-        - activity_type: type of activity (cultural, sightseeing, food, etc.)
-        - context: where images will be used (itinerary_overview, day_activity, etc.)
-        - image_count: number of images needed (default 3-5)
+        Since LLM is disabled for security reasons, this agent returns empty image arrays
+        to prevent any broken or placeholder image URLs from appearing.
         """
         self.validate_input(input_data, [])
         
-        # Check cache first
-        cache_key_data = json.dumps(input_data, sort_keys=True)
-        cached_response = self.cache.get_cached_response(cache_key_data, {})
-        if cached_response:
-            self.log(f"✅ Cache hit - returning cached image suggestions")
-            return self.format_output(cached_response)
-        
-        # Use LLM to generate contextual image recommendations
-        
-        if not self.ai_available:
-            self.log("⚠️ LLM not available - using fallback image suggestions")
-            return self._generate_fallback_images(input_data)
+        # Always return empty images when LLM access is restricted for security
+        self.log("🔒 Image generation disabled - LLM access restricted for security")
+        return self._generate_empty_images(input_data)
         
         try:
             self.log(f"🔄 Cache miss - generating contextual image suggestions")
@@ -158,8 +145,8 @@ Return ONLY valid JSON with image recommendations:
 {{
     "images": [
         {{
-            "url": "https://placeholder-image-service.com/image-id",
-            "title": "Descriptive title of the image",
+            "url": "[ACTUAL_IMAGE_URL]",
+            "title": "Descriptive title of the image", 
             "source": "Stock photo service / Travel photography",
             "alt_text": "Detailed alt text for accessibility",
             "context": "Where this image would be most effective",
@@ -258,3 +245,26 @@ AVOID:
         
         self.log(f"⚠️ LLM unavailable - image generation disabled to avoid broken URLs")
         return fallback_result
+
+    def _generate_empty_images(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate empty image response when image generation is disabled"""
+        event_name = input_data.get("event_name", "")
+        destination = input_data.get("destination", "")
+        activity_type = input_data.get("activity_type", "")
+        
+        empty_result = {
+            "images": [],
+            "search_query": f"{event_name} {destination} {activity_type}".strip(),
+            "search_context": {
+                "event_name": input_data.get("event_name"),
+                "destination": input_data.get("destination"), 
+                "activity_type": input_data.get("activity_type"),
+                "recommended_sources": [],
+                "note": "Image generation disabled for security"
+            },
+            "total_results": 0,
+            "confidence_score": 0.0,
+            "mode": "disabled"
+        }
+        
+        return empty_result
