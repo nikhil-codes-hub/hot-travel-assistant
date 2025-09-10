@@ -14,7 +14,7 @@ def get_database_url():
         return database_url
     
     # Default to SQLite for MVP - simple, portable, zero-configuration
-    print("🗄️  Using SQLite database (perfect for MVP!)")
+    print("🗄️  Using SQLite database")
     return "sqlite:///./hot_travel_assistant.db"
 
 DATABASE_URL = get_database_url()

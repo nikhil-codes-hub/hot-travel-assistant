@@ -169,7 +169,13 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
 🗓️ Itinerary Overview:
 ${itinerary.rationale || 'Comprehensive travel plan being finalized...'}
 
+${formatDailyItinerary(data)}
+
+
+
 ${formatFlightDetails(data)}
+
+
 
 ${formatHotelDetails(data)}`;
 
@@ -182,11 +188,19 @@ ${formatHotelDetails(data)}`;
                   
                   const completeContent = baseContent + `
 
+
+
 ${visaSection}
+
+
 
 ${healthSection}
 
+
+
 ${docSection}
+
+
 
 📞 Next Steps for Booking:
 • Review flight options with client for final selection
@@ -659,6 +673,97 @@ ${hotelName} ${rating}`;
     return hotelSection;
   };
 
+  const formatDailyItinerary = (data) => {
+    const itinerary = data?.data?.itinerary?.data || {};
+    const days = itinerary.days || [];
+    const destination = itinerary.destination || '';
+    const heroImages = itinerary.hero_images || [];
+    const galleryImages = itinerary.gallery_images || [];
+    
+    if (!days || days.length === 0) {
+      return `
+📅 **Daily Itinerary**
+⚠️ Detailed daily schedule being finalized - please check back in a moment.`;
+    }
+
+    let dailyPlan = `
+📅 **Daily Itinerary - ${destination}**
+
+`;
+
+    // Add hero images if available
+    if (heroImages && heroImages.length > 0) {
+      dailyPlan += `🖼️ **Featured Images:**
+
+`;
+      heroImages.slice(0, 2).forEach(image => {
+        if (image.url) {
+          dailyPlan += `📸 ${image.title || 'Travel destination'} - ${image.source || 'Image source'}
+   🔗 ${image.url}
+
+`;
+        }
+      });
+    }
+
+    days.forEach((day, index) => {
+      const dayNumber = day.day || (index + 1);
+      const dayDate = day.date || '';
+      const location = day.location || destination;
+      const activities = day.activities || [];
+      const meals = day.meals || [];
+      
+      dailyPlan += `**Day ${dayNumber}${dayDate ? ` (${dayDate})` : ''} - ${location}**
+`;
+      
+      if (activities.length > 0) {
+        dailyPlan += `🗓️ **Schedule:**
+`;
+        activities.forEach(activity => {
+          dailyPlan += `• ${activity}
+`;
+        });
+      }
+      
+      if (meals.length > 0) {
+        dailyPlan += `🍽️ **Meals:**
+`;
+        meals.forEach(meal => {
+          dailyPlan += `• ${meal}
+`;
+        });
+      }
+      
+      if (day.budget_estimate) {
+        dailyPlan += `💰 **Estimated Daily Cost:** $${day.budget_estimate}
+`;
+      }
+      
+      dailyPlan += `
+
+
+`;
+    });
+
+    // Add gallery images if available
+    if (galleryImages && galleryImages.length > 0) {
+      dailyPlan += `
+🎭 **Cultural Gallery:**
+
+`;
+      galleryImages.slice(0, 3).forEach(image => {
+        if (image.url) {
+          dailyPlan += `🎨 ${image.title || 'Cultural experience'} - ${image.context || 'Cultural activity'}
+   🔗 ${image.url}
+
+`;
+        }
+      });
+    }
+
+    return dailyPlan;
+  };
+
   const formatVisaRequirements = async (data) => {
     const requirements = data?.data?.requirements?.data?.requirements || {};
     const profile = data?.data?.profile?.data || {};
@@ -988,7 +1093,98 @@ Digital Copies Recommended:
                 <div className="loading">{message.content}</div>
               ) : (
                 <>
-                  <div className="content">{message.content}</div>
+                  <div className="content" style={{whiteSpace: 'pre-wrap'}}>
+                    {message.content.split('\n').map((line, lineIndex) => {
+                      // Add styling for different types of headers
+                      const isFlightHeader = line.match(/^✈️.*Flight/);
+                      const isHotelHeader = line.match(/^🏨.*Accommodation/);
+                      const isVisaHeader = line.match(/^📋.*Visa/);
+                      const isHealthHeader = line.match(/^🏥.*Health/);
+                      const isDocHeader = line.match(/^📄.*Documentation/);
+                      const isDayHeader = line.match(/^\*\*Day \d+/);
+                      const isItineraryHeader = line.match(/^📅.*Daily Itinerary/);
+                      
+                      let sectionStyle = {};
+                      if (isFlightHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#e3f2fd', borderLeft: '4px solid #2196F3', borderRadius: '4px'};
+                      } else if (isHotelHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#f3e5f5', borderLeft: '4px solid #9c27b0', borderRadius: '4px'};
+                      } else if (isVisaHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#fff3e0', borderLeft: '4px solid #ff9800', borderRadius: '4px'};
+                      } else if (isHealthHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#e8f5e8', borderLeft: '4px solid #4caf50', borderRadius: '4px'};
+                      } else if (isDocHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#fce4ec', borderLeft: '4px solid #e91e63', borderRadius: '4px'};
+                      } else if (isDayHeader) {
+                        sectionStyle = {marginTop: '25px', marginBottom: '8px', fontSize: '1.1em', fontWeight: 'bold', color: '#1976d2'};
+                      } else if (isItineraryHeader) {
+                        sectionStyle = {marginTop: '20px', marginBottom: '15px', fontSize: '1.2em', fontWeight: 'bold', color: '#1565c0'};
+                      }
+                      // Check if line contains image URL
+                      const imageUrlMatch = line.match(/🔗 (https?:\/\/[^\s]+)/);
+                      if (imageUrlMatch) {
+                        const imageUrl = imageUrlMatch[1];
+                        console.log('Found image URL:', imageUrl); // Debug logging
+                        return (
+                          <div key={lineIndex} style={{margin: '10px 0'}}>
+                            <div style={{color: '#007bff', fontSize: '0.8em', marginBottom: '5px'}}>
+                              🖼️ Loading image: {imageUrl}
+                            </div>
+                            <img 
+                              src={imageUrl} 
+                              style={{
+                                maxWidth: '300px', 
+                                maxHeight: '200px', 
+                                borderRadius: '8px', 
+                                display: 'block',
+                                objectFit: 'cover',
+                                border: '1px solid #ddd'
+                              }} 
+                              alt="Travel image" 
+                              onLoad={() => console.log('Image loaded successfully:', imageUrl)}
+                              onError={(e) => {
+                                console.log('Image failed to load:', imageUrl);
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                            <div style={{display: 'none', color: '#dc3545', fontSize: '0.9em'}}>
+                              ❌ Failed to load: {imageUrl}
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        // Process markdown-style formatting and clean up emojis
+                        let processedLine = line
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
+                          .replace(/\*(.*?)\*/g, '<em>$1</em>')             // Italic
+                          .replace(/`(.*?)`/g, '<code>$1</code>')           // Inline code
+                          // Replace emojis with clean text
+                          .replace(/✈️/g, '<span style="background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">FLIGHTS</span>')
+                          .replace(/🏨/g, '<span style="background: #9c27b0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">HOTELS</span>')
+                          .replace(/📋/g, '<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">VISA</span>')
+                          .replace(/🏥/g, '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">HEALTH</span>')
+                          .replace(/📄/g, '<span style="background: #e91e63; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">DOCS</span>')
+                          .replace(/📅/g, '<span style="background: #1565c0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">ITINERARY</span>')
+                          .replace(/🗓️/g, '<span style="background: #1976d2; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">SCHEDULE</span>')
+                          .replace(/🍽️/g, '<span style="background: #f57c00; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">MEALS</span>')
+                          .replace(/💰/g, '<span style="background: #388e3c; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">COST</span>')
+                          // Additional clean replacements
+                          .replace(/🎯/g, '<span style="background: #d32f2f; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">PROPOSAL</span>')
+                          .replace(/✅/g, '<span style="color: #4caf50; font-weight: bold;">✓</span>')
+                          .replace(/👤/g, '<span style="background: #607d8b; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">CLIENT</span>')
+                          .replace(/⚠️/g, '<span style="color: #ff9800; font-weight: bold;">⚠</span>')
+                          .replace(/📞/g, '<span style="background: #795548; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">NEXT STEPS</span>');
+                        return (
+                          <div 
+                            key={lineIndex} 
+                            style={sectionStyle}
+                            dangerouslySetInnerHTML={{__html: processedLine}}
+                          />
+                        );
+                      }
+                    })}
+                  </div>
                   {message.type === 'agent' && message.suggestions && message.suggestions.length > 0 && (
                     <div className="suggestions">
                       {message.suggestions.map((suggestion, suggIndex) => (

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from agents.llm_extractor.extractor_agent import LLMExtractorAgent
 from agents.user_profile.profile_agent import UserProfileAgent
 from agents.destination_discovery.destination_agent import DestinationDiscoveryAgent
+from agents.event_search.event_agent import EventSearchAgent
 from agents.flights_search.flights_agent import FlightsSearchAgent
 from agents.hotel_search.hotel_agent import HotelSearchAgent
 from agents.offers.offers_agent import OffersAgent
@@ -36,6 +37,7 @@ class TravelState(TypedDict):
     extracted_requirements: Dict[str, Any]
     user_profile: Dict[str, Any]
     destination_suggestions: Dict[str, Any]
+    event_details: Dict[str, Any]
     flight_offers: List[Dict[str, Any]]
     hotel_offers: List[Dict[str, Any]]
     enhanced_offers: Dict[str, Any]
@@ -52,6 +54,7 @@ class TravelState(TypedDict):
     status: str
     confirmation_pending: bool
     needs_destination_discovery: bool
+    needs_event_search: bool
     messages: List[BaseMessage]
 
 class TravelOrchestrator:
@@ -71,6 +74,9 @@ class TravelOrchestrator:
         # Phase 2: Destination Discovery (conditional)
         workflow.add_node("discover_destinations", self._discover_destinations)
         
+        # Phase 2.5: Event Search (conditional)
+        workflow.add_node("search_events", self._search_events)
+        
         # Phase 3: Search & Offers (parallel)
         workflow.add_node("search_flights_hotels", self._search_flights_hotels_parallel)
         workflow.add_node("enhance_offers", self._enhance_offers)
@@ -89,9 +95,16 @@ class TravelOrchestrator:
         workflow.add_conditional_edges(
             "get_user_profile",
             self._needs_destination_discovery,
-            {"discover": "discover_destinations", "search": "search_flights_hotels"}
+            {"discover": "discover_destinations", "search": "search_events"}
         )
-        workflow.add_edge("discover_destinations", "search_flights_hotels")
+        workflow.add_edge("discover_destinations", "search_events")
+        
+        # Conditional event search
+        workflow.add_conditional_edges(
+            "search_events",
+            self._needs_event_search,
+            {"search": "search_flights_hotels", "skip": "search_flights_hotels"}
+        )
         
         workflow.add_edge("search_flights_hotels", "enhance_offers")
         workflow.add_edge("enhance_offers", "curate_flights")
@@ -145,6 +158,7 @@ class TravelOrchestrator:
                 "extracted_requirements": {},
                 "user_profile": {},
                 "destination_suggestions": {},
+                "event_details": {},
                 "flight_offers": [],
                 "hotel_offers": [],
                 "enhanced_offers": {},
@@ -161,6 +175,7 @@ class TravelOrchestrator:
                 "status": "processing",
                 "confirmation_pending": True,
                 "needs_destination_discovery": False,
+                "needs_event_search": False,
                 "messages": [HumanMessage(content=input_data["user_request"])]
             }
             
@@ -173,6 +188,7 @@ class TravelOrchestrator:
             return {
                 "requirements": result.get('extracted_requirements', {}),
                 "profile": result.get('user_profile', {}),
+                "event_details": result.get('event_details', {}),  # Include events for frontend
                 "flight_offers": result.get('flight_offers', []),
                 "curated_flights": result.get('curated_flights', {}),
                 "hotel_offers": result.get('hotel_offers', []),
@@ -358,6 +374,119 @@ class TravelOrchestrator:
         except Exception as e:
             logger.error(f"Destination discovery failed", session_id=state["session_id"], error=str(e))
             state["destination_suggestions"] = {"error": str(e)}
+        
+        return state
+    
+    def _needs_event_search(self, state: TravelState) -> str:
+        """Determine if event search is needed"""
+        result_data = state["extracted_requirements"].get("data", {})
+        requirements = result_data.get("requirements", {})
+        
+        has_event = (
+            requirements.get("event_name") or 
+            requirements.get("event_type") or
+            state["needs_event_search"]
+        )
+        
+        return "search" if has_event else "skip"
+    
+    async def _search_events(self, state: TravelState) -> TravelState:
+        """Phase 2.5: Search for events and festivals"""
+        # First, check if event search is needed
+        if self._needs_event_search(state) == "skip":
+            logger.info("No events detected, skipping event search", session_id=state["session_id"])
+            return state
+            
+        try:
+            agent = EventSearchAgent()
+            
+            result_data = state["extracted_requirements"].get("data", {})
+            requirements = result_data.get("requirements", {})
+            
+            # Extract event information
+            event_name = requirements.get("event_name")
+            event_type = requirements.get("event_type")
+            destination = requirements.get("destination")
+            
+            logger.info(f"🎉 Event search triggered", 
+                       session_id=state["session_id"],
+                       event_name=event_name,
+                       event_type=event_type,
+                       destination=destination)
+            
+            input_data = {
+                "event_name": event_name,
+                "event_type": event_type,
+                "destination": destination,
+                "departure_date": requirements.get("departure_date"),
+                "duration": requirements.get("duration"),
+                "passengers": requirements.get("passengers", 1),
+                "budget": requirements.get("budget"),
+                "special_requirements": requirements.get("special_requirements", [])
+            }
+            
+            result = await agent.execute(input_data, state["session_id"])
+            state["event_details"] = result
+            
+            # Update travel requirements based on event dates
+            events = result.get("data", {}).get("events", [])
+            if events:
+                primary_event = events[0]
+                event_start_date = primary_event.get("start_date")
+                
+                if event_start_date:
+                    # Calculate optimal arrival date (1-2 days before event)
+                    from datetime import datetime, timedelta
+                    try:
+                        event_date = datetime.strptime(event_start_date, "%Y-%m-%d")
+                        # Arrive 1-2 days before for preparation and settling
+                        optimal_departure = event_date - timedelta(days=2)
+                        optimal_departure_str = optimal_departure.strftime("%Y-%m-%d")
+                        
+                        # Check if the current departure date is a placeholder or fallback
+                        current_departure = requirements.get("departure_date", "")
+                        should_update = (
+                            not current_departure or 
+                            current_departure == "EVENT_BASED" or
+                            "2025-09-09" in current_departure  # Override the fallback date
+                        )
+                        
+                        # Update the requirements with the optimal departure date
+                        if should_update and "data" in state["extracted_requirements"]:
+                            if "requirements" in state["extracted_requirements"]["data"]:
+                                requirements_data = state["extracted_requirements"]["data"]["requirements"]
+                                requirements_data["departure_date"] = optimal_departure_str
+                                
+                                # Also update return date based on duration
+                                duration = requirements_data.get("duration", 5)  # Default 5 days for events
+                                optimal_return = optimal_departure + timedelta(days=duration)
+                                requirements_data["return_date"] = optimal_return.strftime("%Y-%m-%d")
+                                
+                                logger.info(f"Updated travel dates based on event timing", 
+                                           session_id=state["session_id"],
+                                           event_date=event_start_date,
+                                           old_departure_date=current_departure,
+                                           new_departure_date=optimal_departure_str,
+                                           new_return_date=requirements_data["return_date"],
+                                           duration=duration)
+                        else:
+                            logger.info(f"Event-based date update skipped - user has specific date", 
+                                       session_id=state["session_id"],
+                                       current_departure=current_departure,
+                                       event_date=event_start_date)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse event date for travel planning", 
+                                     session_id=state["session_id"], 
+                                     event_date=event_start_date,
+                                     error=str(e))
+            
+            logger.info(f"Events found", 
+                       session_id=state["session_id"],
+                       event_count=len(result.get("data", {}).get("events", [])))
+            
+        except Exception as e:
+            logger.error(f"Event search failed", session_id=state["session_id"], error=str(e))
+            state["event_details"] = {"error": str(e)}
         
         return state
     
@@ -581,7 +710,9 @@ class TravelOrchestrator:
                 "flight_offers": flight_offers_for_itinerary,
                 "hotel_offers": state["enhanced_offers"].get("enhanced_offers", []),
                 "destination_suggestions": state["destination_suggestions"].get("suggestions", []),
-                "curated_flights": curated_flight_data  # Include curation data
+                "curated_flights": curated_flight_data,  # Include curation data
+                "events": state["event_details"].get("data", {}).get("events", []) if state.get("event_details") else [],  # Pass event data for images and scheduling
+                "event_details": state["event_details"].get("data", {}).get("events", []) if state.get("event_details") else []  # Pass event details for itinerary integration
             }
             
             result = await agent.execute(input_data, state["session_id"])
@@ -760,9 +891,15 @@ class TravelOrchestrator:
             "London": "LHR",
             "New York": "JFK",
             "Bangkok": "BKK",
+            "Bangkok, Thailand": "BKK",  # Support the standardized format
+            "Thailand": "BKK",  # Many people say "Thailand" meaning Bangkok
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
+            "Bangalore": "BLR",
+            "Bangalore, India": "BLR",  # Support the standardized format
+            "Bengaluru": "BLR",  # Official name of Bangalore
+            "Bengaluru, India": "BLR",
             "Sydney": "SYD",
             "Los Angeles": "LAX"
         }
@@ -788,25 +925,37 @@ class TravelOrchestrator:
             "London": "LON",
             "New York": "NYC",
             "Bangkok": "BKK",
+            "Bangkok, Thailand": "BKK",  # Support the standardized format
+            "Thailand": "BKK",  # Many people say "Thailand" meaning Bangkok
             "Singapore": "SIN",
             "Dubai": "DXB",
             "Mumbai": "BOM",
+            "Bangalore": "BLR",
+            "Bangalore, India": "BLR",  # Support the standardized format
+            "Bengaluru": "BLR",  # Official name of Bangalore
+            "Bengaluru, India": "BLR",
             "Sydney": "SYD",
             "Los Angeles": "LAX"
         }
         
+        logger.info(f"🗺️ [City Resolution] Input destination: '{destination}'")
+        
         if not destination or destination is None:
+            logger.info("⚠️ [City Resolution] Empty destination, using PAR fallback")
             return "PAR"  # Default fallback
         
         try:
             for city, code in city_codes.items():
                 if city.lower() in destination.lower():
+                    logger.info(f"✅ [City Resolution] Matched '{destination}' → {code}")
                     return code
         except (AttributeError, TypeError):
             # Handle case where destination is None or not a string
+            logger.info(f"❌ [City Resolution] Error processing destination: {destination}")
             pass
         
         # Default fallback
+        logger.info(f"⚠️ [City Resolution] No match found for '{destination}', using PAR fallback")
         return "PAR"
     
     def _get_country_code(self, location: str) -> str:
@@ -824,6 +973,11 @@ class TravelOrchestrator:
             "New York": "US",
             "Thailand": "TH",
             "Bangkok": "TH",
+            "Bangkok, Thailand": "TH",
+            "Bangalore": "IN",
+            "Bangalore, India": "IN",
+            "Bengaluru": "IN",  # Official name of Bangalore
+            "Bengaluru, India": "IN",
             "Singapore": "SG",
             "UAE": "AE",
             "Dubai": "AE",

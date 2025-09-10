@@ -5,6 +5,11 @@ from google.cloud import aiplatform
 from pydantic import BaseModel, Field
 import json
 from agents.base_agent import BaseAgent
+from agents.image_search.image_search_agent import ImageSearchAgent
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class ItineraryDay(BaseModel):
     day: int = Field(..., description="Day number")
@@ -38,6 +43,10 @@ class Itinerary(BaseModel):
     accommodations: List[Dict[str, Any]] = Field([], description="Hotel details")
     total_cost: Dict[str, Any] = Field({"currency": "USD", "total": 0}, description="Total trip cost breakdown")
     
+    # Visual content
+    hero_images: List[Dict[str, Any]] = Field([], description="Main showcase images for itinerary overview")
+    gallery_images: List[Dict[str, Any]] = Field([], description="Additional destination and event images")
+    
     # Travel readiness
     travel_readiness: List[TravelReadinessItem] = Field([], description="Travel preparation checklist")
     
@@ -57,6 +66,9 @@ class PrepareItineraryAgent(BaseAgent):
         super().__init__("PrepareItineraryAgent")
         self.ai_provider = "vertex"  # Only using Vertex AI
         self.ai_available = False
+        
+        # Initialize Image Search Agent
+        self.image_agent = ImageSearchAgent()
         
         try:
             self.log("🔧 [Itinerary Agent] Initializing Vertex AI")
@@ -103,14 +115,31 @@ class PrepareItineraryAgent(BaseAgent):
                 result = await self._create_ai_itinerary(input_data)
             else:
                 self.log("📋 [Itinerary Agent] AI unavailable - using template-based itinerary generation")
-                result = self._create_rule_based_itinerary(input_data)
+                result = await self._create_rule_based_itinerary(input_data)
+            
+            # Extract itinerary data and flatten structure for better UI accessibility
+            itinerary_data = result.get("itinerary", {})
+            if isinstance(itinerary_data, dict):
+                # Create a flattened response that includes both the detailed itinerary data
+                # and preserves the metadata for debugging/logging
+                flattened_result = {
+                    # Main itinerary data directly accessible
+                    **itinerary_data,
+                    # Include metadata for debugging
+                    "metadata": {
+                        "confidence_score": result.get("confidence_score", 0.7),
+                        "personalization_applied": result.get("personalization_applied", False),
+                        "next_steps": result.get("next_steps", [])
+                    }
+                }
+                return self.format_output(flattened_result)
             
             return self.format_output(result)
             
         except Exception as e:
             self.log(f"❌ [Itinerary Agent] Error during itinerary generation: {e}")
             self.log("🔄 [Itinerary Agent] Falling back to emergency itinerary generation")
-            return self._generate_fallback_itinerary(input_data)
+            return await self._generate_fallback_itinerary(input_data)
     
     async def _call_vertex_ai(self, prompt: str) -> str:
         """Call Vertex AI Gemini model"""
@@ -227,12 +256,12 @@ class PrepareItineraryAgent(BaseAgent):
             ai_data = self._clean_ai_data(ai_data)
             
             # Build structured itinerary
-            result = self._build_structured_itinerary(ai_data, input_data)
+            result = await self._build_structured_itinerary(ai_data, input_data)
             return result.model_dump()
             
         except Exception as e:
             self.log(f"AI parsing error: {e}")
-            return self._create_rule_based_itinerary(input_data)
+            return await self._create_rule_based_itinerary(input_data)
     
     def _create_itinerary_prompt(self, input_data: Dict[str, Any]) -> str:
         """Create AI prompt for itinerary generation"""
@@ -241,6 +270,7 @@ class PrepareItineraryAgent(BaseAgent):
         customer_profile = input_data.get("customer_profile", {})
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
+        event_details = input_data.get("event_details", {})
         
         # Extract key information
         destination = requirements.get("destination", "Selected destination")
@@ -254,18 +284,72 @@ class PrepareItineraryAgent(BaseAgent):
         travel_history = customer_profile.get("travel_history", [])
         preferences = customer_profile.get("preferences", {})
         
+        # Event context if available
+        event_context = ""
+        event_schedule_details = ""
+        if event_details and isinstance(event_details, list) and len(event_details) > 0:
+            primary_event = event_details[0]  # Use the first/primary event
+            event_name = primary_event.get("name", "")
+            event_description = primary_event.get("description", "")
+            event_location = primary_event.get("location", destination)
+            event_venue = primary_event.get("venue", "")
+            start_date = primary_event.get("start_date", "")
+            end_date = primary_event.get("end_date", "")
+            event_schedule = primary_event.get("schedule", [])
+            
+            event_context = f"""
+SPECIAL EVENT FOCUS: {event_name}
+Event Location: {event_location}
+Event Venue: {event_venue}
+Event Dates: {start_date} to {end_date}
+Event Description: {event_description}
+
+CRITICAL EVENT REQUIREMENTS:
+1. The entire itinerary MUST be planned around this specific event
+2. Include event-specific activities, timings, and cultural significance
+3. Plan arrival to experience the event highlights
+4. Include pre-event and post-event cultural activities related to the event
+5. Suggest optimal viewing locations and participation opportunities"""
+
+            if event_schedule:
+                event_schedule_details = f"""
+DETAILED EVENT SCHEDULE TO INTEGRATE:
+"""
+                for schedule_item in event_schedule:
+                    date = schedule_item.get("date", "")
+                    time = schedule_item.get("time", "")
+                    activity = schedule_item.get("activity", "")
+                    highlights = schedule_item.get("highlights", [])
+                    event_schedule_details += f"""
+- {date} at {time}: {activity}
+  Key highlights: {', '.join(highlights) if highlights else 'Main event activities'}"""
+        
         return f"""
-Create a detailed travel itinerary for this trip. Be specific and practical.
+Create a comprehensive, detailed travel itinerary with day-by-day activities, cultural experiences, and authentic local recommendations.
 
 TRIP REQUIREMENTS:
 - Destination: {destination}
 - Duration: {duration} days
 - Travelers: {passengers}
 - Departure: {departure_date}
-- Budget: {budget or "Not specified"}
+- Budget: {budget or "Not specified"}{event_context}{event_schedule_details}
 
 CUSTOMER PROFILE:
 - Loyalty tier: {loyalty_tier}
+
+DETAILED ITINERARY REQUIREMENTS:
+1. Create specific daily schedules with timing (e.g. "Day 1 - Morning: 09:00 Activity")
+2. Include authentic cultural experiences and local customs related to the event
+3. CRITICAL: If event details are provided, integrate the exact event schedules and timings into daily activities
+4. Plan the entire trip around the main event - arrival, event participation, and cultural exploration
+5. Include event-specific activities: preparation, participation, and post-event cultural experiences
+6. Provide specific venue names, addresses, and practical details for event locations
+7. Include meal recommendations featuring local cuisine related to the event/festival
+8. Add transportation details between event venues and activities
+9. Incorporate rest periods and flexibility around event schedules
+10. Include cultural etiquette and dress code guidance specific to the event
+11. Provide backup indoor activities for weather contingencies
+12. Add unique local experiences beyond typical tourist attractions that complement the main event
 - Previous trips: {len(travel_history)} recorded trips
 - Preferences: {preferences}
 
@@ -273,7 +357,9 @@ AVAILABLE OFFERS:
 - Flight options: {len(flight_offers)} available
 - Hotel options: {len(hotel_offers)} available
 
-Create a comprehensive itinerary and return ONLY valid JSON:
+CRITICAL REQUIREMENT: You MUST create a detailed daily schedule for each day of the trip.
+
+Create a comprehensive itinerary with specific daily activities and return ONLY valid JSON:
 {{
     "itinerary_overview": {{
         "title": "Descriptive trip title",
@@ -284,7 +370,9 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "local_culture": "Key cultural highlights or customs to know",
             "currency": "Local currency and approximate exchange rate",
             "language": "Primary language(s) spoken",
-            "timezone": "Timezone information relative to traveler's origin"
+            "timezone": "Timezone information relative to traveler's origin",
+            "popular_attractions": ["Top 5-7 must-see attractions and landmarks in {destination}"],
+            "event_highlights": "Special event information and related activities if applicable"
         }},
         "duration": {duration},
         "travelers": {passengers},
@@ -297,11 +385,36 @@ Create a comprehensive itinerary and return ONLY valid JSON:
             "day": 1,
             "date": "YYYY-MM-DD",
             "location": "City/Area",
-            "activities": ["Arrival", "Hotel check-in", "Explore area"],
-            "meals": ["Lunch at local restaurant", "Dinner recommendation"],
-            "accommodation": "Hotel info if relevant",
+            "activities": [
+                "09:00 - Arrival at airport",
+                "11:00 - Hotel check-in and rest",
+                "14:00 - Lunch at local restaurant",
+                "15:30 - Visit major attraction #1",
+                "18:00 - Cultural experience or local market",
+                "20:00 - Traditional dinner"
+            ],
+            "meals": ["Local breakfast", "Traditional lunch at restaurant name", "Cultural dinner experience"],
+            "accommodation": "Hotel name and benefits",
             "budget_estimate": 200
+        }},
+        {{
+            "day": 2,
+            "date": "YYYY-MM-DD",
+            "location": "City/Area", 
+            "activities": [
+                "08:00 - Breakfast at hotel",
+                "09:30 - Morning cultural activity",
+                "11:00 - Visit attraction #2",
+                "13:00 - Lunch break",
+                "14:30 - Afternoon sightseeing",
+                "17:00 - Local experience",
+                "19:30 - Dinner"
+            ],
+            "meals": ["Hotel breakfast", "Local specialty lunch", "Regional cuisine dinner"],
+            "accommodation": "Hotel name",
+            "budget_estimate": 250
         }}
+        // Continue for ALL {duration} days - DO NOT SKIP ANY DAYS
     ],
     "travel_components": {{
         "flights": ["Flight summary from offers"],
@@ -316,28 +429,59 @@ Create a comprehensive itinerary and return ONLY valid JSON:
         }}
     }},
     "rationale": "Why this itinerary works for the traveler",
-    "highlights": ["Key experiences", "Must-see attractions", "Unique opportunities"],
+    "highlights": ["Key experiences including event highlights if applicable", "Must-see attractions and popular landmarks", "Unique opportunities and local experiences"],
     "travel_tips": ["Practical advice", "Local insights", "Money-saving tips"],
     "confidence_score": 0.0-1.0
 }}
 
-Focus on:
-1. Realistic day-by-day planning
-2. Logical flow and pacing
-3. Budget considerations
-4. Customer preferences alignment
-5. Practical logistics (check-in times, travel times)
+MANDATORY REQUIREMENTS:
+1. You MUST create a "daily_plan" array with exactly {duration} day entries
+2. Each day must have specific time-based activities (e.g. "09:00 - Activity")
+3. CRITICAL: If event schedules are provided, you MUST integrate the exact event timings and activities into the daily plan
+4. Include realistic venue names and specific locations, especially event venues
+5. Provide practical logistics (check-in times, travel times, event arrival times)
+6. Include popular city attractions and landmarks that relate to the event theme
+7. MANDATORY: If this is an event-focused trip, the majority of activities must relate to the event
+8. Provide authentic local cultural experiences that connect to the event's significance
+9. Balance event activities with rest periods and complementary cultural experiences
+
+CRITICAL: If you do not provide {duration} detailed days in the daily_plan array, the response will be rejected.
 """
     
-    def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
+    async def _build_structured_itinerary(self, ai_data: Dict[str, Any], input_data: Dict[str, Any]) -> PrepareItineraryResult:
         """Build structured itinerary from AI response"""
         
         overview = ai_data.get("itinerary_overview", {})
         daily_plans = ai_data.get("daily_plan", [])
         travel_components = ai_data.get("travel_components", {})
         
-        # Build daily itinerary
+        # Build daily itinerary with validation
         days = []
+        duration = input_data.get("requirements", {}).get("duration", 7)
+        
+        # Log what we received for debugging
+        self.log(f"Daily plans received: {len(daily_plans)} (expected: {duration})")
+        
+        # If we don't have enough daily plans, generate minimal ones
+        if len(daily_plans) < duration:
+            self.log(f"⚠️ Insufficient daily plans - expected {duration}, got {len(daily_plans)}")
+            # Add basic daily plans for missing days
+            for i in range(len(daily_plans), duration):
+                daily_plans.append({
+                    "day": i + 1,
+                    "date": "2024-06-01",  # Placeholder date
+                    "location": input_data.get("requirements", {}).get("destination", "Destination"),
+                    "activities": [
+                        "Morning exploration",
+                        "Visit local attractions", 
+                        "Cultural experience",
+                        "Local cuisine sampling",
+                        "Evening leisure"
+                    ],
+                    "meals": ["Local breakfast", "Traditional lunch", "Regional dinner"],
+                    "budget_estimate": 200
+                })
+        
         for plan in daily_plans:
             day = ItineraryDay(
                 day=plan.get("day", 1),
@@ -351,9 +495,22 @@ Focus on:
             )
             days.append(day)
         
+        self.log(f"✅ Built {len(days)} daily itinerary items")
+        
         # Build travel readiness checklist
         requirements = input_data.get("requirements", {})
         travel_readiness = self._generate_travel_readiness(requirements)
+        
+        # Generate images for the AI itinerary
+        destination = requirements.get("destination", "Destination")
+        event_details = input_data.get("event_details", [])
+        try:
+            hero_images, gallery_images = await self._generate_itinerary_images(
+                destination, event_details, requirements
+            )
+        except Exception as e:
+            self.log(f"⚠️ Image generation failed in AI flow: {str(e)}")
+            hero_images, gallery_images = [], []
         
         # Create main itinerary
         itinerary = Itinerary(
@@ -368,6 +525,8 @@ Focus on:
             flights=travel_components.get("flights", []),
             accommodations=travel_components.get("hotels", []),
             total_cost=travel_components.get("total_cost", {}),
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             travel_readiness=travel_readiness,
             rationale=ai_data.get("rationale", "Itinerary planned based on requirements"),
             highlights=ai_data.get("highlights", []),
@@ -386,7 +545,7 @@ Focus on:
         
         return result
     
-    def _create_rule_based_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_rule_based_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create enhanced itinerary using rule-based logic with personalization"""
         
         requirements = input_data.get("requirements", {})
@@ -394,6 +553,7 @@ Focus on:
         flight_offers = input_data.get("flight_offers", [])
         hotel_offers = input_data.get("hotel_offers", [])
         destination_suggestions = input_data.get("destination_suggestions", [])
+        event_details = input_data.get("event_details", {})
         
         duration = requirements.get("duration", 7)
         destination = requirements.get("destination", "Destination")
@@ -502,14 +662,22 @@ Focus on:
         travel_readiness = self._generate_travel_readiness(requirements)
         
         # Create personalized highlights and tips
-        highlights = self._get_destination_highlights(destination)
+        highlights = self._get_destination_highlights(destination, event_details)
         tips = self._get_destination_tips(destination, loyalty_tier)
         
         # Enhanced rationale
         rationale = f"This {duration}-day itinerary for {destination} is curated for {passengers} travelers with {loyalty_tier} tier benefits. "
+        if event_details:
+            event_name = event_details.get("name", "special event")
+            rationale += f"The itinerary includes {event_name} and related activities. "
         if destination_suggestions:
             rationale += f"Selected from recommended destinations based on your preference for snowy destinations. "
         rationale += f"The plan balances sightseeing, relaxation, and cultural experiences while maximizing your {loyalty_tier} member benefits."
+        
+        # Generate images for the itinerary
+        hero_images, gallery_images = await self._generate_itinerary_images(
+            destination, event_details, requirements
+        )
         
         # Create itinerary
         itinerary = Itinerary(
@@ -523,6 +691,8 @@ Focus on:
             days=days,
             flights=flight_offers[:2] if flight_offers else [],
             accommodations=hotel_offers[:3] if hotel_offers else [],
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             total_cost={
                 "flights": flight_cost,
                 "hotels": hotel_cost,
@@ -593,36 +763,88 @@ Focus on:
         else:
             return [f"{tier_prefix}Local cuisine", f"{tier_prefix}Traditional dishes", f"{tier_prefix}Regional specialties"]
     
-    def _get_destination_highlights(self, destination: str) -> List[str]:
-        """Get destination-specific highlights"""
+    def _get_destination_highlights(self, destination: str, event_details: Dict[str, Any] = None) -> List[str]:
+        """Get destination-specific highlights including events and popular attractions"""
         destination_lower = destination.lower()
+        highlights = []
         
-        if any(keyword in destination_lower for keyword in ["zermatt", "switzerland"]):
-            return [
+        # Add event highlights first if available
+        if event_details:
+            event_name = event_details.get("name", "")
+            event_description = event_details.get("description", "")
+            if event_name:
+                highlights.append(f"{event_name} - special festival celebration")
+        
+        # Add destination-specific attractions
+        if any(keyword in destination_lower for keyword in ["bangkok", "thailand"]):
+            highlights.extend([
+                "Grand Palace and Wat Phra Kaew",
+                "Wat Arun (Temple of Dawn)",
+                "Chatuchak Weekend Market",
+                "Chao Phraya River boat tours",
+                "Thai street food experiences",
+                "Floating markets",
+                "Traditional Thai massage"
+            ])
+        elif any(keyword in destination_lower for keyword in ["bengaluru", "bangalore", "india"]):
+            highlights.extend([
+                "Lalbagh Botanical Garden",
+                "Bangalore Palace",
+                "Vidhana Soudha architecture",
+                "Cubbon Park and museums",
+                "Traditional South Indian cuisine",
+                "Local markets and shopping",
+                "Brewery culture and nightlife"
+            ])
+        elif any(keyword in destination_lower for keyword in ["paris", "france"]):
+            highlights.extend([
+                "Eiffel Tower and Trocadéro views",
+                "Louvre Museum and Mona Lisa",
+                "Notre-Dame Cathedral",
+                "Champs-Élysées and Arc de Triomphe",
+                "Seine River cruise",
+                "Montmartre and Sacré-Cœur",
+                "French cuisine and café culture"
+            ])
+        elif any(keyword in destination_lower for keyword in ["tokyo", "japan"]):
+            highlights.extend([
+                "Senso-ji Temple in Asakusa",
+                "Tokyo Skytree and city views",
+                "Shibuya Crossing",
+                "Meiji Shrine and Harajuku",
+                "Tsukiji Outer Market",
+                "Traditional and modern architecture",
+                "Japanese cuisine experiences"
+            ])
+        elif any(keyword in destination_lower for keyword in ["zermatt", "switzerland"]):
+            highlights.extend([
                 "Iconic Matterhorn mountain views",
                 "Gornergrat Railway scenic journey",
                 "World-class Alpine skiing",
                 "Charming car-free village",
                 "Swiss culinary experiences",
                 "Luxury mountain hospitality"
-            ]
+            ])
         elif any(keyword in destination_lower for keyword in ["banff", "canada"]):
-            return [
+            highlights.extend([
                 "Stunning Rocky Mountain scenery",
                 "World-class skiing at multiple resorts",
                 "Pristine lakes and glaciers",
                 "Abundant wildlife viewing",
                 "Natural hot springs relaxation",
                 "Canadian hospitality and cuisine"
-            ]
+            ])
         else:
-            return [
+            # Generic highlights for unknown destinations
+            highlights.extend([
                 f"Explore the beauty of {destination}",
                 "Immerse in local culture",
                 "Experience regional cuisine",
                 "Visit iconic landmarks",
                 "Enjoy local hospitality"
-            ]
+            ])
+        
+        return highlights
     
     def _get_destination_tips(self, destination: str, loyalty_tier: str) -> List[str]:
         """Get destination-specific travel tips"""
@@ -681,7 +903,20 @@ Focus on:
                 "local_culture": "Bow as greeting, remove shoes indoors, quiet on public transport, tipping not customary",
                 "currency": "Japanese Yen (JPY), approximately ¥150 = $1 USD",
                 "language": "Japanese (some English in tourist areas)",
-                "timezone": "JST (UTC+9), typically 13-16 hours ahead of US time zones"
+                "timezone": "JST (UTC+9), typically 13-16 hours ahead of US time zones",
+                "popular_attractions": ["Senso-ji Temple", "Tokyo Skytree", "Shibuya Crossing", "Meiji Shrine", "Tsukiji Market", "Imperial Palace", "Harajuku District"],
+                "event_highlights": "Experience traditional festivals, cherry blossom season, and modern celebrations"
+            }
+        elif 'india' in destination_lower or 'bengaluru' in destination_lower or 'bangalore' in destination_lower:
+            return {
+                "description": "India's Silicon Valley, Bengaluru combines modern tech culture with rich history, beautiful gardens, and vibrant traditions.",
+                "best_time_to_visit": "October to March for pleasant weather, avoid monsoon season (June-September)",
+                "local_culture": "Namaste greeting, dress modestly at religious sites, diverse languages and customs",
+                "currency": "Indian Rupee (INR), approximately ₹83 = $1 USD",
+                "language": "English and Kannada widely spoken, Hindi understood",
+                "timezone": "IST (UTC+5:30), typically 10.5-13.5 hours ahead of US time zones",
+                "popular_attractions": ["Lalbagh Botanical Garden", "Bangalore Palace", "Vidhana Soudha", "Cubbon Park", "ISCKON Temple", "Commercial Street", "UB City Mall"],
+                "event_highlights": "Experience local festivals, traditional celebrations, and cultural events"
             }
         elif 'thailand' in destination_lower or 'bangkok' in destination_lower:
             return {
@@ -690,7 +925,9 @@ Focus on:
                 "local_culture": "Wai greeting (prayer-like gesture), dress modestly at temples, remove shoes when entering homes",
                 "currency": "Thai Baht (THB), approximately ฿35 = $1 USD",
                 "language": "Thai (English widely spoken in tourist areas)",
-                "timezone": "ICT (UTC+7), typically 12-15 hours ahead of US time zones"
+                "timezone": "ICT (UTC+7), typically 12-15 hours ahead of US time zones",
+                "popular_attractions": ["Grand Palace", "Wat Pho Temple", "Wat Arun", "Chatuchak Market", "Chao Phraya River", "Floating Markets", "Khao San Road"],
+                "event_highlights": "Experience local festivals, temple ceremonies, and traditional celebrations"
             }
         elif 'france' in destination_lower or 'paris' in destination_lower:
             return {
@@ -699,7 +936,9 @@ Focus on:
                 "local_culture": "Greet with 'Bonjour/Bonsoir', dress elegantly, dining is leisurely, tipping 10% is appreciated",
                 "currency": "Euro (EUR), approximately €0.85 = $1 USD",
                 "language": "French (English spoken in tourist areas, learning basic French phrases appreciated)",
-                "timezone": "CET (UTC+1), typically 6-9 hours ahead of US time zones"
+                "timezone": "CET (UTC+1), typically 6-9 hours ahead of US time zones",
+                "popular_attractions": ["Eiffel Tower", "Louvre Museum", "Notre-Dame Cathedral", "Arc de Triomphe", "Champs-Élysées", "Montmartre", "Seine River Cruise"],
+                "event_highlights": "Experience French festivals, art exhibitions, and cultural celebrations"
             }
         else:
             # Generic fallback for unknown destinations
@@ -709,7 +948,9 @@ Focus on:
                 "local_culture": "Learn about local customs, dress codes, and social etiquette before arrival",
                 "currency": "Check current exchange rates and payment methods commonly accepted",
                 "language": "Research primary language and useful phrases for travelers",
-                "timezone": "Verify timezone difference and plan for jet lag adjustment"
+                "timezone": "Verify timezone difference and plan for jet lag adjustment",
+                "popular_attractions": ["Major landmarks", "Cultural sites", "Local markets", "Museums", "Religious sites", "Natural attractions"],
+                "event_highlights": "Discover local festivals, cultural events, and seasonal celebrations"
             }
     
     def _generate_travel_readiness(self, requirements: Dict[str, Any]) -> List[TravelReadinessItem]:
@@ -861,15 +1102,26 @@ Focus on:
         
         return steps
     
-    def _generate_fallback_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate minimal fallback itinerary"""
+    async def _generate_fallback_itinerary(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate minimal fallback itinerary with images"""
         
         requirements = input_data.get("requirements", {})
+        events = input_data.get("events", [])
+        destination = requirements.get("destination", "Destination")
+        
+        # Generate images for the fallback itinerary
+        try:
+            hero_images, gallery_images = await self._generate_itinerary_images(
+                destination, events, requirements
+            )
+        except Exception as e:
+            self.log(f"⚠️ Image generation failed in fallback: {str(e)}")
+            hero_images, gallery_images = [], []
         
         fallback_itinerary = Itinerary(
             title="Travel Plan",
-            destination=requirements.get("destination", "Destination"),
-            destination_info=self._get_default_destination_info(requirements.get("destination", "")),
+            destination=destination,
+            destination_info=self._get_default_destination_info(destination),
             duration=requirements.get("duration", 7),
             traveler_count=requirements.get("passengers", 1),
             departure_date=requirements.get("departure_date", "2024-06-01"),
@@ -877,6 +1129,8 @@ Focus on:
             days=[],
             flights=[],
             accommodations=[],
+            hero_images=hero_images,
+            gallery_images=gallery_images,
             total_cost={"total": 0, "currency": "USD"},
             travel_readiness=[],
             rationale="Basic travel plan - detailed itinerary generation not available",
@@ -892,3 +1146,10 @@ Focus on:
         )
         
         return self.format_output(fallback_result.model_dump())
+
+    async def _generate_itinerary_images(self, destination: str, event_details: Dict[str, Any], requirements: Dict[str, Any]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Generate hero and gallery images for the itinerary - DISABLED for security compliance"""
+        # Image generation completely disabled to prevent any broken or placeholder URLs
+        self.log("🔒 Image generation disabled for security compliance")
+        return [], []
+

@@ -138,7 +138,7 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 You should see:
 ```
-🗄️  Using SQLite database (perfect for MVP!)
+🗄️  Using SQLite database
 📁 Database: sqlite:///./hot_travel_assistant.db
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ```
