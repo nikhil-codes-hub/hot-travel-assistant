@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 import uuid
 from datetime import datetime
 
+from api.send_email import send_message
 from config.database import get_db, engine
 from models.database_models import Base
 from orchestrator.travel_orchestrator import TravelOrchestrator
@@ -17,6 +18,56 @@ app = FastAPI(
     description="Agentic AI Travel Assistant for House of Travel",
     version="1.0.0"
 )
+
+# # ---------------------- Models ---------------------- #
+class Flight(BaseModel):
+    rank: int
+    airline: Optional[str]
+    price: Optional[str]
+    route: Optional[str]
+    connections: Optional[int]
+    recommendation_reason: Optional[str]
+
+class Hotel(BaseModel):
+    name: Optional[str]
+    price_per_night: Optional[str]
+    location: Optional[str]
+    room_type: Optional[str]
+
+class TripDetails(BaseModel):
+    destination: str
+    departure_date: str
+    return_date: Optional[str]
+    duration: Optional[int]
+    passengers: Optional[int]
+    travel_class: Optional[str]
+    budget: Optional[float]
+    budget_currency: Optional[str]
+
+class Customer(BaseModel):
+    email: str
+    name: str
+    loyalty_tier: Optional[str]
+    nationality: Optional[str]
+    booking_history: Optional[int]
+
+class SessionInfo(BaseModel):
+    session_id: str
+    generated_at: str
+    agent_notes: Optional[str]
+
+class EmailData(BaseModel):
+    customer: Customer
+    trip_details: TripDetails
+    flights: List[Flight] = []
+    hotels: List[Hotel] = []
+    session_info: Optional[SessionInfo]
+
+class SendMailResponse(BaseModel):
+    success: bool
+    message: str
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 # Add CORS middleware
 app.add_middleware(
@@ -63,6 +114,18 @@ async def health_check(db = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Database connection failed: {e}")
+ 
+@app.post("/travel/sendmail", response_model=SendMailResponse)
+async def sendmail(email_data: EmailData):
+    try:
+        # convert Pydantic model to dict
+        print("the emaildata before",email_data)
+        # email_data = email_data.dict()
+        print("fligents details after",email_data.customer.email)
+        send_message(email_data)
+        return {"success": True, "message": "✅ Email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"❌ Failed to send email: {str(e)}")
 
 @app.post("/travel/search", response_model=TravelResponse)
 async def search_travel(request: TravelRequest, db = Depends(get_db)):

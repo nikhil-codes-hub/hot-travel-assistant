@@ -410,8 +410,25 @@ Ready to proceed with reservations`;
     return emailData;
   };
 
-  const handleEmailCustomer = (data) => {
+  const handleEmailCustomer = async (data) => {
     const emailJSON = generateEmailJSON(data);
+    
+    try {
+      const response = await fetch('http://localhost:8000/travel/sendmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailJSON)
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('✅ Email sent successfully!');
+      } else {
+        alert('❌ Failed to send email: ' + result.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('❌ Error sending email: ' + err.message);
+    }
     
     // For now, log to console and show alert with JSON
     console.log("Email JSON Data:", JSON.stringify(emailJSON, null, 2));
@@ -427,7 +444,7 @@ Ready to proceed with reservations`;
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    alert('Travel proposal JSON has been generated and downloaded. This data can be used by your colleague for email integration.');
+    // alert('Travel proposal JSON has been generated and downloaded. This data can be used by your colleague for email integration.');
   };
 
   const generateFlightCurationStatus = (data) => {
