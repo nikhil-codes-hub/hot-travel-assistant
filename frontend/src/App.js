@@ -1078,11 +1078,31 @@ Digital Copies Recommended:
                 <>
                   <div className="content" style={{whiteSpace: 'pre-wrap'}}>
                     {message.content.split('\n').map((line, lineIndex) => {
-                      // Add extra spacing for major sections and day headers
-                      const isSectionHeader = line.match(/^(✈️|🏨|📋|🏥|📄)/);
+                      // Add styling for different types of headers
+                      const isFlightHeader = line.match(/^✈️.*Flight/);
+                      const isHotelHeader = line.match(/^🏨.*Accommodation/);
+                      const isVisaHeader = line.match(/^📋.*Visa/);
+                      const isHealthHeader = line.match(/^🏥.*Health/);
+                      const isDocHeader = line.match(/^📄.*Documentation/);
                       const isDayHeader = line.match(/^\*\*Day \d+/);
-                      const sectionStyle = isSectionHeader ? {marginTop: '30px', marginBottom: '10px'} : 
-                                         isDayHeader ? {marginTop: '25px', marginBottom: '8px'} : {};
+                      const isItineraryHeader = line.match(/^📅.*Daily Itinerary/);
+                      
+                      let sectionStyle = {};
+                      if (isFlightHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#e3f2fd', borderLeft: '4px solid #2196F3', borderRadius: '4px'};
+                      } else if (isHotelHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#f3e5f5', borderLeft: '4px solid #9c27b0', borderRadius: '4px'};
+                      } else if (isVisaHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#fff3e0', borderLeft: '4px solid #ff9800', borderRadius: '4px'};
+                      } else if (isHealthHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#e8f5e8', borderLeft: '4px solid #4caf50', borderRadius: '4px'};
+                      } else if (isDocHeader) {
+                        sectionStyle = {marginTop: '30px', marginBottom: '15px', padding: '12px', backgroundColor: '#fce4ec', borderLeft: '4px solid #e91e63', borderRadius: '4px'};
+                      } else if (isDayHeader) {
+                        sectionStyle = {marginTop: '25px', marginBottom: '8px', fontSize: '1.1em', fontWeight: 'bold', color: '#1976d2'};
+                      } else if (isItineraryHeader) {
+                        sectionStyle = {marginTop: '20px', marginBottom: '15px', fontSize: '1.2em', fontWeight: 'bold', color: '#1565c0'};
+                      }
                       // Check if line contains image URL
                       const imageUrlMatch = line.match(/🔗 (https?:\/\/[^\s]+)/);
                       if (imageUrlMatch) {
@@ -1117,11 +1137,27 @@ Digital Copies Recommended:
                           </div>
                         );
                       } else {
-                        // Process markdown-style formatting
+                        // Process markdown-style formatting and clean up emojis
                         let processedLine = line
                           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
                           .replace(/\*(.*?)\*/g, '<em>$1</em>')             // Italic
-                          .replace(/`(.*?)`/g, '<code>$1</code>');          // Inline code
+                          .replace(/`(.*?)`/g, '<code>$1</code>')           // Inline code
+                          // Replace emojis with clean text
+                          .replace(/✈️/g, '<span style="background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">FLIGHTS</span>')
+                          .replace(/🏨/g, '<span style="background: #9c27b0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">HOTELS</span>')
+                          .replace(/📋/g, '<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">VISA</span>')
+                          .replace(/🏥/g, '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">HEALTH</span>')
+                          .replace(/📄/g, '<span style="background: #e91e63; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">DOCS</span>')
+                          .replace(/📅/g, '<span style="background: #1565c0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 8px;">ITINERARY</span>')
+                          .replace(/🗓️/g, '<span style="background: #1976d2; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">SCHEDULE</span>')
+                          .replace(/🍽️/g, '<span style="background: #f57c00; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">MEALS</span>')
+                          .replace(/💰/g, '<span style="background: #388e3c; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">COST</span>')
+                          // Additional clean replacements
+                          .replace(/🎯/g, '<span style="background: #d32f2f; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">PROPOSAL</span>')
+                          .replace(/✅/g, '<span style="color: #4caf50; font-weight: bold;">✓</span>')
+                          .replace(/👤/g, '<span style="background: #607d8b; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">CLIENT</span>')
+                          .replace(/⚠️/g, '<span style="color: #ff9800; font-weight: bold;">⚠</span>')
+                          .replace(/📞/g, '<span style="background: #795548; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.75em; margin-right: 6px;">NEXT STEPS</span>');
                         return (
                           <div 
                             key={lineIndex} 
