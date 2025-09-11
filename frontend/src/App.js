@@ -104,27 +104,76 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
         const filtered = prev.filter(msg => msg.type !== 'loading');
         
         let agentContent = '';
-        if (data.data) {
-          if (typeof data.data === 'string') {
-            agentContent = data.data;
-          } else if (data.data.response) {
-            agentContent = data.data.response;
-          } else {
-            agentContent = 'Travel request processed successfully!';
+        const responseData = data.data;
+        
+        if (responseData) {
+          // Check for detailed itinerary
+          if (responseData.itinerary && responseData.itinerary.data) {
+            const itinerary = responseData.itinerary.data;
+            agentContent = `🌟 **Your Travel Itinerary**
+
+${itinerary.itinerary_summary || 'Complete travel plan prepared!'}
+
+**📅 Travel Overview:**
+• Destination: ${responseData.requirements?.destination || 'Multiple destinations'}
+• Duration: ${responseData.requirements?.duration || '7'} days
+• Travelers: ${responseData.requirements?.passengers || 1} person(s)
+• Dates: ${responseData.requirements?.departure_date || 'TBD'} - ${responseData.requirements?.return_date || 'TBD'}
+
+**✈️ Flight Options:**
+${responseData.flight_offers?.length ? `Found ${responseData.flight_offers.length} flight options` : 'Flight search in progress...'}
+
+**🏨 Hotel Options:**  
+${responseData.hotel_offers?.length ? `Found ${responseData.hotel_offers.length} hotel options` : 'Hotel search in progress...'}
+
+**🎯 Key Recommendations:**
+${itinerary.key_recommendations?.map(rec => `• ${rec}`).join('\n') || '• Personalized recommendations based on your profile'}
+
+**💰 Estimated Budget:**
+${itinerary.estimated_cost ? `From $${itinerary.estimated_cost}` : 'Budget calculation in progress...'}
+
+Ready to book or need modifications?`;
+          }
+          // Check for string response
+          else if (typeof responseData === 'string') {
+            agentContent = responseData;
+          } 
+          // Check for basic response property
+          else if (responseData.response) {
+            agentContent = responseData.response;
+          }
+          // Check for requirements-only response (partial completion)
+          else if (responseData.requirements) {
+            agentContent = `✅ **Travel Requirements Processed**
+
+**📋 Your Request Details:**
+• Destination: ${responseData.requirements.destination || 'Not specified'}
+• Departure: ${responseData.requirements.departure_date || 'TBD'}
+• Duration: ${responseData.requirements.duration || 'TBD'} days
+• Travelers: ${responseData.requirements.passengers || 1} person(s)
+• Budget: ${responseData.requirements.budget ? `$${responseData.requirements.budget} ${responseData.requirements.budget_currency || 'USD'}` : 'Not specified'}
+
+🔄 **Processing your complete itinerary...**
+Flight and hotel search in progress. This may take a few moments.`;
+          }
+          else {
+            agentContent = 'Travel request processed successfully! Detailed itinerary is being prepared.';
           }
         } else {
-          agentContent = 'Travel request processed successfully!';
+          agentContent = 'Travel request processed successfully! Please try again for detailed results.';
         }
 
         return [...filtered, {
           type: 'agent',
           content: agentContent,
           suggestions: [
-            'Get more details about this trip',
-            'Check travel requirements', 
-            'Find the best deals',
-            'Modify this itinerary'
-          ]
+            'Show flight details',
+            'Check hotel options', 
+            'View complete itinerary',
+            'Modify travel dates',
+            'Check visa requirements'
+          ],
+          rawData: responseData // Store raw data for debugging
         }];
       });
 
