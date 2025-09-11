@@ -17,27 +17,38 @@ This downgrades NumPy to 1.26.4 for compatibility with pandas and numexpr librar
 
 ## Required Services
 
-To run the complete system:
+To run the complete system, you only need **2 services**:
 
-1. **Main API Server** (port 8000):
+1. **Main API Server** (port 8000) - includes customer profiles:
    ```bash
    python -m uvicorn api.main:app --reload --port 8000
    ```
 
-2. **Customer Profile API** (port 8001):
-   ```bash
-   python api/customer_profile_api.py
-   ```
-
-3. **Frontend** (port 3000):
+2. **Frontend** (port 3000):
    ```bash
    cd frontend && npm start
    ```
 
-4. **Initialize Database** (run once):
+3. **Initialize Database** (run once):
    ```bash
    python database/sample_customer_data.py
    ```
+
+**Note:** The customer profile API is now integrated into the main API server, eliminating the need for a separate service on port 8001.
+
+## Quick Start
+
+For the simplest setup, just run:
+
+```bash
+./start.sh
+```
+
+This will automatically:
+- Initialize the database (if needed)
+- Start the backend API server (port 8000)  
+- Start the frontend (port 3000)
+- Display helpful URLs and test emails
 
 ## Test Customer Emails
 

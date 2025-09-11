@@ -4,7 +4,7 @@ import './App.css';
 function App() {
   // Dynamic API URL configuration
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://hot-travel-backend-or4aflufiq-uc.a.run.app';
-  const CUSTOMER_API_URL = 'http://localhost:8001';  // Local customer profile API
+  const CUSTOMER_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';  // Use main API for customer profiles
   
   const [messages, setMessages] = useState([
     {
