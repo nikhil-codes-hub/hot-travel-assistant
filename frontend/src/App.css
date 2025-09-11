@@ -56,12 +56,11 @@ body {
 /* Main Layout */
 .main-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 0;
   flex: 1;
-  max-width: 1400px;
-  margin: 0 auto;
   width: 100%;
+  height: 100%;
 }
 
 /* Left Panel - Chatbot */
@@ -135,8 +134,9 @@ body {
 }
 
 .user-message {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
   align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
@@ -340,12 +340,15 @@ body {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.performance-stats {
+.performance-stats,
+.cache-management {
   padding: 2rem;
   background: white;
+  margin-bottom: 1rem;
 }
 
-.performance-stats h3 {
+.performance-stats h3,
+.cache-management h3 {
   font-size: 1.3rem;
   color: #2a5298;
   margin-bottom: 1.5rem;
@@ -440,7 +443,8 @@ body {
   
   .agent-capabilities,
   .quick-actions,
-  .performance-stats {
+  .performance-stats,
+  .cache-management {
     padding: 1rem;
   }
 }
