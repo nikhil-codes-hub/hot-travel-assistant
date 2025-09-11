@@ -7,8 +7,13 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
-RUN npm ci
+# Clear npm cache and install dependencies
+RUN npm cache clean --force
+RUN npm install --verbose
+
+# Verify react-scripts installation
+RUN ls -la node_modules/.bin/react-scripts || echo "react-scripts not found"
+RUN npm list react-scripts || echo "react-scripts not in package list"
 
 # Copy source code
 COPY . .
