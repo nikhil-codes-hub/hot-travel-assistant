@@ -62,6 +62,8 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
       special_requirements: []
     }
   });
+  const [cacheStats, setCacheStats] = useState(null);
+  const [cacheLoading, setCacheLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -358,6 +360,74 @@ Ready to proceed with reservations`;
   const handleSuggestionClick = (suggestion) => {
     sendMessage(suggestion);
   };
+
+  // Cache management functions
+  const getCacheStats = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/cache/stats');
+      const data = await response.json();
+      if (data.success) {
+        setCacheStats(data.cache_stats);
+      }
+    } catch (error) {
+      console.error('Error getting cache stats:', error);
+    }
+  };
+
+  const clearCache = async () => {
+    setCacheLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/cache/clear', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Cache cleared successfully!\n\n${data.message}\nFiles removed: ${data.files_removed}\nSize freed: ${data.size_cleared_mb} MB`);
+        // Refresh stats
+        setTimeout(() => {
+          getCacheStats();
+        }, 500);
+      } else {
+        alert(`❌ Error clearing cache: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+      alert('❌ Error clearing cache: Network error');
+    } finally {
+      setCacheLoading(false);
+    }
+  };
+
+  const cleanupCache = async () => {
+    setCacheLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/cache/cleanup', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`🧹 Cache cleanup completed!\n\n${data.message}`);
+        // Refresh stats
+        setTimeout(() => {
+          getCacheStats();
+        }, 500);
+      } else {
+        alert(`❌ Error during cleanup: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up cache:', error);
+      alert('❌ Error cleaning up cache: Network error');
+    } finally {
+      setCacheLoading(false);
+    }
+  };
+
+  // Load cache stats on component mount
+  useEffect(() => {
+    getCacheStats();
+  }, []);
 
   const generateEmailJSON = (data) => {
     const requirements = data?.data?.requirements?.data?.requirements || {};
@@ -1355,6 +1425,98 @@ Digital Copies Recommended:
                 <span className="stat-number">24/7</span>
                 <span className="stat-label">Availability</span>
               </div>
+            </div>
+          </div>
+
+          {/* Cache Management Section */}
+          <div className="cache-management">
+            <h3>🗄️ Cache Management</h3>
+            <p style={{fontSize: '0.9em', color: '#666', marginBottom: '15px'}}>
+              Intelligent caching system for enhanced performance demonstration
+            </p>
+            
+            {cacheStats && (
+              <div className="cache-stats" style={{marginBottom: '15px'}}>
+                <div className="stats-grid" style={{gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px'}}>
+                  <div className="stat-item" style={{padding: '8px', fontSize: '0.8em'}}>
+                    <span className="stat-number" style={{fontSize: '1.2em'}}>{cacheStats.valid_files || 0}</span>
+                    <span className="stat-label">Active Cache</span>
+                  </div>
+                  <div className="stat-item" style={{padding: '8px', fontSize: '0.8em'}}>
+                    <span className="stat-number" style={{fontSize: '1.2em'}}>{cacheStats.total_size_mb || 0}MB</span>
+                    <span className="stat-label">Cache Size</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="cache-actions" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+              <button 
+                className="cache-btn"
+                onClick={getCacheStats}
+                disabled={cacheLoading}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                🔄 Refresh Stats
+              </button>
+              
+              <button 
+                className="cache-btn"
+                onClick={cleanupCache}
+                disabled={cacheLoading}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                {cacheLoading ? '⏳ Working...' : '🧹 Clean Expired'}
+              </button>
+              
+              <button 
+                className="cache-btn"
+                onClick={clearCache}
+                disabled={cacheLoading}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.9em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                {cacheLoading ? '⏳ Clearing...' : '🗑️ Clear All Cache'}
+              </button>
+            </div>
+            
+            <div style={{fontSize: '0.75em', color: '#888', marginTop: '10px', textAlign: 'center'}}>
+              💡 Cache improves response times for similar queries
             </div>
           </div>
         </div>

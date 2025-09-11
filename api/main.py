@@ -11,6 +11,9 @@ import os
 from config.database import get_db, engine
 from models.database_models import Base
 from orchestrator.travel_orchestrator import TravelOrchestrator
+import structlog
+
+logger = structlog.get_logger()
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -335,6 +338,67 @@ async def get_health_advisory(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Cache management endpoints
+@app.get("/cache/stats")
+async def get_cache_stats():
+    """
+    Get cache statistics for demonstration purposes
+    """
+    try:
+        from agents.cache.llm_cache import LLMCache
+        cache = LLMCache()
+        stats = cache.get_cache_stats()
+        return {
+            "success": True,
+            "cache_stats": stats
+        }
+    except Exception as e:
+        logger.error("Error getting cache stats", error=str(e))
+        return {
+            "success": False, 
+            "error": str(e)
+        }
+
+@app.post("/cache/clear")
+async def clear_all_cache():
+    """
+    Clear all cache files for demonstration purposes
+    """
+    try:
+        from agents.cache.llm_cache import LLMCache
+        cache = LLMCache()
+        result = cache.clear_all_cache()
+        return result
+    except Exception as e:
+        logger.error("Error clearing cache", error=str(e))
+        return {
+            "success": False,
+            "error": str(e),
+            "files_removed": 0
+        }
+
+@app.post("/cache/cleanup")
+async def cleanup_expired_cache():
+    """
+    Clean up only expired cache files
+    """
+    try:
+        from agents.cache.llm_cache import LLMCache
+        cache = LLMCache()
+        removed_count = cache.clear_expired_cache()
+        return {
+            "success": True,
+            "expired_files_removed": removed_count,
+            "message": f"Removed {removed_count} expired cache files"
+        }
+    except Exception as e:
+        logger.error("Error cleaning up cache", error=str(e))
+        return {
+            "success": False,
+            "error": str(e),
+            "expired_files_removed": 0
+        }
 
 def log_ai_configuration():
     """Log current AI configuration for debugging"""

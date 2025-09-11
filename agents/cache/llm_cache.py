@@ -260,6 +260,50 @@ class LLMCache:
         
         return removed_count
     
+    def clear_all_cache(self) -> Dict[str, Any]:
+        """
+        Clear all cache files
+        
+        Returns:
+            Dictionary with clearing results
+        """
+        removed_count = 0
+        total_size = 0
+        
+        try:
+            cache_files = list(self.cache_dir.glob("*.json"))
+            total_files = len(cache_files)
+            
+            for cache_file in cache_files:
+                try:
+                    file_size = cache_file.stat().st_size
+                    total_size += file_size
+                    cache_file.unlink()
+                    removed_count += 1
+                except Exception as e:
+                    logger.warning("Failed to remove cache file", file=str(cache_file), error=str(e))
+            
+            logger.info("Cache cleared completely", 
+                       files_removed=removed_count, 
+                       size_cleared_mb=round(total_size / (1024 * 1024), 2))
+            
+            return {
+                'success': True,
+                'files_removed': removed_count,
+                'total_files': total_files,
+                'size_cleared_bytes': total_size,
+                'size_cleared_mb': round(total_size / (1024 * 1024), 2),
+                'message': f"Successfully cleared {removed_count} cache files"
+            }
+            
+        except Exception as e:
+            logger.error("Cache clear error", error=str(e))
+            return {
+                'success': False,
+                'error': str(e),
+                'files_removed': removed_count
+            }
+
     def get_cache_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics
