@@ -102,7 +102,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
         conversation_context: conversationContext.accumulated_requirements
       };
 
-      const response = await fetch('https://hot-travel-backend-377235717727.us-central1.run.app/travel/search', {
+      const response = await fetch('https://hot-travel-backend-or4aflufiq-uc.a.run.app/travel/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
@@ -364,7 +364,7 @@ Ready to proceed with reservations`;
   // Cache management functions
   const getCacheStats = async () => {
     try {
-      const response = await fetch('https://hot-travel-backend-377235717727.us-central1.run.app/cache/stats');
+      const response = await fetch('https://hot-travel-backend-or4aflufiq-uc.a.run.app/cache/stats');
       const data = await response.json();
       if (data.success) {
         setCacheStats(data.cache_stats);
@@ -377,7 +377,7 @@ Ready to proceed with reservations`;
   const clearCache = async () => {
     setCacheLoading(true);
     try {
-      const response = await fetch('https://hot-travel-backend-377235717727.us-central1.run.app/cache/clear', {
+      const response = await fetch('https://hot-travel-backend-or4aflufiq-uc.a.run.app/cache/clear', {
         method: 'POST'
       });
       const data = await response.json();
@@ -402,7 +402,7 @@ Ready to proceed with reservations`;
   const cleanupCache = async () => {
     setCacheLoading(true);
     try {
-      const response = await fetch('https://hot-travel-backend-377235717727.us-central1.run.app/cache/cleanup', {
+      const response = await fetch('https://hot-travel-backend-or4aflufiq-uc.a.run.app/cache/cleanup', {
         method: 'POST'
       });
       const data = await response.json();
