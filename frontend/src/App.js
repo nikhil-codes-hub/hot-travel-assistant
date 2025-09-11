@@ -1245,8 +1245,8 @@ Digital Copies Recommended:
           <div className="hero-section">
             <div className="hero-image">
               <img 
-                src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=500&h=300&fit=crop&crop=center" 
-                alt="Beautiful travel destination"
+                src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&h=400&fit=crop&crop=center&auto=format&q=80" 
+                alt="Luxury tropical paradise with crystal clear waters"
                 style={{width: '100%', height: '250px', objectFit: 'cover', borderRadius: '12px'}}
               />
               <div className="hero-overlay">

@@ -8,7 +8,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV PORT=8080
+ENV PORT=8000
 
 # Install system dependencies (Docker-compatible)
 RUN apt-get update && apt-get install -y \
@@ -46,9 +46,7 @@ USER appuser
 # Expose port (Cloud Run uses PORT env var)
 EXPOSE $PORT
 
-# Health check (Docker-compatible)
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+# Health check removed - Cloud Run handles this
 
 # Start the application with proper Docker CMD format
 CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
