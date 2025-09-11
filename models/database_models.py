@@ -1,7 +1,13 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from config.database import Base
 from datetime import datetime
+
+# Import customer profile models
+from models.customer_profile import (
+    CustomerProfile, CustomerTravelHistory, 
+    CustomerPreference, EventCalendar
+)
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"

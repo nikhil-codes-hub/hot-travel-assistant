@@ -4,6 +4,7 @@ import './App.css';
 function App() {
   // Dynamic API URL configuration
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://hot-travel-backend-or4aflufiq-uc.a.run.app';
+  const CUSTOMER_API_URL = 'http://localhost:8001';  // Local customer profile API
   
   const [messages, setMessages] = useState([
     {
@@ -43,10 +44,13 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [customerData, setCustomerData] = useState({
-    email_id: 'henry.thomas596@yahoo.com',
+    email_id: '',
     nationality: '',
     passport_number: ''
   });
+  const [customerProfile, setCustomerProfile] = useState(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   
   // Conversation context to remember accumulated requirements
   const [conversationContext, setConversationContext] = useState({
@@ -424,6 +428,54 @@ Ready to proceed with reservations`;
       alert('❌ Error cleaning up cache: Network error');
     } finally {
       setCacheLoading(false);
+    }
+  };
+
+  // Customer profile functions
+  const loadCustomerProfile = async (email) => {
+    if (!email) return;
+    
+    setIsLoadingProfile(true);
+    try {
+      const response = await fetch(`${CUSTOMER_API_URL}/customer/profile/${encodeURIComponent(email)}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setCustomerProfile(data.data);
+        setShowSuggestions(true);
+        
+        // Add welcome message with suggestions
+        if (data.data.suggestions && data.data.suggestions.length > 0) {
+          const profileMessage = {
+            type: 'agent',
+            content: `Welcome back, ${data.data.customer_name || 'valued customer'}! 👋
+
+Based on your travel history (${data.data.travel_history_count} previous trips), I have some personalized recommendations:`,
+            suggestions: data.data.suggestions.map(s => s.suggestion_title),
+            profileData: data.data
+          };
+          setMessages(prev => [...prev, profileMessage]);
+        }
+      } else {
+        console.error('Error loading customer profile:', data.error);
+      }
+    } catch (error) {
+      console.error('Network error loading customer profile:', error);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  const handleEmailChange = (event) => {
+    const email = event.target.value;
+    setCustomerData(prev => ({ ...prev, email_id: email }));
+    
+    // Load profile when email is entered (basic validation)
+    if (email.includes('@') && email.includes('.')) {
+      loadCustomerProfile(email);
+    } else {
+      setCustomerProfile(null);
+      setShowSuggestions(false);
     }
   };
 
@@ -1152,11 +1204,19 @@ Digital Copies Recommended:
           <div className="customer-info">
             <input
               type="email"
-              placeholder="Client email for personalized service"
+              placeholder="Enter client email for personalized recommendations"
               value={customerData.email_id}
-              onChange={(e) => setCustomerData(prev => ({...prev, email_id: e.target.value}))}
+              onChange={handleEmailChange}
               className="customer-input"
             />
+            {isLoadingProfile && (
+              <div className="profile-loading">🔍 Loading customer profile...</div>
+            )}
+            {customerProfile && (
+              <div className="profile-info">
+                ✅ Profile loaded: {customerProfile.travel_history_count} trips • {customerProfile.suggestions?.length || 0} recommendations
+              </div>
+            )}
           </div>
           
           <div className="chat-container">

@@ -339,6 +339,86 @@ async def get_health_advisory(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Customer Profile Management endpoints
+@app.get("/customer/profile/{email}")
+async def get_customer_profile(email: str, db = Depends(get_db)):
+    """
+    Get customer profile with travel history and personalized suggestions
+    """
+    try:
+        from services.customer_profile_service import CustomerProfileService
+        
+        service = CustomerProfileService()
+        suggestions = service.generate_personalized_suggestions(db, email)
+        
+        return {
+            "success": True,
+            "data": suggestions
+        }
+    except Exception as e:
+        logger.error("Error getting customer profile", error=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/customer/profile")
+async def create_customer_profile(customer_data: dict, db = Depends(get_db)):
+    """
+    Create or update customer profile
+    """
+    try:
+        from services.customer_profile_service import CustomerProfileService
+        
+        service = CustomerProfileService()
+        customer = service.get_or_create_customer(
+            db, 
+            customer_data.get("email"),
+            customer_data.get("first_name"),
+            customer_data.get("last_name")
+        )
+        
+        return {
+            "success": True,
+            "customer": customer.to_dict()
+        }
+    except Exception as e:
+        logger.error("Error creating customer profile", error=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/customer/travel-history")
+async def add_travel_history(history_data: dict, db = Depends(get_db)):
+    """
+    Add travel history for customer
+    """
+    try:
+        from services.customer_profile_service import CustomerProfileService
+        from datetime import datetime
+        
+        service = CustomerProfileService()
+        
+        # Convert date strings to date objects
+        if 'travel_date_start' in history_data:
+            history_data['travel_date_start'] = datetime.strptime(history_data['travel_date_start'], '%Y-%m-%d').date()
+        if 'travel_date_end' in history_data:
+            history_data['travel_date_end'] = datetime.strptime(history_data['travel_date_end'], '%Y-%m-%d').date()
+        
+        history = service.add_travel_history(db, history_data.get("email"), history_data)
+        
+        return {
+            "success": True,
+            "travel_history": history.to_dict()
+        }
+    except Exception as e:
+        logger.error("Error adding travel history", error=str(e))
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 # Cache management endpoints
 @app.get("/cache/stats")
 async def get_cache_stats():

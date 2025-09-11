@@ -111,6 +111,35 @@ body {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.profile-loading {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #e3f2fd;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #1976d2;
+  animation: pulse 1.5s ease-in-out infinite alternate;
+}
+
+.profile-info {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #e8f5e8;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #2e7d32;
+  border-left: 3px solid #4caf50;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;
