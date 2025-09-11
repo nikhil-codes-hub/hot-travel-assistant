@@ -51,6 +51,7 @@ echo "1️⃣ Deploy Backend (from project root):"
 echo "gcloud run deploy hot-travel-backend \\"
 echo "  --source . \\"
 echo "  --allow-unauthenticated \\"
+echo "  --port 8080 \\"
 echo "  --region us-central1"
 echo ""
 

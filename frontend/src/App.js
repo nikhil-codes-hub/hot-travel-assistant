@@ -1054,9 +1054,12 @@ Digital Copies Recommended:
       {/* Header */}
       <header className="header">
         <div className="header-content">
-          <div className="logo">
-            <h1>🏢 House of Travel</h1>
-            <span className="tagline">Intelligent Travel Solutions</span>
+          <div className="logo" style={{ display: 'flex', alignItems: 'center' }}>
+            <img src="/hot-logo.png" alt="House of Travel Logo" style={{ width: '50px', height: '50px', marginRight: '10px' }} />
+            <div>
+              <h1 style={{ margin: 0, fontSize: '1.5rem' }}>House of Travel</h1>
+              <span className="tagline">Intelligent Travel Solutions</span>
+            </div>
           </div>
           <div className="agent-info">
             <span className="agent-badge">Travel Agent Portal</span>
