@@ -28,6 +28,7 @@ openai>=1.40.0
 amadeus>=8.0.0
 requests>=2.30.0
 httpx>=0.25.0
+playwright>=1.40.0
 
 # Utilities
 python-dotenv>=1.0.0
