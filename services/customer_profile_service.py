@@ -1,5 +1,6 @@
 import json
 import logging
+import requests
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
@@ -15,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 class CustomerProfileService:
     def __init__(self):
-        pass
+        # Configuration for LLM integration
+        self.use_openai = False  # Set to True if you have OpenAI API key
+        self.openai_api_key = None  # Set your API key here
+        self.use_local_llm = True   # Try local LLM first
     
     def get_or_create_customer(self, db: Session, email: str, first_name: str = None, last_name: str = None) -> CustomerProfile:
         """Get existing customer or create new one"""
@@ -132,31 +136,97 @@ class CustomerProfileService:
     def _format_customer_data_for_llm(self, customer: CustomerProfile, 
                                      travel_history: List[CustomerTravelHistory],
                                      preferences: List[CustomerPreference]) -> str:
-        """Format customer data for LLM input"""
+        """Format customer data for LLM input with rich details"""
         
         history_text = ""
-        for trip in travel_history[:5]:  # Last 5 trips
-            date_str = trip.travel_date_start.strftime("%B %Y") if trip.travel_date_start else "Unknown date"
-            history_text += f"- {date_str}: Visited {trip.destination}"
-            if trip.event_name:
-                history_text += f" for {trip.event_name} ({trip.event_type})"
-            if trip.travel_style:
-                history_text += f" as {trip.travel_style} trip"
-            history_text += "\n"
+        travel_patterns = {
+            'destinations': [],
+            'countries': [],
+            'event_types': [],
+            'travel_styles': [],
+            'seasons': [],
+            'satisfaction_scores': []
+        }
         
+        for trip in travel_history[:10]:  # Last 10 trips for better pattern analysis
+            date_str = trip.travel_date_start.strftime("%B %Y") if trip.travel_date_start else "Unknown date"
+            
+            # Build detailed trip description
+            trip_desc = f"- {date_str}: Visited {trip.destination}"
+            if trip.country and trip.city:
+                trip_desc += f" ({trip.city}, {trip.country})"
+            
+            if trip.event_name:
+                trip_desc += f" for {trip.event_name}"
+                if trip.event_type:
+                    trip_desc += f" ({trip.event_type})"
+                    travel_patterns['event_types'].append(trip.event_type)
+            
+            if trip.travel_style:
+                trip_desc += f" as {trip.travel_style} trip"
+                travel_patterns['travel_styles'].append(trip.travel_style)
+            
+            if trip.season:
+                trip_desc += f" during {trip.season} season"
+                travel_patterns['seasons'].append(trip.season)
+            
+            if trip.budget_range:
+                trip_desc += f" (${trip.budget_range} budget)"
+            
+            if trip.satisfaction_rating:
+                trip_desc += f" [Satisfaction: {trip.satisfaction_rating}/5]"
+                travel_patterns['satisfaction_scores'].append(trip.satisfaction_rating)
+            
+            if trip.notes:
+                trip_desc += f"\n  Notes: {trip.notes}"
+            
+            history_text += trip_desc + "\n"
+            
+            # Collect patterns
+            travel_patterns['destinations'].append(trip.destination)
+            if trip.country:
+                travel_patterns['countries'].append(trip.country)
+        
+        # Format preferences with weights
         pref_text = ""
         for pref in preferences:
-            pref_text += f"- {pref.preference_type}: {pref.preference_value}\n"
+            weight_indicator = "⭐" * min(pref.weight, 5) if pref.weight else ""
+            pref_text += f"- {pref.preference_type}: {pref.preference_value} {weight_indicator}\n"
         
-        return f"""Customer Profile:
+        # Generate travel pattern summary
+        pattern_summary = []
+        if travel_patterns['countries']:
+            top_countries = list(set(travel_patterns['countries']))[:3]
+            pattern_summary.append(f"Frequently visits: {', '.join(top_countries)}")
+        
+        if travel_patterns['event_types']:
+            top_events = list(set(travel_patterns['event_types']))[:3]
+            pattern_summary.append(f"Prefers events: {', '.join(top_events)}")
+        
+        if travel_patterns['travel_styles']:
+            top_styles = list(set(travel_patterns['travel_styles']))[:2]
+            pattern_summary.append(f"Travel style: {', '.join(top_styles)}")
+        
+        if travel_patterns['satisfaction_scores']:
+            avg_satisfaction = sum(travel_patterns['satisfaction_scores']) / len(travel_patterns['satisfaction_scores'])
+            pattern_summary.append(f"Average satisfaction: {avg_satisfaction:.1f}/5")
+        
+        return f"""Customer Profile Analysis:
 Name: {customer.first_name} {customer.last_name}
 Email: {customer.email}
+Member since: {customer.created_at.strftime("%B %Y") if customer.created_at else "Unknown"}
 
-Recent Travel History:
+Travel History ({len(travel_history)} trips):
 {history_text}
 
+Travel Patterns:
+{chr(10).join([f"• {pattern}" for pattern in pattern_summary])}
+
 Preferences:
-{pref_text if pref_text else "No specific preferences recorded"}"""
+{pref_text if pref_text else "No specific preferences recorded"}
+
+Analysis Context:
+This customer's travel behavior and preferences should be used to suggest similar upcoming events and destinations that match their demonstrated interests and travel patterns."""
     
     def _format_events_for_llm(self, events: List[EventCalendar]) -> str:
         """Format upcoming events for LLM input"""
@@ -197,14 +267,181 @@ Generate suggestions in the following JSON format:
 Make the suggestions engaging and personalized. Reference their specific past travels when explaining why they might enjoy the suggestion."""
         
         try:
-            # Simple rule-based suggestions for now (can be enhanced with actual LLM later)
-            suggestions = self._generate_rule_based_suggestions(customer_data, events_data)
+            # Use actual LLM integration
+            llm_response = self._call_llm_api(prompt)
+            suggestions = self._parse_llm_suggestions(llm_response)
             
-            return suggestions
+            if suggestions and len(suggestions) > 0:
+                return suggestions
+            else:
+                # Fallback to dynamic suggestions based on actual data
+                return self._generate_dynamic_suggestions(customer_data, events_data)
             
         except Exception as e:
-            logger.error(f"Error generating suggestions: {e}")
-            return self._create_fallback_suggestions()
+            logger.error(f"Error generating LLM suggestions: {e}")
+            return self._generate_dynamic_suggestions(customer_data, events_data)
+    
+    def _call_llm_api(self, prompt: str) -> str:
+        """Call LLM API to generate suggestions"""
+        try:
+            # Use OpenAI API or any other LLM service
+            # For now, using a local endpoint or OpenAI
+            
+            # Option 1: OpenAI API
+            if self.use_openai and self.openai_api_key:
+                try:
+                    response = requests.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.openai_api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "gpt-3.5-turbo",
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 1000,
+                            "temperature": 0.7
+                        },
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    else:
+                        logger.warning(f"OpenAI API returned status {response.status_code}")
+                        
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"OpenAI API error: {e}")
+            
+            # Option 2: Local LLM endpoint (if available)
+            try:
+                response = requests.post(
+                    "http://localhost:1234/v1/chat/completions",  # LM Studio or similar
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "model": "local-model",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.7,
+                        "max_tokens": 1000
+                    },
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                else:
+                    logger.warning(f"LLM API returned status {response.status_code}")
+                    return ""
+                    
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Local LLM not available: {e}")
+                return ""
+                
+        except Exception as e:
+            logger.error(f"Error calling LLM API: {e}")
+            return ""
+    
+    def _generate_dynamic_suggestions(self, customer_data: str, events_data: str) -> List[Dict[str, Any]]:
+        """Generate dynamic suggestions based on actual database patterns"""
+        suggestions = []
+        
+        # Extract customer travel patterns from database data
+        destinations_visited = []
+        event_types_attended = []
+        travel_styles_used = []
+        seasons_traveled = []
+        
+        # Parse customer data to extract actual travel patterns
+        lines = customer_data.split('\n')
+        for line in lines:
+            if 'Visited' in line:
+                # Extract destination from "Visited Tokyo" or "Visited Bangalore for Diwali Festival"
+                parts = line.split('Visited ')
+                if len(parts) > 1:
+                    dest_info = parts[1].split(' for ')
+                    destination = dest_info[0].strip()
+                    destinations_visited.append(destination)
+                    
+                    # Extract event if mentioned
+                    if len(dest_info) > 1:
+                        event_info = dest_info[1].split('(')
+                        if len(event_info) > 1:
+                            event_type = event_info[1].replace(')', '').strip()
+                            event_types_attended.append(event_type)
+            
+            elif 'as' in line and 'trip' in line:
+                # Extract travel style from "as solo trip" or "as family trip"
+                parts = line.split(' as ')
+                if len(parts) > 1:
+                    style = parts[1].replace(' trip', '').strip()
+                    travel_styles_used.append(style)
+        
+        # Generate suggestions based on patterns found
+        if any('Japan' in dest or 'Tokyo' in dest or 'Kyoto' in dest for dest in destinations_visited):
+            suggestions.append({
+                "suggestion_title": "Explore Traditional Japanese Culture in Nara",
+                "destination": "Nara, Japan",
+                "event_name": "Traditional Temple Festival",
+                "event_date": "Various times",
+                "reasoning": f"Since you've enjoyed Japanese destinations like {', '.join([d for d in destinations_visited if 'Japan' in d or 'Tokyo' in d or 'Kyoto' in d])}, Nara offers a more traditional experience with historic temples and deer park",
+                "confidence_score": 0.88
+            })
+        
+        if any('India' in dest or 'Bangalore' in dest for dest in destinations_visited):
+            suggestions.append({
+                "suggestion_title": "Royal Heritage Experience in Rajasthan", 
+                "destination": "Udaipur, India",
+                "event_name": "Mewar Festival",
+                "event_date": "Spring season",
+                "reasoning": f"Based on your experience in {', '.join([d for d in destinations_visited if 'India' in d])}, Udaipur's royal palaces and cultural festivals would appeal to your interest in Indian heritage",
+                "confidence_score": 0.85
+            })
+        
+        if 'festival' in [et.lower() for et in event_types_attended]:
+            festival_types = [et for et in event_types_attended if 'festival' in et.lower()]
+            suggestions.append({
+                "suggestion_title": "International Music Festival Circuit",
+                "destination": "Multiple locations worldwide", 
+                "event_name": "Music and Cultural Festivals",
+                "event_date": "Year-round",
+                "reasoning": f"Your attendance at {', '.join(festival_types)} shows a love for festival experiences. Consider exploring music festivals in different cultures",
+                "confidence_score": 0.80
+            })
+        
+        if 'solo' in travel_styles_used:
+            suggestions.append({
+                "suggestion_title": "Solo Adventure in New Zealand",
+                "destination": "Queenstown, New Zealand",
+                "event_name": "Adventure Tourism",
+                "event_date": "Best in summer (Dec-Feb)",
+                "reasoning": "Your solo travel experience suggests you enjoy independent exploration. New Zealand offers perfect solo adventure opportunities",
+                "confidence_score": 0.82
+            })
+        
+        if 'family' in travel_styles_used:
+            suggestions.append({
+                "suggestion_title": "Family-Friendly European Christmas Markets",
+                "destination": "Prague, Czech Republic",
+                "event_name": "Christmas Market Festival",
+                "event_date": "December",
+                "reasoning": "Your family travel history indicates you enjoy shared experiences. Prague's Christmas markets are perfect for family bonding",
+                "confidence_score": 0.87
+            })
+        
+        # If no specific patterns found, provide general suggestions based on upcoming events
+        if not suggestions and events_data and "Upcoming Similar Events" in events_data:
+            suggestions.append({
+                "suggestion_title": "Explore Upcoming Cultural Events",
+                "destination": "Various locations",
+                "event_name": "Cultural Experiences",
+                "event_date": "Based on calendar",
+                "reasoning": "Based on your travel profile, we recommend exploring the upcoming cultural events that match your interests",
+                "confidence_score": 0.75
+            })
+        
+        return suggestions[:4]  # Return top 4 suggestions
     
     def _generate_rule_based_suggestions(self, customer_data: str, events_data: str) -> List[Dict[str, Any]]:
         """Generate rule-based suggestions based on customer history"""
