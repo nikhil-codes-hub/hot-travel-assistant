@@ -32,6 +32,32 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Initialize database with sample data on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database with sample data if empty"""
+    try:
+        # Import sample data creation function
+        from database.sample_customer_data import create_sample_data
+        
+        # Check if data already exists
+        from models.customer_profile import CustomerProfile
+        db = next(get_db())
+        
+        existing_customers = db.query(CustomerProfile).count()
+        if existing_customers == 0:
+            logger.info("🗄️ Initializing database with sample data...")
+            create_sample_data()
+            logger.info("✅ Sample data loaded successfully")
+        else:
+            logger.info(f"✅ Database already contains {existing_customers} customers")
+            
+        db.close()
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize database: {e}")
+        # Don't fail startup if sample data fails
+        pass
+
 # Add CORS middleware with pattern-based origin matching for Cloud Run
 def is_allowed_origin(origin: str) -> bool:
     """Check if origin is allowed based on patterns"""
