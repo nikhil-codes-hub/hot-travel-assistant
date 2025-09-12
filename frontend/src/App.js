@@ -1437,7 +1437,7 @@ Digital Copies Recommended:
         {/* Left Side - Chatbot */}
         <div className="left-panel">
           <div className="chat-header">
-            <h2>🤖 AI Travel Assistant</h2>
+            <h2>✈️ AI Travel Assistant</h2>
             <p>Smart itinerary planning & booking support</p>
           </div>
 
