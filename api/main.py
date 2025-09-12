@@ -618,14 +618,25 @@ async def cleanup_expired_cache():
 @app.post("/travel/sendmail", response_model=SendMailResponse)
 async def sendmail(email_data: EmailData):
     try:
-        # convert Pydantic model to dict
-        print("the emaildata before",email_data)
-        # email_data = email_data.dict()
-        print("fligents details after",email_data.customer.email)
+        # Check Gmail status for user feedback
+        gmail_enabled = os.getenv("GMAIL_ENABLED", "false").lower() == "true"
+        
+        print(f"📧 Email request received for: {email_data.customer.email}")
+        print(f"🔧 Gmail status: {'Enabled' if gmail_enabled else 'Demo mode (disabled)'}")
+        
+        # Send email (real or simulated based on GMAIL_ENABLED)
         send_message(email_data)
-        return {"success": True, "message": "✅ Email sent successfully"}
+        
+        # Return appropriate success message
+        if gmail_enabled:
+            return {"success": True, "message": "✅ Email sent successfully"}
+        else:
+            return {"success": True, "message": "✅ Email simulated successfully (Gmail disabled - demo mode)"}
+            
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"❌ Failed to send email: {str(e)}")
+        gmail_enabled = os.getenv("GMAIL_ENABLED", "false").lower() == "true"
+        error_context = "Gmail enabled" if gmail_enabled else "Demo mode"
+        raise HTTPException(status_code=500, detail=f"❌ Failed to send email ({error_context}): {str(e)}")
 
 def log_ai_configuration():
     """Log current AI configuration for debugging"""

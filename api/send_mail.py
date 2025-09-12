@@ -327,8 +327,24 @@ def send_message(email_data):
     if isinstance(email_data, BaseModel):
         email_data = email_data.model_dump()
     
+    # Check if Gmail is enabled via environment variable
+    gmail_enabled = os.getenv("GMAIL_ENABLED", "false").lower() == "true"
+    
+    if not gmail_enabled:
+        # Gmail disabled - simulate email for demo
+        customer_email = email_data.get('customer', {}).get('email', 'unknown@example.com')
+        destination = email_data.get('trip_details', {}).get('destination', 'Unknown Destination')
+        
+        print(f"[DEMO MODE] Gmail disabled - simulating email send:")
+        print(f"[DEMO MODE] To: {customer_email}")
+        print(f"[DEMO MODE] Subject: 🌆 Discover {destination}: Your Tailored Travel Guide")
+        print(f"[DEMO MODE] HTML content length: {len(build_html(email_data))} characters")
+        print(f"[DEMO MODE] Email would be sent in production with proper Gmail setup")
+        
+        return True
+    
     try:
-        # Authenticate and get Gmail service
+        # Gmail enabled - attempt real email sending
         service = gmail_authenticate()
         
         # Get email recipients

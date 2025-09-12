@@ -19,12 +19,20 @@ fi
 
 # Step 1: Deploy backend with production CORS settings (wildcard origins)
 echo "📦 Deploying backend to Cloud Run..."
+
+# Build environment variables string based on Gmail availability
+if [ "$GMAIL_ENABLED" = true ]; then
+    ENV_VARS="GOOGLE_CLOUD_PROJECT=houseoftravel-hackath-1a-2025,VERTEX_AI_LOCATION=us-central1,AMADEUS_CLIENT_ID=DHdjRGkND0GefDhGAAbO7Gn5lr3EgG3P,AMADEUS_CLIENT_SECRET=x91XH0FoAqeBEV5h,ENVIRONMENT=production,AI_PROVIDER=vertex,LLM_CACHE_DIR=cache/llm_responses,LLM_CACHE_DURATION_HOURS=24,GMAIL_ENABLED=true"
+else
+    ENV_VARS="GOOGLE_CLOUD_PROJECT=houseoftravel-hackath-1a-2025,VERTEX_AI_LOCATION=us-central1,AMADEUS_CLIENT_ID=DHdjRGkND0GefDhGAAbO7Gn5lr3EgG3P,AMADEUS_CLIENT_SECRET=x91XH0FoAqeBEV5h,ENVIRONMENT=production,AI_PROVIDER=vertex,LLM_CACHE_DIR=cache/llm_responses,LLM_CACHE_DURATION_HOURS=24,GMAIL_ENABLED=false"
+fi
+
 gcloud run deploy hot-travel-backend \
   --source . \
   --allow-unauthenticated \
   --port 8080 \
   --region us-central1 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=houseoftravel-hackath-1a-2025,VERTEX_AI_LOCATION=us-central1,AMADEUS_CLIENT_ID=DHdjRGkND0GefDhGAAbO7Gn5lr3EgG3P,AMADEUS_CLIENT_SECRET=x91XH0FoAqeBEV5h,ENVIRONMENT=production,AI_PROVIDER=vertex,LLM_CACHE_DIR=cache/llm_responses,LLM_CACHE_DURATION_HOURS=24"
+  --set-env-vars "$ENV_VARS"
 
 # Step 2: Get the backend URL automatically
 echo "🔍 Getting backend URL..."
