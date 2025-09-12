@@ -158,6 +158,10 @@ class HotelSearchAgent(BaseAgent):
             "NYC": (40.7128, -74.0060),   # New York
             "BKK": (13.7563, 100.5018),   # Bangkok
             "BLR": (12.9716, 77.5946),    # Bangalore/Bengaluru
+            "MYSORE": (12.2958, 76.6394), # Mysore, Karnataka
+            "RAJASTHAN": (27.0238, 74.2179), # Jaipur, Rajasthan  
+            "VIENNA": (48.2082, 16.3738), # Vienna, Austria
+            "MATHURA": (27.4924, 77.6737), # Mathura, Uttar Pradesh
         }
         
         return fallback_coordinates.get(flight_city_code, (48.8566, 2.3522))  # Default to Paris
@@ -198,6 +202,10 @@ Common mappings:
 - SIN = Singapore
 - SYD = Sydney, Australia
 - ZUR = Zurich, Switzerland
+- MYSORE = Mysore, Karnataka, India
+- RAJASTHAN = Jaipur, Rajasthan, India (capital city)
+- VIENNA = Vienna, Austria  
+- MATHURA = Mathura, Uttar Pradesh, India
 
 IMPORTANT: Return ONLY the coordinates in this exact format: "latitude,longitude"
 Example: "12.9716,77.5946"
@@ -455,4 +463,241 @@ Do not include any other text, explanations, or formatting. Just the coordinates
             raise Exception(f"Error processing hotel response: {e}")
     
     def _generate_fallback_hotels(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        return None
+        """Generate fallback hotel data for cities when Amadeus API is unavailable"""
+        city_code = input_data.get("cityCode", "").upper()
+        check_in = input_data["checkInDate"]
+        check_out = input_data["checkOutDate"]
+        adults = input_data["adults"]
+        rooms = input_data.get("rooms", 1)
+        
+        # Define hotel data for requested cities
+        city_hotels = {
+            "MYSORE": [
+                {
+                    "hotel_id": "MYS001",
+                    "name": "The Windflower Resort & Spa Mysore",
+                    "rating": 4.5,
+                    "address": {"lines": ["Mysore-Ooty Road"], "cityName": "Mysore"},
+                    "price": {"currency": "USD", "total": "120"},
+                    "room_type": "DELUXE_ROOM",
+                    "amenities": [
+                        {"description": "Palace Views"},
+                        {"description": "Spa & Wellness"},
+                        {"description": "Traditional Architecture"}
+                    ]
+                },
+                {
+                    "hotel_id": "MYS002", 
+                    "name": "Royal Orchid Metropole",
+                    "rating": 4,
+                    "address": {"lines": ["5 Jhansi Lakshmi Bai Road"], "cityName": "Mysore"},
+                    "price": {"currency": "USD", "total": "95"},
+                    "room_type": "PREMIUM_ROOM",
+                    "amenities": [
+                        {"description": "Heritage Hotel"},
+                        {"description": "Swimming Pool"},
+                        {"description": "Multi-cuisine Restaurant"}
+                    ]
+                },
+                {
+                    "hotel_id": "MYS003",
+                    "name": "Hotel Maurya Residency",
+                    "rating": 3.5,
+                    "address": {"lines": ["2919/1 Vinoba Road"], "cityName": "Mysore"},
+                    "price": {"currency": "USD", "total": "75"},
+                    "room_type": "STANDARD_ROOM",
+                    "amenities": [
+                        {"description": "City Center Location"},
+                        {"description": "Business Center"},
+                        {"description": "Complimentary WiFi"}
+                    ]
+                }
+            ],
+            "RAJASTHAN": [
+                {
+                    "hotel_id": "RAJ001",
+                    "name": "The Oberoi Udaivilas, Udaipur",
+                    "rating": 5,
+                    "address": {"lines": ["Haridasji ki Magri"], "cityName": "Udaipur"},
+                    "price": {"currency": "USD", "total": "450"},
+                    "room_type": "LUXURY_SUITE",
+                    "amenities": [
+                        {"description": "Lake Palace Views"},
+                        {"description": "Royal Spa"},
+                        {"description": "Fine Dining"}
+                    ]
+                },
+                {
+                    "hotel_id": "RAJ002",
+                    "name": "Rambagh Palace, Jaipur",
+                    "rating": 5,
+                    "address": {"lines": ["Bhawani Singh Road"], "cityName": "Jaipur"},
+                    "price": {"currency": "USD", "total": "380"},
+                    "room_type": "PALACE_SUITE",
+                    "amenities": [
+                        {"description": "Former Royal Palace"},
+                        {"description": "Marble Spa"},
+                        {"description": "Polo Bar"}
+                    ]
+                },
+                {
+                    "hotel_id": "RAJ003",
+                    "name": "Suryagarh Jaisalmer",
+                    "rating": 4.5,
+                    "address": {"lines": ["Kagga Road"], "cityName": "Jaisalmer"},
+                    "price": {"currency": "USD", "total": "320"},
+                    "room_type": "DESERT_SUITE",
+                    "amenities": [
+                        {"description": "Desert Views"},
+                        {"description": "Traditional Architecture"},
+                        {"description": "Cultural Experiences"}
+                    ]
+                }
+            ],
+            "VIENNA": [
+                {
+                    "hotel_id": "VIE001",
+                    "name": "Hotel Sacher Vienna",
+                    "rating": 5,
+                    "address": {"lines": ["Philharmoniker Strasse 4"], "cityName": "Vienna"},
+                    "price": {"currency": "USD", "total": "520"},
+                    "room_type": "LUXURY_SUITE",
+                    "amenities": [
+                        {"description": "Historic Luxury"},
+                        {"description": "Original Sachertorte"},
+                        {"description": "Opera House Views"}
+                    ]
+                },
+                {
+                    "hotel_id": "VIE002",
+                    "name": "The Ritz-Carlton, Vienna",
+                    "rating": 5,
+                    "address": {"lines": ["Schubertring 5-7"], "cityName": "Vienna"},
+                    "price": {"currency": "USD", "total": "480"},
+                    "room_type": "CLUB_ROOM",
+                    "amenities": [
+                        {"description": "Ringstrasse Location"},
+                        {"description": "Luxury Spa"},
+                        {"description": "Rooftop Dining"}
+                    ]
+                },
+                {
+                    "hotel_id": "VIE003",
+                    "name": "Hotel Imperial Vienna",
+                    "rating": 5,
+                    "address": {"lines": ["Kärntner Ring 16"], "cityName": "Vienna"},
+                    "price": {"currency": "USD", "total": "420"},
+                    "room_type": "IMPERIAL_ROOM",
+                    "amenities": [
+                        {"description": "Imperial Palace Style"},
+                        {"description": "Fine Austrian Cuisine"},
+                        {"description": "Historic Elegance"}
+                    ]
+                }
+            ],
+            "MATHURA": [
+                {
+                    "hotel_id": "MTU001",
+                    "name": "The Radha Ashok",
+                    "rating": 4,
+                    "address": {"lines": ["Masani Road"], "cityName": "Mathura"},
+                    "price": {"currency": "USD", "total": "85"},
+                    "room_type": "DELUXE_ROOM",
+                    "amenities": [
+                        {"description": "Temple City Location"},
+                        {"description": "Vegetarian Restaurant"},
+                        {"description": "Krishna Temple Views"}
+                    ]
+                },
+                {
+                    "hotel_id": "MTU002",
+                    "name": "Hotel Brij Raj",
+                    "rating": 3.5,
+                    "address": {"lines": ["Krishna Nagar"], "cityName": "Mathura"},
+                    "price": {"currency": "USD", "total": "65"},
+                    "room_type": "STANDARD_ROOM", 
+                    "amenities": [
+                        {"description": "Pilgrimage Center"},
+                        {"description": "Traditional Hospitality"},
+                        {"description": "Yamuna River Proximity"}
+                    ]
+                },
+                {
+                    "hotel_id": "MTU003",
+                    "name": "Shri Radha Brij Vasundhara Resort & Spa",
+                    "rating": 4,
+                    "address": {"lines": ["NH-2, Govardhan Road"], "cityName": "Mathura"},
+                    "price": {"currency": "USD", "total": "110"},
+                    "room_type": "RESORT_ROOM",
+                    "amenities": [
+                        {"description": "Spiritual Retreat"},
+                        {"description": "Ayurvedic Spa"},
+                        {"description": "Cultural Programs"}
+                    ]
+                }
+            ]
+        }
+        
+        # Get hotels for the specified city or default to generic hotels
+        selected_hotels = city_hotels.get(city_code, [
+            {
+                "hotel_id": "DEFAULT001",
+                "name": f"Premium Hotel in {city_code}",
+                "rating": 4,
+                "address": {"lines": ["City Center"], "cityName": city_code},
+                "price": {"currency": "USD", "total": "150"},
+                "room_type": "DELUXE_ROOM",
+                "amenities": [
+                    {"description": "Modern Amenities"},
+                    {"description": "Business Center"},
+                    {"description": "Fitness Center"}
+                ]
+            }
+        ])
+        
+        # Create formatted hotel offers
+        processed_hotels = []
+        for idx, hotel_data in enumerate(selected_hotels):
+            hotel = {
+                "hotel_id": hotel_data["hotel_id"],
+                "name": hotel_data["name"],
+                "rating": hotel_data["rating"],
+                "address": hotel_data["address"],
+                "contact": {},
+                "description": f"Excellent accommodation in {hotel_data['address']['cityName']}",
+                "amenities": hotel_data["amenities"],
+                "media": [],
+                "offers": [{
+                    "id": f"offer_{idx}_{hotel_data['hotel_id']}",
+                    "check_in_date": check_in,
+                    "check_out_date": check_out,
+                    "room_quantity": rooms,
+                    "price": hotel_data["price"],
+                    "room": {"type": hotel_data["room_type"]},
+                    "guests": {"adults": adults},
+                    "policies": {}
+                }]
+            }
+            processed_hotels.append(hotel)
+        
+        result = {
+            "hotels": processed_hotels,
+            "search_criteria": {
+                "cityCode": city_code,
+                "checkInDate": check_in,
+                "checkOutDate": check_out,
+                "adults": adults,
+                "children": input_data.get("children", 0),
+                "rooms": rooms
+            },
+            "meta": {
+                "count": len(processed_hotels),
+                "search_radius": input_data.get("radius", 20),
+                "currency": input_data.get("currency", "USD"),
+                "data_source": "fallback_hotels",
+                "is_fallback": True
+            }
+        }
+        
+        self.log(f"🏨 Generated {len(processed_hotels)} fallback hotels for {city_code}")
+        return self.format_output(result)
