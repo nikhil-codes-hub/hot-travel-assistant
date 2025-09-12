@@ -111,10 +111,20 @@ def gmail_authenticate():
     return build("gmail", "v1", credentials=creds)
 
 def build_html(email_data):
-    customer = email_data.get("customer", {})
-    trip = email_data.get("trip_details", {})
-    flights = email_data.get("flights", [])
-    hotels = email_data.get("hotels", [])
+    if email_data is None:
+        raise Exception("email_data is None")
+    
+    # Safely get data with fallbacks
+    customer = email_data.get("customer") or {}
+    trip = email_data.get("trip_details") or {}
+    flights = email_data.get("flights") or []
+    hotels = email_data.get("hotels") or []
+    
+    # Add debug logging
+    print(f"[DEBUG] Customer data: {customer}")
+    print(f"[DEBUG] Trip data: {trip}")
+    print(f"[DEBUG] Flights count: {len(flights)}")
+    print(f"[DEBUG] Hotels count: {len(hotels)}")
 
     departure_date = trip.get("departure_date", "TBD")
     duration = trip.get("duration")
@@ -163,24 +173,28 @@ def build_html(email_data):
     ]) or "<p>No hotels available</p>"
 
     # ✅ Generate day-by-day itinerary HTML
-    itinerary = email_data.get("itinerary", {})
-    days = itinerary.get("days", [])
+    itinerary = email_data.get("itinerary") or {}
+    days = itinerary.get("days") or [] if itinerary else []
     
     if days:
         itinerary_html = ""
         for day in days:
-            activities_list = day.get('activities', [])
+            if day is None:
+                continue
+            day_data = day if isinstance(day, dict) else {}
+            
+            activities_list = day_data.get('activities', []) or []
             activities_text = "<br>".join([f"• {activity}" for activity in activities_list]) if activities_list else "Activities to be confirmed"
             
-            meals_list = day.get('meals', [])
+            meals_list = day_data.get('meals', []) or []
             meals_text = ", ".join(meals_list) if meals_list else "Meal options available"
             
-            budget_text = f"${day.get('budget_estimate', 'TBD')}" if day.get('budget_estimate') else "Budget estimate pending"
+            budget_text = f"${day_data.get('budget_estimate', 'TBD')}" if day_data.get('budget_estimate') else "Budget estimate pending"
             
             itinerary_html += f"""
             <div class="card">
-              <div><strong>Day {day.get('day', '?')} - {day.get('date', 'TBD')}</strong></div>
-              <div>📍 Location: {day.get('location', 'TBD')}</div>
+              <div><strong>Day {day_data.get('day', '?')} - {day_data.get('date', 'TBD')}</strong></div>
+              <div>📍 Location: {day_data.get('location', 'TBD')}</div>
               <div>🎯 Activities:<br>{activities_text}</div>
               <div>🍽️ Meals: {meals_text}</div>
               <div>💰 Budget: {budget_text}</div>
