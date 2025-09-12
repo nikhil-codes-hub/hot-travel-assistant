@@ -387,11 +387,21 @@ Ready to proceed with reservations`;
     // Check if this is a travel suggestion with a destination
     const travelSuggestionMatch = suggestion.match(/^(.+?) in (.+?)$/);
     if (travelSuggestionMatch) {
-      const [_, suggestionTitle, destination] = travelSuggestionMatch;
+      const [_, suggestionTitle, suggestedDestination] = travelSuggestionMatch;
+      
+      // For Royal Heritage Experience, use the specific destination from profile data
+      let actualDestination = suggestedDestination;
+      if (suggestionTitle === "Royal Heritage Experience" && customerProfile?.suggestions) {
+        const matchingSuggestion = customerProfile.suggestions.find(s => s.suggestion_title === suggestionTitle);
+        if (matchingSuggestion?.destination) {
+          actualDestination = matchingSuggestion.destination;
+        }
+      }
+      
       // Format the message to make it very clear for the LLM to extract the destination
-      message = `I want to book a trip to ${destination} for the "${suggestionTitle}" experience. ` +
-                `Destination: ${destination}. ` +
-                `Trip details: I'm interested in the "${suggestionTitle}" experience in ${destination}. ` +
+      message = `I want to book a trip to ${actualDestination} for the "${suggestionTitle}" experience. ` +
+                `Destination: ${actualDestination}. ` +
+                `Trip details: I'm interested in the "${suggestionTitle}" experience in ${actualDestination}. ` +
                 `Please provide a comprehensive travel plan including flights, hotels, and activities.`;
     }
     
@@ -550,10 +560,17 @@ ${index + 1}. ${event.event_name} - ${event.destination} (${event.event_date_sta
 
 Would you like me to help plan any of these experiences, or do you have other travel preferences in mind?`;
 
+          // Create suggestions array with both personalized suggestions and upcoming events
+          const personalizedSuggestions = profile.suggestions?.map(s => s.suggestion_title) || [];
+          const eventSuggestions = profile.similar_events?.slice(0, 3).map(event => 
+            `${event.event_name} in ${event.destination}`
+          ) || [];
+          const allSuggestions = [...personalizedSuggestions, ...eventSuggestions];
+
           const profileMessage = {
             type: 'agent',
             content: profileContent,
-            suggestions: profile.suggestions?.map(s => s.suggestion_title) || [],
+            suggestions: allSuggestions,
             profileData: profile
           };
           setMessages(prev => [...prev, profileMessage]);
