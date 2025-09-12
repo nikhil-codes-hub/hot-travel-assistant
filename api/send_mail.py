@@ -198,80 +198,189 @@ def build_html(email_data):
       <title>Travel Proposal</title>
       <style>
         body {{
-          font-family: 'Segoe UI', Arial, sans-serif;
-          background-color: #f4f7fb;
+          font-family: 'Source Sans Pro', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           margin: 0;
-          padding: 0;
+          padding: 20px 0;
+          color: #333;
+          line-height: 1.6;
         }}
         .container {{
-          max-width: 700px;
-          margin: 20px auto;
+          max-width: 720px;
+          margin: 0 auto;
           background: #fff;
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.15);
           overflow: hidden;
+          position: relative;
+        }}
+        .container::before {{
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #46166B, #FFCC32, #46166B);
         }}
         .header {{
-          background: linear-gradient(135deg, #46166B, #FFCC32);
+          background: linear-gradient(135deg, #46166B 0%, #5d1a78 50%, #FFCC32 100%);
           color: #fff;
           text-align: center;
-          padding: 20px;
+          padding: 40px 30px;
+          position: relative;
+          overflow: hidden;
         }}
-        .header h1 {{ margin: 0; font-size: 22px; }}
-        .section {{ padding: 20px; border-bottom: 1px solid #eee; }}
-        .section h2 {{ font-size: 18px; color: #333; margin-bottom: 10px; }}
-        .info {{ margin: 5px 0; font-size: 14px; color: #555; }}
+        .header h1 {{ 
+          margin: 0; 
+          font-size: 28px; 
+          font-weight: 700;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          position: relative;
+          z-index: 1;
+        }}
+        .header p {{
+          margin: 15px 0 0 0;
+          font-size: 16px;
+          opacity: 0.9;
+          position: relative;
+          z-index: 1;
+        }}
+        .section {{ 
+          padding: 30px; 
+          border-bottom: 1px solid #f0f2f5; 
+          position: relative;
+        }}
+        .section:last-child {{
+          border-bottom: none;
+        }}
+        .section h2 {{ 
+          font-size: 20px; 
+          color: #46166B; 
+          margin-bottom: 20px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }}
+        .section h2::after {{
+          content: '';
+          flex: 1;
+          height: 2px;
+          background: linear-gradient(90deg, #FFCC32, transparent);
+        }}
+        .info {{ 
+          margin: 12px 0; 
+          font-size: 15px; 
+          color: #555;
+          display: flex;
+          justify-content: space-between;
+          padding: 8px 0;
+        }}
+        .info strong {{
+          color: #46166B;
+          min-width: 120px;
+        }}
         .card {{
-          background: #f9fafc;
-          border: 1px solid #e0e6ed;
-          border-radius: 8px;
-          padding: 12px 15px;
-          margin-bottom: 10px;
+          background: linear-gradient(145deg, #ffffff, #f8f9ff);
+          border: 1px solid #e8ecf4;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+          position: relative;
+          overflow: hidden;
         }}
-        .card strong {{ color: #222; }}
+        .card::before {{
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background: linear-gradient(180deg, #46166B, #FFCC32);
+        }}
+        .card strong {{ 
+          color: #46166B; 
+          font-size: 16px;
+          display: block;
+          margin-bottom: 8px;
+        }}
+        .card div:not(:first-child) {{
+          margin: 8px 0;
+          color: #666;
+        }}
         .footer {{
           text-align: center;
-          padding: 15px;
-          font-size: 12px;
+          padding: 30px;
+          font-size: 13px;
           color: #888;
-          background: #fafafa;
+          background: linear-gradient(145deg, #f8f9fa, #e9ecef);
         }}
         .btn {{
           display: inline-block;
-          padding: 10px 18px;
-          background: #0061f2;
-          color: #fff !important;
+          padding: 16px 32px;
+          background: linear-gradient(135deg, #FFCC32, #ffd60a);
+          color: #46166B !important;
           text-decoration: none;
-          border-radius: 6px;
-          margin-top: 15px;
-          font-size: 14px;
+          border-radius: 30px;
+          margin: 20px 10px;
+          font-size: 16px;
+          font-weight: 600;
+          box-shadow: 0 8px 20px rgba(255, 204, 50, 0.3);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }}
         .contact {{
-          background: #f9fafc;
-          border: 1px solid #e0e6ed;
-          border-radius: 8px;
-          padding: 15px 20px;
+          background: linear-gradient(145deg, #46166B, #5d1a78);
+          color: white;
+          border-radius: 15px;
+          padding: 25px;
           margin: 20px;
+          box-shadow: 0 10px 25px rgba(70, 22, 107, 0.2);
         }}
         .contact h2 {{
           margin-top: 0;
-          font-size: 18px;
-          color: #0061f2;
+          font-size: 20px;
+          color: #FFCC32;
+          border-bottom: 2px solid #FFCC32;
+          padding-bottom: 10px;
         }}
         .contact-item {{
-          margin: 8px 0;
-          font-size: 14px;
-          color: #444;
+          margin: 15px 0;
+          font-size: 15px;
+          color: rgba(255,255,255,0.9);
+          display: flex;
+          align-items: center;
         }}
         .contact-item .icon {{
-          margin-right: 8px;
+          margin-right: 12px;
+          font-size: 18px;
         }}
         .contact a {{
-          color: #0061f2;
+          color: #FFCC32;
           text-decoration: none;
+          font-weight: 500;
         }}
         .contact a:hover {{
           text-decoration: underline;
+        }}
+        .alert-box {{
+          margin: 15px 0;
+          padding: 15px 20px;
+          border-radius: 10px;
+          font-size: 14px;
+          line-height: 1.5;
+        }}
+        .alert-warning {{
+          background-color: #fff3cd;
+          border-left: 4px solid #ffc107;
+          color: #856404;
+        }}
+        .alert-info {{
+          background-color: #d1ecf1;
+          border-left: 4px solid #17a2b8;
+          color: #0c5460;
         }}
       </style>
     </head>
@@ -279,11 +388,15 @@ def build_html(email_data):
       <div class="container">
         <!-- Header with Logo -->
         <div class="header">
-          <div style="text-align: center; margin-bottom: 15px; padding: 10px 0; background-color: #003366;">
-            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODUuMSA0MC4xaC0xM2MtMS43IDAtMy0xLjMtMy0zVjEyLjljMC0xLjcgMS4zLTMgMy0zaDEzYzEuNyAwIDMgMS4zIDMgM3YyNC4yYzAgMS42LTEuMyAzLTMgM3ptLTMxLjYtMTUuN2MwLTUuMyA0LjMtOS42IDkuNi05LjZoMTAuOWMxLjcgMCAzLTEuMyAzLTN2LS4xYzAtMS43LTEuMy0zLTMtM2gtMTFjLTguNiAwLTE1LjYgNy0xNS42IDE1LjZ2LjFjMCA4LjYgNyAxNS42IDE1LjYgMTUuNmgxMWMxLjcgMCAzLTEuMyAzLTN2LS4xYzAtMS43LTEuMy0zLTMtM2gtMTAuOWMtNS4zIDAtOS42LTQuMy05LjYtOS42di0uMXptLTI3LjktMTIuN2MwLTEuNy0xLjMtMy0zLTNoLTEzYy0xLjcgMC0zIDEuMy0zIDN2MTIuM2MwIDEuNyAxLjMgMyAzIDNoM2MxLjcgMCAzLTEuMyAzLTN2LTkuM2g3YzEuNyAwIDMtMS4zIDMtM3YtLjF6bS0yOC4xLTIuM2MwLTguNi03LTE1LjYtMTUuNi0xNS42aC0xM2MtMS43IDAtMyAxLjMtMyAzdjI0LjJjMCAxLjcgMS4zIDMgMyAzaDEzYzguNiAwIDE1LjYtNyAxNS42LTE1LjZ2LS4xem0tMy4xIDBjMCA1LjMtNC4zIDkuNi05LjYgOS42aC0xMFYxMS44aDEwYzUuMyAwIDkuNiA0LjMgOS42IDkuNnYuMXptLTMxLjMtMTIuN2MwLTEuNy0xLjMtMy0zLTNoLTEzYy0xLjcgMC0zIDEuMy0zIDN2MTIuM2MwIDEuNyAxLjMgMyAzIDNoM2MxLjcgMCAzLTEuMyAzLTN2LTkuM2g3YzEuNyAwIDMtMS4zIDMtM3YtLjF6bS0yOC4xLTIuM2MwLTguNi03LTE1LjYtMTUuNi0xNS42aC0xM2MtMS43IDAtMyAxLjMtMyAzdjI0LjJjMCAxLjcgMS4zIDMgMyAzaDEzYzguNiAwIDE1LjYtNyAxNS42LTE1LjZ2LS4xem0tMy4xIDBjMCA1LjMtNC4zIDkuNi05LjYgOS42aC0xMFYxMS44aDEwYzUuMyAwIDkuNiA0LjMgOS42IDkuNnYuMXoiLz48L3N2Zz4=" alt="HOT Travel" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 20px; position: relative; z-index: 2;">
+            <div style="display: inline-block; padding: 15px 25px; background: rgba(255,255,255,0.1); border-radius: 50px; backdrop-filter: blur(10px);">
+              <span style="font-size: 24px; font-weight: bold; color: #FFCC32; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏠</span>
+              <span style="font-size: 18px; font-weight: bold; color: white; margin-left: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">HOUSE OF TRAVEL</span>
+            </div>
+            <img hidden src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODUuMSA0MC4xaC0xM2MtMS43IDAtMy0xLjMtMy0zVjEyLjljMC0xLjcgMS4zLTMgMy0zaDEzYzEuNyAwIDMgMS4zIDMgM3YyNC4yYzAgMS42LTEuMyAzLTMgM3ptLTMxLjYtMTUuN2MwLTUuMyA0LjMtOS42IDkuNi05LjZoMTAuOWMxLjcgMCAzLTEuMyAzLTN2LS4xYzAtMS43LTEuMy0zLTMtM2gtMTFjLTguNiAwLTE1LjYgNy0xNS42IDE1LjZ2LjFjMCA4LjYgNyAxNS42IDE1LjYgMTUuNmgxMWMxLjcgMCAzLTEuMyAzLTN2LS4xYzAtMS43LTEuMy0zLTMtM2gtMTAuOWMtNS4zIDAtOS42LTQuMy05LjYtOS42di0uMXptLTI3LjktMTIuN2MwLTEuNy0xLjMtMy0zLTNoLTEzYy0xLjcgMC0zIDEuMy0zIDN2MTIuM2MwIDEuNyAxLjMgMyAzIDNoM2MxLjcgMCAzLTEuMyAzLTN2LTkuM2g3YzEuNyAwIDMtMS4zIDMtM3YtLjF6bS0yOC4xLTIuM2MwLTguNi03LTE1LjYtMTUuNi0xNS42aC0xM2MtMS43IDAtMyAxLjMtMyAzdjI0LjJjMCAxLjcgMS4zIDMgMyAzaDEzYzguNiAwIDE1LjYtNyAxNS42LTE1LjZ2LS4xem0tMy4xIDBjMCA1LjMtNC4zIDkuNi05LjYgOS42aC0xMFYxMS44aDEwYzUuMyAwIDkuNiA0LjMgOS42IDkuNnYuMXptLTMxLjMtMTIuN2MwLTEuNy0xLjMtMy0zLTNoLTEzYy0xLjcgMC0zIDEuMy0zIDN2MTIuM2MwIDEuNyAxLjMgMyAzIDNoM2MxLjcgMCAzLTEuMyAzLTN2LTkuM2g3YzEuNyAwIDMtMS4zIDMtM3YtLjF6bS0yOC4xLTIuM2MwLTguNi03LTE1LjYtMTUuNi0xNS42aC0xM2MtMS43IDAtMyAxLjMtMyAzdjI0LjJjMCAxLjcgMS4zIDMgMyAzaDEzYzguNiAwIDE1LjYtNyAxNS42LTE1LjZ2LS4xem0tMy4xIDBjMCA1LjMtNC4zIDkuNi05LjYgOS42aC0xMFYxMS44aDEwYzUuMyAwIDkuNiA0LjMgOS42IDkuNnYuMXoiLz48L3N2Zz4=" alt="HOT Travel" style="max-width: 180px; height: auto; display: block; margin: 0 auto;">
           </div>
-          <h1>✈️ Your Travel Proposal is Ready!</h1>
-          <p>Curated options for your {trip.get('destination','TBD')} trip</p>
+          <h1>✈️ Your Dream Trip Awaits!</h1>
+          <p>✨ Expertly curated travel experience for {trip.get('destination','your destination')} ✨</p>
         </div>
         <!-- Customer -->
         <div class="section">
@@ -332,7 +445,7 @@ def build_html(email_data):
               • <strong>Travel Insurance:</strong> Comprehensive coverage recommended<br>
               • <strong>Documentation:</strong> Print copies of all bookings and confirmations
             </div>
-            <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
+            <div class="alert-box alert-warning">
               <strong>⚠️ Important:</strong> Our travel experts will provide specific visa requirements and assist with applications during booking confirmation.
             </div>
           </div>
@@ -350,7 +463,7 @@ def build_html(email_data):
               • <strong>Health Precautions:</strong> Check CDC/WHO advisories for destination<br>
               • <strong>Emergency Contacts:</strong> Local embassy and emergency services information
             </div>
-            <div style="margin-top: 15px; padding: 10px; background-color: #d1ecf1; border-radius: 4px;">
+            <div class="alert-box alert-info">
               <strong>💡 Note:</strong> Specific health requirements and recommendations for {trip.get('destination', 'your destination')} will be provided by our travel health specialists.
             </div>
           </div>
@@ -358,8 +471,8 @@ def build_html(email_data):
         
         <!-- Proceed to Booking Button -->
         <div class="section" style="text-align: center; padding: 30px 0;">
-          <a href="tel:0800355999" class="btn" style="background-color: #ff6b35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px; display: inline-block;">
-            📞 Call HOT to Book Now
+          <a href="tel:0800355999" class="btn">
+            📞 Call to Book Now
           </a>
           <p style="margin-top: 15px; color: #666; font-size: 14px;">
             Our travel experts are ready to make your dream trip a reality!
