@@ -6,11 +6,16 @@ import os
 import pickle
 from typing import List, Optional
 
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
 from pydantic import BaseModel
-from shapely import transform
+
+# Optional Gmail imports - only used if credentials are available
+try:
+    from googleapiclient.discovery import build
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+    GMAIL_AVAILABLE = True
+except ImportError:
+    GMAIL_AVAILABLE = False
 
 # # ---------------------- Models ---------------------- #
 class Flight(BaseModel):
@@ -59,20 +64,48 @@ class EmailData(BaseModel):
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
 def gmail_authenticate():
+    """Authenticate with Gmail API if credentials are available"""
+    if not GMAIL_AVAILABLE:
+        raise Exception("Gmail API not available - missing googleapiclient dependencies")
+    
     creds = None
+    
+    # Try to load existing token
     if os.path.exists("token.pickle"):
-        print("in token.pickle authenticate")
-        with open("token.pickle", "rb") as token:
-            creds = pickle.load(token)
+        print("Loading existing Gmail token...")
+        try:
+            with open("token.pickle", "rb") as token:
+                creds = pickle.load(token)
+        except Exception as e:
+            print(f"Error loading token.pickle: {e}")
+            creds = None
 
+    # Check if credentials are valid or need refresh
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                print("Refreshing expired Gmail token...")
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"Error refreshing token: {e}")
+                creds = None
+        
+        # If we still don't have valid creds, try to get new ones
+        if not creds:
+            if not os.path.exists("credentials.json"):
+                raise Exception("Gmail credentials not found - credentials.json missing. Please add Gmail API credentials for email functionality.")
+            
+            print("Creating new Gmail authentication flow...")
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        with open("token.pickle", "wb") as token:
-            pickle.dump(creds, token)
+        
+        # Save the credentials for the next run
+        try:
+            with open("token.pickle", "wb") as token:
+                pickle.dump(creds, token)
+            print("Gmail token saved successfully")
+        except Exception as e:
+            print(f"Warning: Could not save token.pickle: {e}")
 
     return build("gmail", "v1", credentials=creds)
 
@@ -151,7 +184,7 @@ def build_html(email_data):
           overflow: hidden;
         }}
         .header {{
-          background: linear-gradient(135deg, #0061f2, #00b5f5);
+          background: linear-gradient(135deg, #46166B, #FFCC32);
           color: #fff;
           text-align: center;
           padding: 20px;
@@ -290,23 +323,58 @@ def build_html(email_data):
     """
 
 def send_message(email_data):
+    """Send email with travel proposal"""
     if isinstance(email_data, BaseModel):
         email_data = email_data.model_dump()
-    service = gmail_authenticate()
-    message = MIMEMultipart("alternative")
-    for i in list(email_data['customer']['email'].split(',')):
-        message["to"] = i
-        message["from"] = "no_reply@gmail.com"
-        # Use the destination in the subject if available, otherwise use a generic title
-        destination = email_data.get('trip_details', {}).get('destination', 'Your Destination')
-        message["subject"] = f"🌆 Discover {destination}: Your Tailored Travel Guide"
+    
+    try:
+        # Authenticate and get Gmail service
+        service = gmail_authenticate()
+        
+        # Get email recipients
+        customer_email = email_data.get('customer', {}).get('email', '')
+        if not customer_email:
+            raise Exception("No customer email provided")
+        
+        # Create message
+        message = MIMEMultipart("alternative")
+        
+        # Process each recipient
+        recipients = [email.strip() for email in customer_email.split(',') if email.strip()]
+        
+        for recipient in recipients:
+            message["to"] = recipient
+            message["from"] = "no_reply@gmail.com"
+            
+            # Use the destination in the subject if available
+            destination = email_data.get('trip_details', {}).get('destination', 'Your Destination')
+            message["subject"] = f"🌆 Discover {destination}: Your Tailored Travel Guide"
 
-        # Attach HTML body
-        html_body = build_html(email_data)
-        message.attach(MIMEText(html_body, "html"))
+            # Generate and attach HTML body
+            html_body = build_html(email_data)
+            message.attach(MIMEText(html_body, "html"))
 
-        # Encode and send
-        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {"raw": raw_message}
-        sent_message = service.users().messages().send(userId="me", body=create_message).execute()
-        print(f"[OK] Email sent. Message Id: {sent_message['id']}")
+            # Encode and send
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            create_message = {"raw": raw_message}
+            
+            sent_message = service.users().messages().send(userId="me", body=create_message).execute()
+            print(f"[SUCCESS] Email sent to {recipient}. Message Id: {sent_message['id']}")
+        
+        return True
+        
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[ERROR] Failed to send email: {error_msg}")
+        
+        # Provide more helpful error messages
+        if "credentials.json" in error_msg:
+            raise Exception("Gmail API credentials not found. Please add credentials.json file for email functionality.")
+        elif "googleapiclient" in error_msg:
+            raise Exception("Gmail API dependencies missing. Please install google-api-python-client.")
+        elif "No customer email" in error_msg:
+            raise Exception("No customer email address provided in request.")
+        else:
+            raise Exception(f"Email sending failed: {error_msg}")
+            
+        return False
