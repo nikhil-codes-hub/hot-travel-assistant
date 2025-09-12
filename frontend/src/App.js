@@ -110,7 +110,7 @@ Try asking: "Plan a 7-day trip to Japan" or "What visa do I need for Thailand?"`
     setIsLoading(true);
 
     // Add loading message
-    const loadingMessage = { type: 'loading', content: '⏳ Processing your travel request...' };
+    const loadingMessage = { type: 'loading', content: '✨ Crafting your perfect travel experience... 🌍' };
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
