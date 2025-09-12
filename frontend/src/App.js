@@ -204,20 +204,47 @@ Flight and hotel search in progress. This may take a few moments.`;
 
   // Customer profile functions
   const loadCustomerProfile = async (email) => {
-    if (!email) return;
+    console.log('🔍 DEBUG: loadCustomerProfile called with email:', email);
+    
+    if (!email) {
+      console.log('❌ DEBUG: No email provided, returning early');
+      return;
+    }
     
     setIsLoadingProfile(true);
+    console.log('⏳ DEBUG: Set loading state to true');
+    
     try {
-      const response = await fetch(`${CUSTOMER_API_URL}/customer/profile/${encodeURIComponent(email)}`);
+      const apiUrl = `${CUSTOMER_API_URL}/customer/profile/${encodeURIComponent(email)}`;
+      console.log('🌐 DEBUG: Making API request to:', apiUrl);
+      console.log('🌐 DEBUG: CUSTOMER_API_URL:', CUSTOMER_API_URL);
+      
+      const response = await fetch(apiUrl);
+      console.log('📡 DEBUG: Response status:', response.status);
+      console.log('📡 DEBUG: Response ok:', response.ok);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('📦 DEBUG: Raw response data:', JSON.stringify(data, null, 2));
       
       if (data.success) {
+        console.log('✅ DEBUG: API returned success=true');
+        console.log('📋 DEBUG: Profile data:', JSON.stringify(data.data, null, 2));
+        
         setCustomerProfile(data.data);
         setShowSuggestions(true);
+        console.log('✅ DEBUG: Set customer profile state');
         
         // Add comprehensive profile message with suggestions
         if (data.data) {
           const profile = data.data;
+          console.log('👤 DEBUG: Processing profile for:', profile.customer_email);
+          console.log('📊 DEBUG: Suggestions count:', profile.suggestions?.length || 0);
+          console.log('📅 DEBUG: Similar events count:', profile.similar_events?.length || 0);
+          
           let profileContent = `Welcome back, ${profile.customer_name || 'valued customer'}! 👋
 
 📊 **Customer Profile Summary:**
@@ -229,6 +256,7 @@ Flight and hotel search in progress. This may take a few moments.`;
 
           // Add each suggestion with detailed reasoning
           if (profile.suggestions && profile.suggestions.length > 0) {
+            console.log('🎯 DEBUG: Adding suggestions to profile content');
             profile.suggestions.forEach((suggestion, index) => {
               profileContent += `
 
@@ -239,10 +267,13 @@ Flight and hotel search in progress. This may take a few moments.`;
 💡 Why this matches: ${suggestion.reasoning}
 ⭐ Confidence: ${Math.round((suggestion.confidence_score || 0.8) * 100)}%`;
             });
+          } else {
+            console.log('⚠️ DEBUG: No suggestions found in profile data');
           }
 
           // Add upcoming similar events
           if (profile.similar_events && profile.similar_events.length > 0) {
+            console.log('📅 DEBUG: Adding similar events to profile content');
             profileContent += `
 
 🗓️ **Upcoming Similar Events:**`;
@@ -250,6 +281,8 @@ Flight and hotel search in progress. This may take a few moments.`;
               profileContent += `
 ${index + 1}. ${event.event_name} - ${event.destination} (${event.event_date_start})`;
             });
+          } else {
+            console.log('⚠️ DEBUG: No similar events found in profile data');
           }
 
           profileContent += `
@@ -262,14 +295,41 @@ Would you like me to help plan any of these experiences, or do you have other tr
             suggestions: profile.suggestions?.map(s => s.suggestion_title) || [],
             profileData: profile
           };
-          setMessages(prev => [...prev, profileMessage]);
+          
+          console.log('💬 DEBUG: Adding profile message to chat');
+          console.log('💬 DEBUG: Profile message content length:', profileContent.length);
+          setMessages(prev => {
+            console.log('💬 DEBUG: Current messages count:', prev.length);
+            const newMessages = [...prev, profileMessage];
+            console.log('💬 DEBUG: New messages count:', newMessages.length);
+            return newMessages;
+          });
+        } else {
+          console.log('❌ DEBUG: data.data is empty or null');
         }
       } else {
-        console.error('Error loading customer profile:', data.error);
+        console.error('❌ DEBUG: API returned success=false, error:', data.error);
+        console.error('❌ DEBUG: Full error response:', JSON.stringify(data, null, 2));
+        
+        // Add error message to chat
+        const errorMessage = {
+          type: 'agent',
+          content: `❌ **Profile Loading Failed**\n\nError: ${data.error || 'Unknown error'}\n\nPlease check:\n• Database is initialized\n• Email exists in system\n• Backend server is running\n\n🔧 Try: \`python verify_database.py\``
+        };
+        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (error) {
-      console.error('Network error loading customer profile:', error);
+      console.error('🚨 DEBUG: Network/fetch error:', error);
+      console.error('🚨 DEBUG: Error stack:', error.stack);
+      
+      // Add network error message to chat
+      const networkErrorMessage = {
+        type: 'agent',
+        content: `🚨 **Network Error**\n\nFailed to load customer profile.\n\nError: ${error.message}\n\nPlease check:\n• Backend server is running on port 8000\n• Network connection\n• API endpoint accessibility\n\n🔧 Test: \`curl "${CUSTOMER_API_URL}/customer/profile/${encodeURIComponent(email)}"\``
+      };
+      setMessages(prev => [...prev, networkErrorMessage]);
     } finally {
+      console.log('🏁 DEBUG: Setting loading state to false');
       setIsLoadingProfile(false);
     }
   };

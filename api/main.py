@@ -345,22 +345,49 @@ async def get_customer_profile(email: str, db = Depends(get_db)):
     """
     Get customer profile with travel history and personalized suggestions
     """
+    logger.info(f"🔍 DEBUG: Customer profile request for email: {email}")
+    
     try:
         from services.customer_profile_service import CustomerProfileService
         
+        logger.info(f"📦 DEBUG: Initializing CustomerProfileService")
         service = CustomerProfileService()
+        
+        logger.info(f"🔄 DEBUG: Generating personalized suggestions for: {email}")
         suggestions = service.generate_personalized_suggestions(db, email)
         
-        return {
+        logger.info(f"✅ DEBUG: Successfully generated suggestions")
+        logger.info(f"📊 DEBUG: Response data keys: {list(suggestions.keys()) if suggestions else 'None'}")
+        
+        if suggestions:
+            logger.info(f"📈 DEBUG: Suggestions count: {suggestions.get('suggestions', [])}")
+            logger.info(f"👤 DEBUG: Customer name: {suggestions.get('customer_name', 'Unknown')}")
+            logger.info(f"📧 DEBUG: Customer email: {suggestions.get('customer_email', 'Unknown')}")
+            logger.info(f"🎯 DEBUG: Travel history count: {suggestions.get('travel_history_count', 0)}")
+        
+        response = {
             "success": True,
             "data": suggestions
         }
+        logger.info(f"📤 DEBUG: Returning response with success=True")
+        return response
+        
     except Exception as e:
-        logger.error("Error getting customer profile", error=str(e))
-        return {
+        logger.error(f"❌ DEBUG: Error getting customer profile for {email}", error=str(e))
+        logger.error(f"🚨 DEBUG: Exception type: {type(e).__name__}")
+        logger.error(f"🚨 DEBUG: Exception details: {str(e)}")
+        
+        # Import traceback for detailed error logging
+        import traceback
+        logger.error(f"🔍 DEBUG: Full traceback:\n{traceback.format_exc()}")
+        
+        response = {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "error_type": type(e).__name__
         }
+        logger.info(f"📤 DEBUG: Returning error response: {response}")
+        return response
 
 @app.post("/customer/profile")
 async def create_customer_profile(customer_data: dict, db = Depends(get_db)):
