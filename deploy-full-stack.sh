@@ -7,6 +7,16 @@ set -e  # Exit on any error
 
 echo "🚀 Starting full-stack deployment..."
 
+# Step 0: Check for Gmail credentials (optional for email functionality)
+if [ -f "credentials.json" ]; then
+    echo "✅ Gmail credentials found - email functionality will be enabled"
+    GMAIL_ENABLED=true
+else
+    echo "⚠️  Gmail credentials not found - email functionality will be disabled"
+    echo "💡 To enable email: Add credentials.json from Google Cloud Console (Gmail API)"
+    GMAIL_ENABLED=false
+fi
+
 # Step 1: Deploy backend with production CORS settings (wildcard origins)
 echo "📦 Deploying backend to Cloud Run..."
 gcloud run deploy hot-travel-backend \

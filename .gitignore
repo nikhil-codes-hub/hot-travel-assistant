@@ -112,3 +112,6 @@ tmp/
 # resources/customer_travel_dataset.csv
 credentials.json
 token.pickle
+
+# Gmail API template (included for reference)
+!credentials.json.template
