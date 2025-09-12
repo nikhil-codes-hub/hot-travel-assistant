@@ -7,14 +7,14 @@ set -e  # Exit on any error
 
 echo "🚀 Starting full-stack deployment..."
 
-# Step 1: Deploy backend with initial CORS settings
+# Step 1: Deploy backend with production CORS settings (wildcard origins)
 echo "📦 Deploying backend to Cloud Run..."
 gcloud run deploy hot-travel-backend \
   --source . \
   --allow-unauthenticated \
   --port 8080 \
   --region us-central1 \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=houseoftravel-hackath-1a-2025,VERTEX_AI_LOCATION=us-central1,AMADEUS_CLIENT_ID=DHdjRGkND0GefDhGAAbO7Gn5lr3EgG3P,AMADEUS_CLIENT_SECRET=x91XH0FoAqeBEV5h,ENVIRONMENT=production,AI_PROVIDER=vertex,LLM_CACHE_DIR=cache/llm_responses,LLM_CACHE_DURATION_HOURS=24,ALLOWED_ORIGINS=https://hot-travel-frontend-or4aflufiq-uc.a.run.app"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=houseoftravel-hackath-1a-2025,VERTEX_AI_LOCATION=us-central1,AMADEUS_CLIENT_ID=DHdjRGkND0GefDhGAAbO7Gn5lr3EgG3P,AMADEUS_CLIENT_SECRET=x91XH0FoAqeBEV5h,ENVIRONMENT=production,AI_PROVIDER=vertex,LLM_CACHE_DIR=cache/llm_responses,LLM_CACHE_DURATION_HOURS=24"
 
 # Step 2: Get the backend URL automatically
 echo "🔍 Getting backend URL..."
@@ -38,16 +38,12 @@ FRONTEND_URL=$(gcloud run deploy hot-travel-frontend \
 
 echo "✅ Frontend deployed at: $FRONTEND_URL"
 
-# Update backend with the frontend URL in CORS allowed origins
-echo "🔄 Updating backend CORS configuration..."
-gcloud run services update hot-travel-backend \
-  --region us-central1 \
-  --update-env-vars "ALLOWED_ORIGINS=$FRONTEND_URL" \
-  --quiet
-
-# Step 4: Get frontend URL
+# Step 4: Get final frontend URL (for display purposes)
 FRONTEND_URL=$(gcloud run services describe hot-travel-frontend --region us-central1 --format="value(status.url)")
-echo "✅ Frontend deployed at: $FRONTEND_URL"
+echo "✅ Frontend final URL: $FRONTEND_URL"
+
+# Note: CORS is handled automatically by ENVIRONMENT=production setting
+# which enables wildcard origins (*) to support dynamic Cloud Run URLs
 
 echo ""
 echo "🎉 Deployment Complete!"
@@ -64,5 +60,6 @@ echo "  ✅ Cache management panel"
 echo "  ✅ Professional House of Travel UI"
 echo "  ✅ Vertex AI integration"
 echo "  ✅ Amadeus API integration"
+echo "  ✅ Dynamic CORS handling (wildcard origins for Cloud Run)"
 echo ""
 echo "🎯 Ready for jury demonstration!"
