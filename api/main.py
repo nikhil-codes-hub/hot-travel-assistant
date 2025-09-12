@@ -189,6 +189,7 @@ class EmailData(BaseModel):
     trip_details: TripDetails
     flights: List[Flight] = []
     hotels: List[Hotel] = []
+    itinerary: Optional[dict] = None
     session_info: Optional[SessionInfo]
 
 class SendMailResponse(BaseModel):

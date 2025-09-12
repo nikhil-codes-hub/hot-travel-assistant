@@ -59,6 +59,7 @@ class EmailData(BaseModel):
     trip_details: TripDetails
     flights: List[Flight] = []
     hotels: List[Hotel] = []
+    itinerary: Optional[dict] = None
     session_info: Optional[SessionInfo]
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
@@ -161,6 +162,33 @@ def build_html(email_data):
         """ for h in hotels
     ]) or "<p>No hotels available</p>"
 
+    # ✅ Generate day-by-day itinerary HTML
+    itinerary = email_data.get("itinerary", {})
+    days = itinerary.get("days", [])
+    
+    if days:
+        itinerary_html = ""
+        for day in days:
+            activities_list = day.get('activities', [])
+            activities_text = "<br>".join([f"• {activity}" for activity in activities_list]) if activities_list else "Activities to be confirmed"
+            
+            meals_list = day.get('meals', [])
+            meals_text = ", ".join(meals_list) if meals_list else "Meal options available"
+            
+            budget_text = f"${day.get('budget_estimate', 'TBD')}" if day.get('budget_estimate') else "Budget estimate pending"
+            
+            itinerary_html += f"""
+            <div class="card">
+              <div><strong>Day {day.get('day', '?')} - {day.get('date', 'TBD')}</strong></div>
+              <div>📍 Location: {day.get('location', 'TBD')}</div>
+              <div>🎯 Activities:<br>{activities_text}</div>
+              <div>🍽️ Meals: {meals_text}</div>
+              <div>💰 Budget: {budget_text}</div>
+            </div>
+            """
+    else:
+        itinerary_html = "<p>Detailed daily itinerary will be provided after booking confirmation. Our travel experts will create a personalized day-by-day plan for your trip.</p>"
+
     # ✅ Return full HTML
     return f"""
     <!DOCTYPE html>
@@ -260,7 +288,7 @@ def build_html(email_data):
         <!-- Customer -->
         <div class="section">
           <h2>👤 Customer Details</h2>
-          <div class="info"><strong>Name:</strong> {customer.get('name', customer.get('email', 'Valued Customer'))}</div>
+          <div class="info"><strong>Name:</strong> {customer.get('name', 'Valued Customer')}</div>
           <div class="info"><strong>Email:</strong> {customer.get('email','')}</div>
           <div class="info"><strong>Loyalty Tier:</strong> {customer.get('loyalty_tier','')}</div>
           <div class="info"><strong>Nationality:</strong> {customer.get('nationality','')}</div>
@@ -284,6 +312,12 @@ def build_html(email_data):
         <div class="section">
           <h2>🏨 Hotel Options</h2>
           {hotels_html}
+        </div>
+        
+        <!-- Day-by-Day Itinerary -->
+        <div class="section">
+          <h2>📅 Daily Itinerary</h2>
+          {itinerary_html}
         </div>
         
         <!-- Proceed to Booking Button -->
