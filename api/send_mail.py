@@ -293,8 +293,17 @@ def build_html(email_data):
         departure_date = trip.get('departure_date', 'TBD')
         
         try:
-            # Generate itinerary using LLM
-            itinerary_data = generate_itinerary_with_llm(destination, duration, departure_date)
+            # Check if itinerary data is already provided (from travel orchestrator)
+            existing_itinerary = email_data.get('itinerary')
+            if existing_itinerary and existing_itinerary.get('data', {}).get('itinerary', {}).get('days'):
+                # Use existing itinerary from travel orchestrator
+                print(f"[INFO] Using existing itinerary from travel orchestrator for {destination}")
+                orchestrator_itinerary = existing_itinerary.get('data', {}).get('itinerary', {})
+                itinerary_data = {'days': orchestrator_itinerary.get('days', [])}
+            else:
+                # Fallback: Generate itinerary using LLM (for backwards compatibility)
+                print(f"[INFO] No existing itinerary found, generating with LLM for {destination}")
+                itinerary_data = generate_itinerary_with_llm(destination, duration, departure_date)
             
             if itinerary_data and itinerary_data.get('days'):
                 itinerary_html = ""
