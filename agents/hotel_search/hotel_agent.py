@@ -241,7 +241,8 @@ Do not include any other text, explanations, or formatting. Just the coordinates
                 "cityCode": original_city_code,
                 "radius": input_data.get("radius", 20),
                 "radiusUnit": input_data.get("radiusUnit", "KM"),
-                "hotelSource": input_data.get("hotelSource", "ALL")
+                "hotelSource": input_data.get("hotelSource", "ALL"),
+                "ratings":"5"
             }
             
             # Only add amenities and ratings if they have values
