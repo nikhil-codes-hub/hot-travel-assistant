@@ -64,6 +64,92 @@ class EmailData(BaseModel):
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 
+def generate_itinerary_with_llm(destination: str, duration: int, departure_date: str) -> dict:
+    """Generate detailed itinerary using Vertex AI LLM"""
+    try:
+        # Import Vertex AI dependencies
+        from google.cloud import aiplatform
+        from vertexai.generative_models import GenerativeModel
+        import json
+        
+        # Initialize Vertex AI if not already done
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
+        
+        if not project_id:
+            print("[WARNING] GOOGLE_CLOUD_PROJECT not set, cannot generate LLM itinerary")
+            return None
+            
+        try:
+            aiplatform.init(project=project_id, location=location)
+        except:
+            pass  # May already be initialized
+        
+        model = GenerativeModel('gemini-2.0-flash')
+        
+        prompt = f"""
+You are an expert travel planner. Create a detailed {duration}-day itinerary for {destination}.
+
+REQUIREMENTS:
+- Generate exactly {duration} days of activities
+- Include specific attractions, landmarks, and experiences for {destination}
+- Provide realistic daily budgets in USD
+- Include local cuisine and meal recommendations
+- Make activities culturally authentic and location-specific
+- Consider travel time between locations
+- Include both must-see attractions and hidden gems
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON object in this exact format:
+{{
+  "days": [
+    {{
+      "day": 1,
+      "date": "Day 1",
+      "location": "Main area/district name",
+      "activities": ["Activity 1", "Activity 2", "Activity 3", "Activity 4"],
+      "meals": ["Meal recommendation 1", "Meal recommendation 2"],
+      "budget_estimate": 120
+    }},
+    {{
+      "day": 2,
+      "date": "Day 2", 
+      "location": "Next area/district name",
+      "activities": ["Activity 1", "Activity 2", "Activity 3", "Activity 4"],
+      "meals": ["Meal recommendation 1", "Meal recommendation 2"],
+      "budget_estimate": 150
+    }}
+  ]
+}}
+
+DESTINATION: {destination}
+DURATION: {duration} days
+DEPARTURE: {departure_date}
+
+Generate realistic, specific activities for {destination}. Do not use generic placeholders.
+"""
+        
+        response = model.generate_content(prompt)
+        
+        # Parse JSON response
+        response_text = response.text.strip()
+        
+        # Clean response text (remove markdown if present)
+        if response_text.startswith('```json'):
+            response_text = response_text.replace('```json', '').replace('```', '').strip()
+        elif response_text.startswith('```'):
+            response_text = response_text.replace('```', '').strip()
+            
+        # Parse JSON
+        itinerary_data = json.loads(response_text)
+        
+        print(f"[SUCCESS] Generated LLM itinerary for {destination} ({duration} days)")
+        return itinerary_data
+        
+    except Exception as e:
+        print(f"[ERROR] LLM itinerary generation failed: {e}")
+        return None
+
 def gmail_authenticate():
     """Authenticate with Gmail API if credentials are available"""
     if not GMAIL_AVAILABLE:
@@ -201,66 +287,43 @@ def build_html(email_data):
             </div>
             """
     else:
-        # Generate sample itinerary based on destination
-        destination = trip.get('destination', '').upper()
-        duration = trip.get('duration', 5)
+        # Generate itinerary using LLM
+        destination = trip.get('destination', 'Unknown Destination')
+        duration = trip.get('duration', 3)
+        departure_date = trip.get('departure_date', 'TBD')
         
-        # Create sample itinerary for different cities
-        sample_itineraries = {
-            "MYSORE": [
-                {"day": 1, "date": "Day 1", "location": "Mysore City Center", "activities": ["Arrival and hotel check-in", "Visit Mysore Palace", "Explore Devaraja Market", "Evening at Brindavan Gardens"], "meals": ["Welcome dinner at hotel"], "budget_estimate": 80},
-                {"day": 2, "date": "Day 2", "location": "Chamundi Hills", "activities": ["Morning visit to Chamundeshwari Temple", "Nandi Bull statue", "Panoramic city views", "Shopping for Mysore silk"], "meals": ["Traditional South Indian lunch", "Local cuisine dinner"], "budget_estimate": 70},
-                {"day": 3, "date": "Day 3", "location": "Srirangapatna", "activities": ["Day trip to historical Srirangapatna", "Tipu Sultan's Summer Palace", "Ranganathaswamy Temple", "River island exploration"], "meals": ["Packed lunch", "Riverside dinner"], "budget_estimate": 90}
-            ],
-            "RAJASTHAN": [
-                {"day": 1, "date": "Day 1", "location": "Jaipur - Pink City", "activities": ["Arrival in Jaipur", "Check-in to heritage hotel", "Visit Hawa Mahal", "Evening at local bazaars"], "meals": ["Royal Rajasthani dinner"], "budget_estimate": 120},
-                {"day": 2, "date": "Day 2", "location": "Amber Fort", "activities": ["Amber Fort and Palace complex", "Elephant ride experience", "Mirror Palace (Sheesh Mahal)", "Jaigarh Fort sunset views"], "meals": ["Fort-side lunch", "Traditional dal-baati-churma dinner"], "budget_estimate": 150},
-                {"day": 3, "date": "Day 3", "location": "Udaipur", "activities": ["Travel to City of Lakes", "City Palace complex", "Boat ride on Lake Pichola", "Jagdish Temple visit"], "meals": ["Lakeside lunch", "Rooftop dinner with lake views"], "budget_estimate": 180}
-            ],
-            "VIENNA": [
-                {"day": 1, "date": "Day 1", "location": "Historic Vienna", "activities": ["Arrival and city orientation", "Schönbrunn Palace tour", "Imperial Gardens walk", "Traditional coffeehouse experience"], "meals": ["Austrian lunch", "Schnitzel dinner"], "budget_estimate": 160},
-                {"day": 2, "date": "Day 2", "location": "Cultural District", "activities": ["Salzburg Cathedral and Mozart's birthplace", "Hohensalzburg Fortress", "Old Town UNESCO site", "Classical music concert"], "meals": ["Traditional Austrian breakfast", "Mozart dinner concert"], "budget_estimate": 200},
-                {"day": 3, "date": "Day 3", "location": "Art & Music", "activities": ["Belvedere Palace and Klimt paintings", "Vienna State Opera house tour", "Naschmarkt food experience", "Danube River cruise"], "meals": ["Market tastings", "Fine dining Austrian cuisine"], "budget_estimate": 220}
-            ],
-            "MATHURA": [
-                {"day": 1, "date": "Day 1", "location": "Krishna Janmabhoomi", "activities": ["Arrival and temple visits", "Krishna Janmabhoomi Temple", "Dwarkadhish Temple", "Evening aarti ceremony"], "meals": ["Prasadam lunch", "Vegetarian dinner"], "budget_estimate": 60},
-                {"day": 2, "date": "Day 2", "location": "Vrindavan", "activities": ["Day trip to Vrindavan", "ISKCON Temple", "Banke Bihari Temple", "Radha Raman Temple", "Traditional folk performances"], "meals": ["Temple prasadam", "Local vegetarian cuisine"], "budget_estimate": 70},
-                {"day": 3, "date": "Day 3", "location": "Govardhan Hill", "activities": ["Govardhan Hill parikrama", "Sacred ponds and temples", "Local cultural experiences", "Spiritual discourse sessions"], "meals": ["Simple vegetarian meals", "Community dinner"], "budget_estimate": 50}
-            ]
-        }
-        
-        # Get sample itinerary for destination or create generic one
-        if any(city in destination for city in sample_itineraries.keys()):
-            city_key = next(city for city in sample_itineraries.keys() if city in destination)
-            sample_days = sample_itineraries[city_key]
-        else:
-            # Generic sample itinerary for other destinations
-            sample_days = [
-                {"day": 1, "date": "Day 1", "location": trip.get('destination', 'Destination'), "activities": ["Arrival and hotel check-in", "City orientation tour", "Local landmark visits", "Welcome dinner"], "meals": ["Local cuisine dinner"], "budget_estimate": 100},
-                {"day": 2, "date": "Day 2", "location": "Cultural Sites", "activities": ["Historical site visits", "Museum tours", "Local shopping", "Cultural performances"], "meals": ["Traditional lunch", "Local specialties dinner"], "budget_estimate": 120},
-                {"day": 3, "date": "Day 3", "location": "Nature & Adventure", "activities": ["Outdoor activities", "Scenic viewpoints", "Local experiences", "Departure preparations"], "meals": ["Farewell lunch", "Light dinner"], "budget_estimate": 90}
-            ]
-        
-        # Generate HTML for sample itinerary
-        itinerary_html = ""
-        for day in sample_days[:min(duration, len(sample_days))]:
-            activities_list = day.get('activities', [])
-            activities_text = "<br>".join([f"• {activity}" for activity in activities_list])
+        try:
+            # Generate itinerary using LLM
+            itinerary_data = generate_itinerary_with_llm(destination, duration, departure_date)
             
-            meals_list = day.get('meals', [])
-            meals_text = ", ".join(meals_list)
-            
-            budget_text = f"${day.get('budget_estimate', 'TBD')}"
-            
-            itinerary_html += f"""
-            <div class="card">
-              <div><strong>Day {day.get('day', '?')} - {day.get('date', 'TBD')}</strong></div>
-              <div>📍 Location: {day.get('location', 'TBD')}</div>
-              <div>🎯 Activities:<br>{activities_text}</div>
-              <div>🍽️ Meals: {meals_text}</div>
-              <div>💰 Budget: {budget_text}</div>
-            </div>
-            """
+            if itinerary_data and itinerary_data.get('days'):
+                itinerary_html = ""
+                for day in itinerary_data['days']:
+                    day_data = day if isinstance(day, dict) else {}
+                    
+                    activities_list = day_data.get('activities', []) or []
+                    activities_text = "<br>".join([f"• {activity}" for activity in activities_list]) if activities_list else "Activities to be confirmed"
+                    
+                    meals_list = day_data.get('meals', []) or []
+                    meals_text = ", ".join(meals_list) if meals_list else "Meal options available"
+                    
+                    budget_text = f"${day_data.get('budget_estimate', 'TBD')}" if day_data.get('budget_estimate') else "Budget estimate pending"
+                    
+                    itinerary_html += f"""
+                    <div class="card">
+                      <div><strong>Day {day_data.get('day', '?')} - {day_data.get('date', 'TBD')}</strong></div>
+                      <div>📍 Location: {day_data.get('location', 'TBD')}</div>
+                      <div>🎯 Activities:<br>{activities_text}</div>
+                      <div>🍽️ Meals: {meals_text}</div>
+                      <div>💰 Budget: {budget_text}</div>
+                    </div>
+                    """
+            else:
+                itinerary_html = "<p>Detailed itinerary is being generated. Our travel experts will provide a comprehensive day-by-day plan shortly.</p>"
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to generate LLM itinerary: {e}")
+            itinerary_html = "<p>Custom itinerary being prepared by our travel experts. Complete day-by-day details will be provided upon booking confirmation.</p>"
 
     # ✅ Return full HTML
     return f"""
