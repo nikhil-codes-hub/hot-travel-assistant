@@ -1,0 +1,28 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch origin/multi_agent_containerized_app
+# Your branch is up to date with 'remotes/origin/multi_agent_containerized_app'.
+#
+# Changes to be committed:
+#	modified:   agents/flights_search/flights_agent.py
+#	modified:   agents/hotel_search/hotel_agent.py
+#	modified:   api/customer_profile_api.py
+#	modified:   api/main.py
+#	new file:   api/send_mail.py
+#	new file:   credentials.json
+#	modified:   deploy-full-stack.sh
+#	modified:   frontend/.env.local
+#	new file:   frontend/public/logo.png
+#	modified:   frontend/src/App 2.js
+#	modified:   frontend/src/App.js
+#	new file:   main.py
+#	modified:   requirements.txt
+#	new file:   resources/HOT_Full_Colour.png
+#	new file:   token.pickle
+#
+# Untracked files:
+#	cache/
+#	hotenv/
+#

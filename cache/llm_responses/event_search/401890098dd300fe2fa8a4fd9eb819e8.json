@@ -1,0 +1,143 @@
+{
+  "timestamp": "2025-09-12T10:15:14.807260",
+  "user_request": "{\"budget\": 1500.0, \"departure_date\": \"2025-10-12\", \"destination\": \"Delhi, India\", \"duration\": 4, \"event_name\": \"Plan A Trip To Diwali Festival\", \"event_type\": \"festival\", \"passengers\": 2, \"special_requirements\": null}",
+  "normalized_request": "{\"budget\": 1500.0, \"departure_date\": \"2025-10-12\", \"destination\": \"delhi, india\", \"duration\": 4, \"event_name\": \"plan a trip diwali festival\", \"event_type\": \"festival\", \"passengers\": 2, \"special_requirements\": null}",
+  "conversation_context": {},
+  "response": {
+    "events": [
+      {
+        "event_id": "diwali-delhi-2024",
+        "name": "Diwali Festival",
+        "event_type": "festival",
+        "description": "Diwali, the Festival of Lights, is one of the most significant festivals in India. It symbolizes the victory of light over darkness, good over evil, and hope over despair. In Delhi, Diwali is celebrated with vibrant decorations, dazzling lights, family gatherings, and the exchange of sweets and gifts. Expect bustling markets, beautifully lit homes, and a festive atmosphere throughout the city.",
+        "location": "Delhi, India",
+        "city": "Delhi",
+        "country": "India",
+        "venue": "Throughout Delhi, including homes, temples, markets, and public spaces. Specific celebrations may occur at prominent temples like the Akshardham Temple and the Lotus Temple.",
+        "start_date": "2024-10-31",
+        "end_date": "2024-11-03",
+        "duration": "4 days",
+        "schedule": [
+          {
+            "date": "2024-10-31",
+            "time": "All Day",
+            "activity": "Dhanteras: The first day focuses on prosperity. People buy new utensils, gold, or silver items. Many families perform Lakshmi Puja in the evening.",
+            "highlights": [
+              "Visiting local markets to buy gold or silver.",
+              "Attending Lakshmi Puja (evening) in homes or temples.",
+              "Witnessing the start of festive decorations."
+            ]
+          },
+          {
+            "date": "2024-11-01",
+            "time": "All Day",
+            "activity": "Choti Diwali (Naraka Chaturdasi): The second day involves cleaning and decorating homes with diyas (oil lamps) and rangoli (colorful patterns on the floor). Effigies of Narakasura, symbolizing evil, are sometimes burned.",
+            "highlights": [
+              "Early morning oil bath (traditional practice).",
+              "Decorating homes with diyas and rangoli.",
+              "Participating in or watching the burning of Narakasura effigies (if available).",
+              "Visiting local temples."
+            ]
+          },
+          {
+            "date": "2024-11-02",
+            "time": "Morning",
+            "activity": "Lakshmi Puja: The most important day. Families gather for Lakshmi Puja in the evening to worship the goddess of wealth. The puja is followed by lighting firecrackers and exchanging sweets.",
+            "highlights": [
+              "Attending Lakshmi Puja ceremony (evening; timings vary but generally between 6:00 PM and 8:00 PM).",
+              "Enjoying the spectacular display of fireworks.",
+              "Exchanging sweets and gifts with family and friends.",
+              "Experiencing the festive atmosphere in markets and neighborhoods."
+            ]
+          },
+          {
+            "date": "2024-11-02",
+            "time": "Evening",
+            "activity": "Diwali Celebrations",
+            "highlights": [
+              "Witnessing the spectacular display of fireworks across the city.",
+              "Exchanging sweets and gifts with family and friends.",
+              "Experiencing the festive atmosphere in markets and neighborhoods.",
+              "Visiting illuminated temples and public spaces."
+            ]
+          },
+          {
+            "date": "2024-11-03",
+            "time": "All Day",
+            "activity": "Govardhan Puja/Padwa: The day after Diwali is celebrated as Govardhan Puja, where people worship Mount Govardhan. It is also the start of the Hindu New Year in some communities. Bhai Dooj is also celebrated, where sisters pray for their brothers' well-being.",
+            "highlights": [
+              "Participating in Govardhan Puja ceremonies.",
+              "Celebrating Bhai Dooj with siblings.",
+              "Visiting temples to offer prayers.",
+              "Enjoying family meals and gatherings."
+            ]
+          }
+        ],
+        "ticket_info": {
+          "required": false,
+          "advance_booking": "Not required for general participation, but book accommodations well in advance.",
+          "price_range": "Free to participate in general celebrations. Costs associated with shopping, food, and temple donations.",
+          "where_to_buy": "N/A. However, tickets might be required for specific events or performances organized by private entities."
+        },
+        "accessibility": {
+          "wheelchair_accessible": "Varies by location. Public spaces may have limited accessibility.",
+          "crowd_level": "high",
+          "family_friendly": true,
+          "age_restrictions": "None, but young children should be supervised, especially during firework displays."
+        },
+        "weather_considerations": "October/November in Delhi is generally pleasant with mild temperatures. Expect clear skies and comfortable weather.",
+        "what_to_bring": [
+          "Comfortable walking shoes",
+          "Light clothing",
+          "A shawl or light jacket for cooler evenings",
+          "Camera to capture the celebrations",
+          "Gifts for exchanging with family and friends (optional)",
+          "Earplugs for sensitive individuals due to firecrackers"
+        ],
+        "cultural_significance": "Diwali celebrates the return of Lord Rama to Ayodhya after 14 years of exile, symbolizing the victory of good over evil. It is a time for family, reflection, and new beginnings."
+      }
+    ],
+    "search_criteria": {
+      "event_name": "Plan A Trip To Diwali Festival",
+      "destination": "Delhi, India",
+      "event_type": "festival",
+      "date_preference": "None"
+    },
+    "destination_context": {
+      "country": "India",
+      "best_airports": [
+        "Indira Gandhi International Airport (DEL)"
+      ],
+      "local_transportation": "Delhi has a well-developed metro system, buses, taxis, and auto-rickshaws. Consider using ride-hailing apps like Uber and Ola. Be prepared for traffic congestion, especially during Diwali.",
+      "recommended_areas": [
+        "Connaught Place",
+        "South Delhi (Hauz Khas, Greater Kailash)",
+        "Karol Bagh (for markets)"
+      ],
+      "local_customs": "Dress modestly when visiting religious sites. Be respectful of local traditions and customs. Bargaining is common in markets. Avoid public displays of affection. Be mindful of noise levels, especially late at night."
+    },
+    "travel_recommendations": {
+      "optimal_duration": "4 days is recommended to experience the full spectrum of Diwali celebrations.",
+      "best_arrival_time": "Arrive at least 2 days before Diwali (October 30th, 2024) to adjust to the time difference and immerse yourself in the pre-Diwali atmosphere.",
+      "accommodation_booking": "Book accommodations at least 3-6 months in advance, as Delhi is a popular destination during Diwali.",
+      "additional_attractions": [
+        "India Gate",
+        "Qutub Minar",
+        "Humayun's Tomb",
+        "Red Fort",
+        "Akshardham Temple",
+        "Lotus Temple"
+      ],
+      "travel_tips": [
+        "Be prepared for large crowds, especially in markets and public spaces.",
+        "Take precautions against pickpockets.",
+        "Stay hydrated.",
+        "Learn a few basic Hindi phrases.",
+        "Respect local customs and traditions.",
+        "Be mindful of noise levels during firework displays."
+      ]
+    },
+    "confidence_score": 0.95
+  },
+  "cache_key": "401890098dd300fe2fa8a4fd9eb819e8"
+}
