@@ -2,9 +2,32 @@ import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  // Dynamic API URL configuration
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://hot-travel-backend-or4aflufiq-uc.a.run.app';
-  const CUSTOMER_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';  // Use main API for customer profiles
+  // Environment-specific API URL configuration
+  const getApiUrl = () => {
+    // Check if REACT_APP_API_URL is explicitly set (for cloud deployment)
+    if (process.env.REACT_APP_API_URL) {
+      return process.env.REACT_APP_API_URL;
+    }
+    
+    // Check if we're in development mode
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:8000';
+    }
+    
+    // Default cloud URL for production builds
+    return 'https://hot-travel-backend-377235717727.uc.r.appspot.com';
+  };
+  
+  const API_BASE_URL = getApiUrl();
+  const CUSTOMER_API_URL = getApiUrl();  // Use same API for customer profiles
+  
+  // Debug logging for API URL configuration
+  console.log('🔧 API Configuration:', {
+    NODE_ENV: process.env.NODE_ENV,
+    REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+    API_BASE_URL,
+    CUSTOMER_API_URL
+  });
   
   const [messages, setMessages] = useState([
     {
