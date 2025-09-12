@@ -320,6 +320,42 @@ def build_html(email_data):
           {itinerary_html}
         </div>
         
+        <!-- Visa & Travel Documents -->
+        <div class="section">
+          <h2>📋 Visa & Travel Requirements</h2>
+          <div class="card">
+            <div><strong>Important Travel Documentation</strong></div>
+            <div style="margin-top: 10px;">
+              • <strong>Passport:</strong> Must be valid for at least 6 months from travel date<br>
+              • <strong>Visa Requirements:</strong> Check latest requirements for {trip.get('destination', 'your destination')}<br>
+              • <strong>Travel Authorization:</strong> eTA/ESTA may be required depending on destination<br>
+              • <strong>Travel Insurance:</strong> Comprehensive coverage recommended<br>
+              • <strong>Documentation:</strong> Print copies of all bookings and confirmations
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px;">
+              <strong>⚠️ Important:</strong> Our travel experts will provide specific visa requirements and assist with applications during booking confirmation.
+            </div>
+          </div>
+        </div>
+        
+        <!-- Health Advisory -->
+        <div class="section">
+          <h2>🏥 Health & Safety Advisory</h2>
+          <div class="card">
+            <div><strong>Travel Health Recommendations</strong></div>
+            <div style="margin-top: 10px;">
+              • <strong>Vaccinations:</strong> Routine vaccinations up to date (MMR, DPT, flu)<br>
+              • <strong>Travel Insurance:</strong> Medical coverage with emergency evacuation<br>
+              • <strong>Medications:</strong> Bring prescriptions in original containers<br>
+              • <strong>Health Precautions:</strong> Check CDC/WHO advisories for destination<br>
+              • <strong>Emergency Contacts:</strong> Local embassy and emergency services information
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background-color: #d1ecf1; border-radius: 4px;">
+              <strong>💡 Note:</strong> Specific health requirements and recommendations for {trip.get('destination', 'your destination')} will be provided by our travel health specialists.
+            </div>
+          </div>
+        </div>
+        
         <!-- Proceed to Booking Button -->
         <div class="section" style="text-align: center; padding: 30px 0;">
           <a href="tel:0800355999" class="btn" style="background-color: #ff6b35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px; display: inline-block;">
