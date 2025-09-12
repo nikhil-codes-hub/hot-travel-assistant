@@ -13,6 +13,8 @@ config/secrets.py
 # Database
 *.db
 *.sqlite
+# Allow sample database with training data
+!hot_travel_assistant.db
 *.sqlite3
 
 # Python
