@@ -651,8 +651,13 @@ async def sendmail(email_data: EmailData):
         print(f"📧 Email request received for: {email_data.customer.email}")
         print(f"🔧 Gmail status: {'Enabled' if gmail_enabled else 'Demo mode (disabled)'}")
         
+        # Debug: Print email data structure
+        print(f"📧 Email data - Customer: {email_data.customer.name}")
+        print(f"📧 Email data - Destination: {email_data.trip_details.destination}")
+        
         # Send email (real or simulated based on GMAIL_ENABLED)
-        send_message(email_data)
+        result = send_message(email_data)
+        print(f"📧 Send message result: {result}")
         
         # Return appropriate success message
         if gmail_enabled:

@@ -507,26 +507,27 @@ def build_html(email_data):
 
 def send_message(email_data):
     """Send email with travel proposal"""
-    if isinstance(email_data, BaseModel):
-        email_data = email_data.model_dump()
-    
-    # Check if Gmail is enabled via environment variable
-    gmail_enabled = os.getenv("GMAIL_ENABLED", "false").lower() == "true"
-    
-    if not gmail_enabled:
-        # Gmail disabled - simulate email for demo
-        customer_email = email_data.get('customer', {}).get('email', 'unknown@example.com')
-        destination = email_data.get('trip_details', {}).get('destination', 'Unknown Destination')
-        
-        print(f"[DEMO MODE] Gmail disabled - simulating email send:")
-        print(f"[DEMO MODE] To: {customer_email}")
-        print(f"[DEMO MODE] Subject: 🌆 Discover {destination}: Your Tailored Travel Guide")
-        print(f"[DEMO MODE] HTML content length: {len(build_html(email_data))} characters")
-        print(f"[DEMO MODE] Email would be sent in production with proper Gmail setup")
-        
-        return True
-    
     try:
+        if isinstance(email_data, BaseModel):
+            email_data = email_data.model_dump()
+        
+        # Check if Gmail is enabled via environment variable
+        gmail_enabled = os.getenv("GMAIL_ENABLED", "false").lower() == "true"
+        
+        if not gmail_enabled:
+            # Gmail disabled - simulate email for demo
+            customer_email = email_data.get('customer', {}).get('email', 'unknown@example.com')
+            destination = email_data.get('trip_details', {}).get('destination', 'Unknown Destination')
+            # Clean up destination string by removing extra commas and spaces
+            destination_clean = destination.replace(',', '').replace('  ', ' ').strip()
+            
+            print(f"[DEMO MODE] Gmail disabled - simulating email send:")
+            print(f"[DEMO MODE] To: {customer_email}")
+            print(f"[DEMO MODE] Subject: 🌆 Discover {destination_clean}: Your Tailored Travel Guide")
+            print(f"[DEMO MODE] HTML content length: {len(build_html(email_data))} characters")
+            print(f"[DEMO MODE] Email would be sent in production with proper Gmail setup")
+            
+            return True
         # Gmail enabled - attempt real email sending
         service = gmail_authenticate()
         
@@ -547,7 +548,46 @@ def send_message(email_data):
             
             # Use the destination in the subject if available
             destination = email_data.get('trip_details', {}).get('destination', 'Your Destination')
-            message["subject"] = f"🌆 Discover {destination}: Your Tailored Travel Guide"
+            # Clean up destination string by removing extra commas and spaces
+            destination_clean = destination.replace(',', '').replace('  ', ' ').strip()
+            message["subject"] = f"🌆 Discover {destination_clean}: Your Tailored Travel Guide"
+
+            # Generate and attach HTML body
+            html_body = build_html(email_data)
+            message.attach(MIMEText(html_body, "html"))
+
+            # Encode and send
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            create_message = {"raw": raw_message}
+            
+            sent_message = service.users().messages().send(userId="me", body=create_message).execute()
+            print(f"[SUCCESS] Email sent to {recipient}. Message Id: {sent_message['id']}")
+        
+            return True
+        
+        # Gmail enabled - attempt real email sending   
+        service = gmail_authenticate()
+        
+        # Get email recipients
+        customer_email = email_data.get('customer', {}).get('email', '')
+        if not customer_email:
+            raise Exception("No customer email provided")
+        
+        # Create message
+        message = MIMEMultipart("alternative")
+        
+        # Process each recipient
+        recipients = [email.strip() for email in customer_email.split(',') if email.strip()]
+        
+        for recipient in recipients:
+            message["to"] = recipient
+            message["from"] = "no_reply@gmail.com"
+            
+            # Use the destination in the subject if available
+            destination = email_data.get('trip_details', {}).get('destination', 'Your Destination')
+            # Clean up destination string by removing extra commas and spaces
+            destination_clean = destination.replace(',', '').replace('  ', ' ').strip()
+            message["subject"] = f"🌆 Discover {destination_clean}: Your Tailored Travel Guide"
 
             # Generate and attach HTML body
             html_body = build_html(email_data)
