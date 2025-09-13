@@ -25,7 +25,7 @@ function App() {
   const [messages, setMessages] = useState([
     {
       type: 'agent',
-      content: `Welcome to Smart Trip Assistant! 🌍
+      content: `Welcome to Smart Trip Assistant!
 
 I'm your AI-powered travel planning companion. I can help you with:
 

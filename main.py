@@ -109,11 +109,6 @@ async def options_travel_search():
     return {"message": "OK"}
 
 @app.post("/travel/search", response_model=TravelResponse)
-@cross_origin(origins=allowed_origins, 
-             methods=["POST", "OPTIONS"], 
-             allow_headers=["*"],
-             expose_headers=["*"],
-             max_age=86400)
 async def search_travel(request: Request, request_body: TravelRequest = Body(...), db = Depends(get_db)):
     """
     Process a travel search request through the AI agent system
