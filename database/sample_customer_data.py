@@ -44,6 +44,16 @@ def create_sample_data():
                 'email': 'henry.thomas596@yahoo.com',
                 'first_name': 'Henry',
                 'last_name': 'Thomas'
+            },
+            {
+                'email': 'ravikollaofficial2020@gmail.com',
+                'first_name': 'Ravi',
+                'last_name': 'Kolla'
+            },
+            {
+                'email': 'nikhilkrishna936@gmail.com',
+                'first_name': 'Nikhil',
+                'last_name': 'Krishna'
             }
         ]
         
@@ -136,6 +146,113 @@ def create_sample_data():
                 'budget_range': 'mid-range',
                 'satisfaction_rating': 4,
                 'notes': 'Great beaches, food, and celebration atmosphere'
+            },
+            # Ravi Kolla's travel history
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'destination': 'Bangkok, Thailand',
+                'country': 'Thailand',
+                'city': 'Bangkok',
+                'event_name': 'Songkran Water Festival',
+                'event_type': 'festival',
+                'travel_date_start': date(2024, 4, 13),
+                'travel_date_end': date(2024, 4, 20),
+                'season': 'summer',
+                'travel_style': 'group',
+                'budget_range': 'mid-range',
+                'satisfaction_rating': 5,
+                'notes': 'Amazing street food, temples, and water festival celebrations'
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'destination': 'Dubai, UAE',
+                'country': 'UAE',
+                'city': 'Dubai',
+                'event_name': 'Dubai Shopping Festival',
+                'event_type': 'festival',
+                'travel_date_start': date(2023, 12, 15),
+                'travel_date_end': date(2023, 12, 22),
+                'season': 'winter',
+                'travel_style': 'family',
+                'budget_range': 'luxury',
+                'satisfaction_rating': 4,
+                'notes': 'Luxury shopping, desert safari, and modern architecture'
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'destination': 'Kerala, India',
+                'country': 'India',
+                'city': 'Kochi',
+                'event_name': 'Monsoon Season',
+                'event_type': 'seasonal',
+                'travel_date_start': date(2023, 8, 10),
+                'travel_date_end': date(2023, 8, 17),
+                'season': 'monsoon',
+                'travel_style': 'couple',
+                'budget_range': 'mid-range',
+                'satisfaction_rating': 5,
+                'notes': 'Backwaters, houseboats, and ayurvedic treatments during monsoon'
+            },
+            # Nikhil Krishna's travel history
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'destination': 'Paris, France',
+                'country': 'France',
+                'city': 'Paris',
+                'event_name': 'Fashion Week',
+                'event_type': 'fashion',
+                'travel_date_start': date(2024, 3, 1),
+                'travel_date_end': date(2024, 3, 8),
+                'season': 'spring',
+                'travel_style': 'solo',
+                'budget_range': 'luxury',
+                'satisfaction_rating': 5,
+                'notes': 'Art museums, fine dining, and fashion events in the city of lights'
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'destination': 'Mysore, India',
+                'country': 'India',
+                'city': 'Mysore',
+                'event_name': 'Dasara Festival',
+                'event_type': 'festival',
+                'travel_date_start': date(2023, 10, 15),
+                'travel_date_end': date(2023, 10, 22),
+                'season': 'autumn',
+                'travel_style': 'family',
+                'budget_range': 'mid-range',
+                'satisfaction_rating': 5,
+                'notes': 'Royal palace, Dasara procession, and rich cultural heritage'
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'destination': 'Singapore',
+                'country': 'Singapore',
+                'city': 'Singapore',
+                'event_name': 'Chinese New Year',
+                'event_type': 'festival',
+                'travel_date_start': date(2024, 2, 10),
+                'travel_date_end': date(2024, 2, 16),
+                'season': 'spring',
+                'travel_style': 'couple',
+                'budget_range': 'luxury',
+                'satisfaction_rating': 4,
+                'notes': 'Modern city, amazing food scene, and vibrant Chinese New Year celebrations'
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'destination': 'Bali, Indonesia',
+                'country': 'Indonesia',
+                'city': 'Ubud',
+                'event_name': 'Yoga Retreat',
+                'event_type': 'wellness',
+                'travel_date_start': date(2023, 11, 5),
+                'travel_date_end': date(2023, 11, 12),
+                'season': 'dry',
+                'travel_style': 'solo',
+                'budget_range': 'mid-range',
+                'satisfaction_rating': 5,
+                'notes': 'Spiritual retreat, rice terraces, and balinese culture immersion'
             }
         ]
         
@@ -184,6 +301,74 @@ def create_sample_data():
                 'preference_type': 'season',
                 'preference_value': 'spring_blooms',
                 'weight': 4
+            },
+            # Ravi Kolla's preferences
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'preference_type': 'activity',
+                'preference_value': 'street_food_tours',
+                'weight': 5
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'preference_type': 'activity',
+                'preference_value': 'cultural_festivals',
+                'weight': 5
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'preference_type': 'accommodation',
+                'preference_value': 'boutique_hotels',
+                'weight': 4
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'preference_type': 'travel_style',
+                'preference_value': 'group_adventures',
+                'weight': 4
+            },
+            {
+                'customer_email': 'ravikollaofficial2020@gmail.com',
+                'preference_type': 'budget',
+                'preference_value': 'value_for_money',
+                'weight': 3
+            },
+            # Nikhil Krishna's preferences
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'activity',
+                'preference_value': 'art_museums',
+                'weight': 5
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'activity',
+                'preference_value': 'fine_dining',
+                'weight': 5
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'accommodation',
+                'preference_value': 'luxury_hotels',
+                'weight': 5
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'travel_style',
+                'preference_value': 'solo_exploration',
+                'weight': 4
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'activity',
+                'preference_value': 'wellness_retreats',
+                'weight': 4
+            },
+            {
+                'customer_email': 'nikhilkrishna936@gmail.com',
+                'preference_type': 'season',
+                'preference_value': 'spring_autumn',
+                'weight': 3
             }
         ]
         

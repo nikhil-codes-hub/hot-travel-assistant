@@ -1516,7 +1516,7 @@ Digital Copies Recommended:
             )}
             
             <div style={{fontSize: '0.75em', color: '#666', marginTop: '5px'}}>
-              💡 Try sample emails: henry.thomas596@yahoo.com, john.doe@example.com, jane.smith@example.com
+              💡 Try sample emails: ravikollaofficial2020@gmail.com, nikhilkrishna936@gmail.com, henry.thomas596@yahoo.com
             </div>
           </div>
           
@@ -1698,43 +1698,70 @@ Digital Copies Recommended:
             <h3>🎯 What This AI Agent Can Do For You</h3>
             
             <div className="capability-group">
-              <h4>📋 Instant Trip Planning</h4>
+              <h4>⚡ Core Features</h4>
               <ul>
                 <li>Multi-destination itinerary creation</li>
                 <li>Real-time flight & hotel searches</li>
-                <li>Budget optimization & cost breakdown</li>
-                <li>Personalized recommendations based on client profile</li>
+                <li>Visa requirements & health advisories</li>
+                <li>Client profile analysis & personalized recommendations</li>
               </ul>
             </div>
 
             <div className="capability-group">
-              <h4>✅ Compliance & Documentation</h4>
+              <h4>🚀 Smart Automation</h4>
               <ul>
-                <li>Visa requirements checking</li>
-                <li>Health advisories & vaccination info</li>
-                <li>Travel documentation checklists</li>
-                <li>Country-specific entry requirements</li>
-              </ul>
-            </div>
-
-            <div className="capability-group">
-              <h4>💼 Agent Productivity Tools</h4>
-              <ul>
-                <li>Client profile analysis & loyalty matching</li>
                 <li>Automated email proposal generation</li>
+                <li>Budget optimization & cost breakdown</li>
+                <li>200+ country compliance database</li>
                 <li>HOT-specific discounts & offers integration</li>
-                <li>Session continuity for complex bookings</li>
               </ul>
             </div>
+          </div>
 
-            <div className="capability-group">
-              <h4>🌐 Global Intelligence</h4>
-              <ul>
-                <li>200+ country visa database</li>
-                <li>Real-time flight pricing via Amadeus</li>
-                <li>Cultural events & seasonal recommendations</li>
-                <li>Multi-language support & local insights</li>
-              </ul>
+          {/* Travel Inspiration Gallery */}
+          <div className="travel-inspiration">
+            <h3>🌍 Popular Destinations</h3>
+            <div className="destination-grid">
+              <div className="destination-card" onClick={() => sendMessage("Plan a 7-day cultural trip to Bangkok, Thailand with temple visits and street food tours")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Bangkok Temple"
+                />
+                <div className="destination-info">
+                  <h4>Bangkok, Thailand</h4>
+                  <p>Cultural temples & street food</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a modern Tokyo experience with traditional elements for 5 days")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Tokyo Skyline"
+                />
+                <div className="destination-info">
+                  <h4>Tokyo, Japan</h4>
+                  <p>Modern metropolis & tradition</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a romantic 4-day Paris getaway with iconic landmarks and fine dining")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Paris Landmark"
+                />
+                <div className="destination-info">
+                  <h4>Paris, France</h4>
+                  <p>Romance & iconic landmarks</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a luxury Maldives honeymoon with overwater villa and water sports")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Maldives Resort"
+                />
+                <div className="destination-info">
+                  <h4>Maldives</h4>
+                  <p>Luxury overwater villas</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1788,53 +1815,6 @@ Digital Copies Recommended:
               <div className="stat-item">
                 <span className="stat-number">24/7</span>
                 <span className="stat-label">Availability</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Travel Inspiration Gallery */}
-          <div className="travel-inspiration">
-            <h3>🌍 Popular Destinations</h3>
-            <div className="destination-grid">
-              <div className="destination-card" onClick={() => sendMessage("Plan a 7-day cultural trip to Bangkok, Thailand with temple visits and street food tours")}>
-                <img 
-                  src="https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=300&h=200&fit=crop&auto=format&q=80" 
-                  alt="Bangkok Temple"
-                />
-                <div className="destination-info">
-                  <h4>Bangkok, Thailand</h4>
-                  <p>Cultural temples & street food</p>
-                </div>
-              </div>
-              <div className="destination-card" onClick={() => sendMessage("Plan a modern Tokyo experience with traditional elements for 5 days")}>
-                <img 
-                  src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop&auto=format&q=80" 
-                  alt="Tokyo Skyline"
-                />
-                <div className="destination-info">
-                  <h4>Tokyo, Japan</h4>
-                  <p>Modern metropolis & tradition</p>
-                </div>
-              </div>
-              <div className="destination-card" onClick={() => sendMessage("Plan a romantic 4-day Paris getaway with iconic landmarks and fine dining")}>
-                <img 
-                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
-                  alt="Paris Landmark"
-                />
-                <div className="destination-info">
-                  <h4>Paris, France</h4>
-                  <p>Romance & iconic landmarks</p>
-                </div>
-              </div>
-              <div className="destination-card" onClick={() => sendMessage("Plan a luxury Maldives honeymoon with overwater villa and water sports")}>
-                <img 
-                  src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop&auto=format&q=80" 
-                  alt="Maldives Resort"
-                />
-                <div className="destination-info">
-                  <h4>Maldives</h4>
-                  <p>Luxury overwater villas</p>
-                </div>
               </div>
             </div>
           </div>
