@@ -669,7 +669,9 @@ Failed to load customer profile.
         email: customerData.email_id,
         name: (profile.customer_name && profile.customer_name !== "Valued Customer") ? 
                 profile.customer_name : 
-                (customerData.email_id || "Valued Customer"),
+                (customerData.email_id ? 
+                  customerData.email_id.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
+                  "Valued Customer"),
         loyalty_tier: profile.loyalty_tier || "STANDARD",
         nationality: profile.nationality || "Japan",
         booking_history: profile.total_bookings || 29
@@ -693,9 +695,41 @@ Failed to load customer profile.
           'Price on request';
         
         // Get airline from the first segment or validating airline
-        const airline = segments[0]?.airline || 
-                       originalOffer.validating_airline || 
-                       'Multiple Airlines';
+        const airlineCode = segments[0]?.airline || 
+                           originalOffer.validating_airline || 
+                           'Multiple Airlines';
+        
+        // Map airline codes to full names
+        const airlineNames = {
+          'AA': 'American Airlines',
+          'DL': 'Delta Air Lines', 
+          'UA': 'United Airlines',
+          'LH': 'Lufthansa',
+          'BA': 'British Airways',
+          'AF': 'Air France',
+          'KL': 'KLM',
+          'LX': 'Swiss International',
+          'OS': 'Austrian Airlines',
+          'AC': 'Air Canada',
+          'JL': 'Japan Airlines',
+          'NH': 'ANA',
+          'EK': 'Emirates',
+          'QR': 'Qatar Airways',
+          'SQ': 'Singapore Airlines',
+          'B6': 'JetBlue Airways'
+        };
+        
+        // Convert airline code to full name, or use demo airlines if not found
+        let airline;
+        if (airlineCode && airlineNames[airlineCode]) {
+          airline = airlineNames[airlineCode];
+        } else if (airlineCode && airlineCode !== 'Multiple Airlines') {
+          airline = airlineCode; // Use the code if we don't have a mapping
+        } else {
+          // Assign realistic airlines for demo (matching UI logic)
+          const demoAirlines = ['United Airlines', 'American Airlines', 'Delta Air Lines', 'Japan Airlines', 'Air Canada', 'Lufthansa'];
+          airline = demoAirlines[index % demoAirlines.length];
+        }
         
         // Build route information
         let route = 'Route details not available';
