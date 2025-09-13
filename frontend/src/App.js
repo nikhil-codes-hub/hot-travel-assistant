@@ -1744,8 +1744,8 @@ Digital Copies Recommended:
               </div>
               <div className="destination-card" onClick={() => sendMessage("Plan a romantic 4-day Paris getaway with iconic landmarks and fine dining")}>
                 <img 
-                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
-                  alt="Paris Landmark"
+                  src="https://images.unsplash.com/photo-1431274172761-fca41d930114?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Paris Eiffel Tower"
                 />
                 <div className="destination-info">
                   <h4>Paris, France</h4>
