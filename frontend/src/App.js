@@ -1525,7 +1525,7 @@ Digital Copies Recommended:
               {messages.map((message, index) => (
                 <div key={index} className={`message ${message.type}-message`}>
                   {message.type === 'loading' ? (
-                    <div className="loading">{message.content}</div>
+                    <div className="loading-message">{message.content}</div>
                   ) : (
                     <>
                       <div className="content" style={{whiteSpace: 'pre-wrap'}}>
@@ -1788,6 +1788,53 @@ Digital Copies Recommended:
               <div className="stat-item">
                 <span className="stat-number">24/7</span>
                 <span className="stat-label">Availability</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Travel Inspiration Gallery */}
+          <div className="travel-inspiration">
+            <h3>🌍 Popular Destinations</h3>
+            <div className="destination-grid">
+              <div className="destination-card" onClick={() => sendMessage("Plan a 7-day cultural trip to Bangkok, Thailand with temple visits and street food tours")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Bangkok Temple"
+                />
+                <div className="destination-info">
+                  <h4>Bangkok, Thailand</h4>
+                  <p>Cultural temples & street food</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a modern Tokyo experience with traditional elements for 5 days")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Tokyo Skyline"
+                />
+                <div className="destination-info">
+                  <h4>Tokyo, Japan</h4>
+                  <p>Modern metropolis & tradition</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a romantic 4-day Paris getaway with iconic landmarks and fine dining")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Paris Landmark"
+                />
+                <div className="destination-info">
+                  <h4>Paris, France</h4>
+                  <p>Romance & iconic landmarks</p>
+                </div>
+              </div>
+              <div className="destination-card" onClick={() => sendMessage("Plan a luxury Maldives honeymoon with overwater villa and water sports")}>
+                <img 
+                  src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop&auto=format&q=80" 
+                  alt="Maldives Resort"
+                />
+                <div className="destination-info">
+                  <h4>Maldives</h4>
+                  <p>Luxury overwater villas</p>
+                </div>
               </div>
             </div>
           </div>
